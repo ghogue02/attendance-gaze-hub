@@ -49,7 +49,8 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
         
         /**
-         * PRODUCTION FACE RECOGNITION ALGORITHM
+         * IMPROVED FACE RECOGNITION SIMULATION
+         * 
          * In a real production system, this would:
          * 1. Use an AI model to extract facial embeddings from the captured image
          * 2. Compare embeddings against stored face data for all registered users
@@ -59,20 +60,14 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
          */
          
         // For demo purposes, select a user from the registered users
+        // selectStudentForRecognition handles "no face detected" simulation
         const studentId = selectStudentForRecognition(uniqueStudentIds);
         
-        // New logic: If no face is detected in passive mode, return early
-        if (studentId === null && passive) {
+        // If no face is detected, return early
+        if (studentId === null) {
           resolve({
             success: false,
             message: 'No face detected in frame'
-          });
-          return;
-        } else if (studentId === null) {
-          // In active mode, we'll give a more user-friendly message
-          resolve({
-            success: false,
-            message: 'No face detected. Please position your face in the frame.'
           });
           return;
         }

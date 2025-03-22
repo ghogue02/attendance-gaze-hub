@@ -18,7 +18,7 @@ const AttendanceCamera = ({
   onBuilderDetected, 
   isCameraActive = false,
   passive = false,
-  passiveInterval = 2000 // Default to faster 2-second interval for better responsiveness
+  passiveInterval = 1000 // Default to 1-second interval for better responsiveness
 }: AttendanceCameraProps) => {
   const [processingImage, setProcessingImage] = useState(false);
   const [lastDetectionTime, setLastDetectionTime] = useState(0);
@@ -27,6 +27,7 @@ const AttendanceCamera = ({
   const recognizedBuildersRef = useRef<Set<string>>(new Set());
   const [scanCount, setScanCount] = useState(0);
   const consecutiveFailsRef = useRef(0);
+  const initialDelayCompleteRef = useRef(false);
 
   const { 
     videoRef, 
@@ -46,18 +47,27 @@ const AttendanceCamera = ({
       frameRate: { ideal: 30 }
     },
     onCameraStart: () => {
-      setStatusMessage(passive ? "Scanning for builders..." : "Camera active, ready to capture");
+      // Clear session storage camera start time to reset detection behavior
+      window.sessionStorage.removeItem('cameraStartTime');
+      
+      setStatusMessage("Camera initializing, please wait...");
       recognizedBuildersRef.current.clear();
       setScanCount(0);
       consecutiveFailsRef.current = 0;
+      initialDelayCompleteRef.current = false;
       
-      // Initial passive capture if in passive mode
+      // Add an initial delay before starting passive detection
+      // This helps prevent false detections when camera first opens
       if (passive) {
-        // Small delay to make sure video is initialized
         setTimeout(() => {
-          console.log("Starting initial passive scan");
+          initialDelayCompleteRef.current = true;
+          setStatusMessage("Camera ready - scanning for builders...");
+          // Start passive scanning after initialization delay
           captureImagePassive();
-        }, 500);
+        }, 1500);
+      } else {
+        // In active mode, ready immediately
+        setStatusMessage("Camera active, position your face in the frame");
       }
     },
     onCameraStop: () => {
@@ -70,13 +80,16 @@ const AttendanceCamera = ({
 
   // Set up passive mode interval
   useEffect(() => {
-    if (passive && isCapturing && !processingImage) {
-      console.log("Setting up passive detection interval");
-      passiveTimeoutRef.current = setTimeout(() => {
-        captureImagePassive();
-      }, passiveInterval);
+    if (passive && isCapturing && !processingImage && initialDelayCompleteRef.current) {
+      // No need to set up interval here - it's handled by the captureImagePassive function
+      // We only need to ensure any existing timeouts are cleared when dependencies change
+      return () => {
+        if (passiveTimeoutRef.current) {
+          clearTimeout(passiveTimeoutRef.current);
+        }
+      };
     }
-
+    
     return () => {
       if (passiveTimeoutRef.current) {
         clearTimeout(passiveTimeoutRef.current);
@@ -123,12 +136,22 @@ const AttendanceCamera = ({
   };
   
   const captureImagePassive = () => {
-    if (!isCapturing || processingImage) return;
+    if (!isCapturing || processingImage || !initialDelayCompleteRef.current) return;
     
     setScanCount(prev => prev + 1);
+    setProcessingImage(true);
     
     const imageData = captureImageData();
-    if (!imageData) return;
+    if (!imageData) {
+      setProcessingImage(false);
+      
+      // Set up next passive scan
+      passiveTimeoutRef.current = setTimeout(() => {
+        captureImagePassive();
+      }, passiveInterval);
+      
+      return;
+    }
     
     processRecognition(imageData, {
       isPassive: true,
@@ -150,7 +173,7 @@ const AttendanceCamera = ({
         consecutiveFailsRef.current = 0;
       },
       onError: (message) => {
-        // Don't show errors in passive mode, but we can update the status message
+        // Only count consecutive failures for "No face detected"
         if (message === 'No face detected in frame') {
           consecutiveFailsRef.current++;
           
@@ -161,10 +184,14 @@ const AttendanceCamera = ({
             setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
           }
         } else if (message !== 'Recently recognized') {
+          // For other messages, reset consecutive fails counter
+          consecutiveFailsRef.current = 0;
           setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
         }
       },
       onComplete: () => {
+        setProcessingImage(false);
+        
         // Set up next passive scan
         passiveTimeoutRef.current = setTimeout(() => {
           captureImagePassive();
@@ -197,4 +224,3 @@ const AttendanceCamera = ({
 };
 
 export default AttendanceCamera;
-

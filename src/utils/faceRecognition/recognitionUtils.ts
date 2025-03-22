@@ -144,20 +144,63 @@ export const updateRecognitionHistory = (studentId: string, recognitionHistory: 
  * This function simulates face recognition in demo mode
  */
 export const selectStudentForRecognition = (uniqueStudentIds: string[]) => {
-  // For demo purposes, we need to simulate more realistic face detection
-  // We'll add a probability of "no face detected" for passive mode
+  // First, implement a more realistic face detection simulation
+  // In a real system with actual face detection, the first check would be
+  // whether there's actually a face in the frame
   
-  // In a real system, this would be based on actual face detection algorithms
-  const rand = Math.random();
+  // Increase probability of "no face detected" for better realism
+  // This better simulates a camera that won't randomly detect people
+  const noFaceDetectionRate = 0.85; // 85% chance of no face when first starting
   
-  // Reduce the chance of "no face detected" to 15% for faster recognition in line scenarios
-  if (rand < 0.15) {
+  // Get a unique seed based on the current frame to add consistency
+  // This helps simulate the camera "seeing" the same thing across multiple frames
+  const frameConsistency = Math.floor(Date.now() / 250); // Changes every 250ms
+  
+  // Seed the random number generator with the frame consistency value
+  // to simulate the camera seeing the same results for a brief period
+  const seedRandom = (seed: number) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  // Generate frame-consistent random number
+  const rand = seedRandom(frameConsistency);
+  
+  // Initial startup - higher chance of no face detected
+  // This prevents immediate false detections when camera first starts
+  if (window.sessionStorage.getItem('cameraStartTime') === null) {
+    // Set camera start time in session storage
+    window.sessionStorage.setItem('cameraStartTime', Date.now().toString());
+    console.log("Camera just started, higher chance of no face detected");
+    
+    // 95% chance of no face when camera first starts
+    if (rand < 0.95) {
+      console.log("No face detected in frame (camera startup)");
+      return null;
+    }
+  }
+  
+  // Get time since camera started
+  const cameraStartTime = parseInt(window.sessionStorage.getItem('cameraStartTime') || '0');
+  const timeSinceStart = Date.now() - cameraStartTime;
+  
+  // For the first 2 seconds after camera starts, very high chance of no face
+  if (timeSinceStart < 2000 && rand < 0.95) {
+    console.log("No face detected in frame (camera warmup)");
+    return null;
+  }
+  
+  // Normal operation - still higher chance of no face than before
+  if (rand < noFaceDetectionRate) {
     console.log("No face detected in frame");
     return null;
   }
   
-  const now = new Date();
-  // Use milliseconds to get more randomness and less predictability
-  const userIndex = (now.getSeconds() * 1000 + now.getMilliseconds()) % uniqueStudentIds.length;
+  // If we get here, we "detected a face" - now select which student it is
+  // Use a slightly different seed for student selection to avoid correlation
+  const studentSelectionSeed = frameConsistency + 1;
+  const studentRand = seedRandom(studentSelectionSeed);
+  const userIndex = Math.floor(studentRand * uniqueStudentIds.length);
+  
   return uniqueStudentIds[userIndex];
 };

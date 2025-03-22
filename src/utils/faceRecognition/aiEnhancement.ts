@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 
 const API_ENDPOINT = "wss://ws-api.runware.ai/v1";
@@ -141,10 +142,10 @@ export class RunwareService {
       
       return new Promise((resolve, reject) => {
         const message = [{
-          taskType: "imageToImage",
+          taskType: "imageInference", // Changed from "imageToImage" to "imageInference"
           taskUUID,
           model: "runware:100@1",
-          initialImage: imageData,
+          initialImage: imageData, // Use initialImage for controlling with an image
           positivePrompt: "professional portrait photo, high quality, sharp details, neutral background, studio lighting",
           negativePrompt: "blurry, distorted, low quality, cartoon, drawing",
           width: 512,
@@ -159,7 +160,7 @@ export class RunwareService {
           seed: Math.floor(Math.random() * 100000000),
         }];
 
-        console.log("Sending image enhancement request");
+        console.log("Sending image enhancement request:", JSON.stringify(message));
 
         this.messageCallbacks.set(taskUUID, (data) => {
           if (data.error) {

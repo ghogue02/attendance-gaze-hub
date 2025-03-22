@@ -5,11 +5,15 @@ import { Builder, BuilderStatus } from '@/components/BuilderCard';
 import { getAllBuilders, markAttendance } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
 
-// Import new components
+// Import components
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatisticsCards from '@/components/dashboard/StatisticsCards';
 import BuilderFilters from '@/components/dashboard/BuilderFilters';
 import BuildersList from '@/components/dashboard/BuildersList';
+import AttendanceChart from '@/components/dashboard/AttendanceChart';
+import AttendancePieChart from '@/components/dashboard/AttendancePieChart';
+import AttendanceHistory from '@/components/dashboard/AttendanceHistory';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const Dashboard = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
@@ -18,6 +22,7 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString());
+  const [activeTab, setActiveTab] = useState<string>("builders");
 
   useEffect(() => {
     loadBuilders();
@@ -104,20 +109,45 @@ const Dashboard = () => {
         
         <StatisticsCards builders={builders} />
         
-        <BuilderFilters 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-        />
-        
-        <BuildersList 
-          isLoading={isLoading}
-          filteredBuilders={filteredBuilders}
-          searchQuery={searchQuery}
-          onClearFilters={handleClearFilters}
-          onVerify={handleMarkAttendance}
-        />
+        <Tabs 
+          value={activeTab} 
+          onValueChange={setActiveTab}
+          className="mt-8"
+        >
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="builders">Builders</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="builders" className="space-y-6">
+            <BuilderFilters 
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+            />
+            
+            <BuildersList 
+              isLoading={isLoading}
+              filteredBuilders={filteredBuilders}
+              searchQuery={searchQuery}
+              onClearFilters={handleClearFilters}
+              onVerify={handleMarkAttendance}
+            />
+          </TabsContent>
+          
+          <TabsContent value="history" className="space-y-6">
+            <AttendanceHistory builders={builders} />
+          </TabsContent>
+          
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AttendanceChart builders={builders} />
+              <AttendancePieChart builders={builders} />
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

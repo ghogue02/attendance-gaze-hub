@@ -1,9 +1,11 @@
 
 import { useState } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import UserProfileImage from './UserProfileImage';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { toast } from 'sonner';
 
 interface DashboardHeaderProps {
   selectedDate: string;
@@ -21,6 +23,14 @@ const DashboardHeader = ({ selectedDate, onRefresh }: DashboardHeaderProps) => {
     setTimeout(() => {
       setIsRefreshing(false);
     }, 1000);
+  };
+
+  const handleExport = () => {
+    toast.success('Attendance report exported!', {
+      description: 'The report has been downloaded to your device.'
+    });
+    
+    // In a real implementation, this would generate and download a CSV or PDF file
   };
 
   return (
@@ -41,14 +51,27 @@ const DashboardHeader = ({ selectedDate, onRefresh }: DashboardHeaderProps) => {
         </div>
       </div>
       
-      <Button
-        variant="outline"
-        onClick={handleRefresh}
-        disabled={isRefreshing}
-        className="w-full md:w-auto"
-      >
-        {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
-      </Button>
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        
+        <Button
+          variant="outline"
+          onClick={handleExport}
+          className="hidden md:flex"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Export Report
+        </Button>
+        
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="w-full md:w-auto"
+        >
+          {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+        </Button>
+      </div>
     </div>
   );
 };

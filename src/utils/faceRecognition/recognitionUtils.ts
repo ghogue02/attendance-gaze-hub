@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { FaceDetectionResult } from './types';
 
 /**
  * Fetch registered students from the database

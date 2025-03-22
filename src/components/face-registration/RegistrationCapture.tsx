@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { Builder } from '../BuilderCard';
@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { RegistrationProgress } from './RegistrationProgress';
 import { CameraView } from './CameraView';
 import { useCamera } from '@/hooks/use-camera';
+import { detectFaces } from '@/utils/faceRecognition/recognitionUtils';
 
 interface RegistrationCaptureProps {
   builder: Builder;
@@ -23,7 +24,11 @@ export const RegistrationCapture = ({
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>("Initializing camera...");
+  const [autoCapture, setAutoCapture] = useState(true);
+  const autoCaptureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastProcessingTimeRef = useRef<number>(0);
+  const consecutiveFailsRef = useRef(0);
   
   const {
     videoRef,
@@ -38,40 +43,100 @@ export const RegistrationCapture = ({
       facingMode: 'user',
       width: { ideal: 1280 },
       height: { ideal: 720 }
+    },
+    onCameraStart: () => {
+      setStatusMessage("Camera active. Auto-capturing when face detected...");
+      if (autoCapture) {
+        startAutoCapture();
+      }
     }
   });
 
   useEffect(() => {
-    // Show a helpful message to the user
-    if (isCapturing) {
-      setStatusMessage('Camera active. Position your face and click Capture.');
-    } else if (cameraError) {
-      setStatusMessage('Camera error. Please check permissions.');
+    return () => {
+      if (autoCaptureTimeoutRef.current) {
+        clearTimeout(autoCaptureTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const startAutoCapture = () => {
+    if (!isCapturing || processing) return;
+    
+    // Don't run if we're already processing for more than 3 seconds (hung state)
+    const isHung = processing && (Date.now() - lastProcessingTimeRef.current > 3000);
+    if (processing && !isHung) {
+      autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 500);
+      return;
     }
-  }, [isCapturing, cameraError]);
+    
+    if (isHung) {
+      console.warn("Processing took too long, continuing with next scan");
+      setProcessing(false);
+    }
+    
+    checkForFace();
+  };
 
-  const angleInstructions = [
-    "Look directly at the camera",
-    "Turn your head slightly to the left",
-    "Turn your head slightly to the right",
-    "Tilt your head slightly up",
-    "Tilt your head slightly down",
-  ];
+  const checkForFace = async () => {
+    if (!isCapturing || !videoRef.current) {
+      autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 500);
+      return;
+    }
+    
+    try {
+      const imageData = captureImageData();
+      if (!imageData) {
+        setStatusMessage("Failed to capture image. Retrying...");
+        autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 500);
+        return;
+      }
+      
+      // Only check for face, don't register yet
+      setStatusMessage(`Checking for face for angle ${currentAngle + 1}...`);
+      const result = await detectFaces(imageData, true);
+      
+      if (result.success && result.hasFaces) {
+        setStatusMessage(`Face detected! Capturing angle ${currentAngle + 1}...`);
+        consecutiveFailsRef.current = 0;
+        captureImage(imageData);
+      } else {
+        consecutiveFailsRef.current++;
+        if (consecutiveFailsRef.current > 3) {
+          setStatusMessage(`No face detected. Position your face for angle ${currentAngle + 1}.`);
+        } else {
+          setStatusMessage(`Looking for face for angle ${currentAngle + 1}...`);
+        }
+        autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 500);
+      }
+    } catch (error) {
+      console.error("Error in face detection:", error);
+      setStatusMessage("Error detecting face. Retrying...");
+      autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1000);
+    }
+  };
 
-  const captureImage = async () => {
+  const captureImage = async (imageData?: string) => {
     if (!videoRef.current || !canvasRef.current) {
       toast.error('Camera not initialized properly');
       return;
     }
     
     setProcessing(true);
+    lastProcessingTimeRef.current = Date.now();
     setStatusMessage('Processing image...');
-    const imageData = captureImageData();
+    
+    if (!imageData) {
+      imageData = captureImageData();
+    }
     
     if (!imageData) {
       toast.error('Failed to capture image');
       setProcessing(false);
       setStatusMessage('Failed to capture image. Try again.');
+      if (autoCapture) {
+        autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1000);
+      }
       return;
     }
     
@@ -118,20 +183,42 @@ export const RegistrationCapture = ({
           if (result.completed && isUpdateMode && result.nextAngleIndex === 0) {
             console.log("Update complete!");
             onRegistrationUpdate(true, 100, nextAngle);
+          } else {
+            setStatusMessage(`Ready for angle ${nextAngle + 1}. Position your face...`);
+            // Continue auto capture for the next angle
+            if (autoCapture) {
+              autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1000);
+            }
           }
         }
       } else {
         toast.error(result.message);
         setStatusMessage(`Error: ${result.message}`);
+        
+        if (autoCapture) {
+          autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1000);
+        }
       }
     } catch (error) {
       console.error('Error during registration:', error);
       toast.error('An unexpected error occurred');
       setStatusMessage('Registration error. Please try again.');
+      
+      if (autoCapture) {
+        autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1000);
+      }
     } finally {
       setProcessing(false);
     }
   };
+
+  const angleInstructions = [
+    "Look directly at the camera",
+    "Turn your head slightly to the left",
+    "Turn your head slightly to the right",
+    "Tilt your head slightly up",
+    "Tilt your head slightly down",
+  ];
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
@@ -153,14 +240,38 @@ export const RegistrationCapture = ({
           angleInstructions={angleInstructions}
         />
         
-        <Button
-          onClick={captureImage}
-          disabled={!isCapturing || processing}
-          className="flex items-center gap-2 mt-auto"
-        >
-          <Camera size={18} />
-          Capture Angle {currentAngle + 1}
-        </Button>
+        <div className="flex flex-col space-y-4 mt-auto">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Auto-capture: </span>
+            <div className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                value="" 
+                className="sr-only peer" 
+                checked={autoCapture}
+                onChange={() => {
+                  const newAutoCapture = !autoCapture;
+                  setAutoCapture(newAutoCapture);
+                  if (newAutoCapture) {
+                    startAutoCapture();
+                  } else if (autoCaptureTimeoutRef.current) {
+                    clearTimeout(autoCaptureTimeoutRef.current);
+                  }
+                }}
+              />
+              <div className="w-11 h-6 bg-muted-foreground/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </div>
+          </div>
+          
+          <Button
+            onClick={() => captureImage()}
+            disabled={!isCapturing || processing}
+            className="flex items-center gap-2"
+          >
+            <Camera size={18} />
+            {autoCapture ? "Manual Capture" : "Capture Angle"} {currentAngle + 1}
+          </Button>
+        </div>
       </div>
     </div>
   );

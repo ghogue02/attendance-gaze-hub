@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -213,4 +212,64 @@ export const selectStudentForRecognition = (uniqueStudentIds: string[], faceDete
   const userIndex = Math.floor(studentRand * uniqueStudentIds.length);
   
   return uniqueStudentIds[userIndex];
+};
+
+/**
+ * Detect faces in an image
+ * 
+ * @param imageData Base64-encoded image data
+ * @param debugMode Enable debug mode for logging
+ */
+export const detectFaces = async (imageData: string, debugMode: boolean = false): Promise<FaceDetectionResult> => {
+  try {
+    if (debugMode) {
+      console.log('Detecting faces in image...');
+    }
+
+    // Call the Supabase Edge Function to perform face detection
+    const { data, error } = await supabase.functions.invoke('detect-faces', {
+      body: { 
+        imageData,
+        isPassive: true,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    if (error) {
+      console.error('Face detection error:', error);
+      return {
+        success: false,
+        hasFaces: false,
+        message: 'Error connecting to face detection service'
+      };
+    }
+
+    if (!data.success) {
+      console.error('Face detection service error:', data.error);
+      return {
+        success: false,
+        hasFaces: false,
+        message: data.error || 'Face detection service error'
+      };
+    }
+
+    if (debugMode) {
+      console.log('Face detection result:', data);
+    }
+
+    return {
+      success: true,
+      hasFaces: data.hasFaces,
+      faceCount: data.faceCount,
+      confidence: data.confidence,
+      message: data.message
+    };
+  } catch (error) {
+    console.error('Error during face detection:', error);
+    return {
+      success: false,
+      hasFaces: false,
+      message: 'Exception during face detection'
+    };
+  }
 };

@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { FaceRegistrationResult } from '../types';
+import { detectFaces } from '../recognitionUtils';
 
 // Function to register a face image for a student
 export const registerFaceImage = async (
@@ -10,6 +11,17 @@ export const registerFaceImage = async (
 ): Promise<FaceRegistrationResult> => {
   try {
     console.log(`Starting face registration for student ${studentId}, angle ${angleIndex}`);
+    
+    // First check if the image actually contains a face
+    const faceDetection = await detectFaces(imageData, true);
+    if (!faceDetection.success || !faceDetection.hasFaces) {
+      console.log(`No face detected in the image for angle ${angleIndex}`);
+      return {
+        success: false,
+        message: 'No face detected in the image. Please try again.',
+        faceDetected: false
+      };
+    }
     
     // Fetch the student record
     const { data: student, error: fetchError } = await supabase
@@ -115,7 +127,8 @@ export const registerFaceImage = async (
       message: `Angle ${angleIndex + 1} registered successfully`,
       imageCount: registeredCount,
       completed: registeredCount >= requiredAngles,
-      nextAngleIndex
+      nextAngleIndex,
+      faceDetected: true
     };
   } catch (error) {
     console.error('Registration error:', error);

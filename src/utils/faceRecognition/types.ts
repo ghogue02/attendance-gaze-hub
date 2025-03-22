@@ -13,6 +13,7 @@ export interface FaceRegistrationResult {
   imageCount?: number;
   completed?: boolean;
   nextAngleIndex?: number;
+  faceDetected?: boolean;
 }
 
 export interface RecognitionOptions {
@@ -21,4 +22,12 @@ export interface RecognitionOptions {
   onSuccess: (builder: Builder) => void;
   onError: (message: string) => void;
   onComplete: () => void;
+}
+
+export interface FaceDetectionResult {
+  success: boolean;
+  hasFaces: boolean;
+  faceCount?: number;
+  confidence?: number;
+  message: string;
 }

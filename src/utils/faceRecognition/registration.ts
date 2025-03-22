@@ -132,6 +132,60 @@ export const registerFaceImage = async (
   }
 };
 
+// Function to update a builder's avatar with a captured face image
+export const updateBuilderAvatar = async (builderId: string, imageData: string): Promise<boolean> => {
+  try {
+    // Apply AI enhancement to the image
+    const enhancedImage = await enhanceFaceImage(imageData);
+    
+    // Update the builder's avatar in the database
+    const { error } = await supabase
+      .from('students')
+      .update({ image_url: enhancedImage || imageData })
+      .eq('id', builderId);
+    
+    if (error) {
+      console.error('Error updating avatar:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating avatar:', error);
+    return false;
+  }
+};
+
+// Simple function to enhance a face image (placeholder for AI enhancement)
+const enhanceFaceImage = async (imageData: string): Promise<string | null> => {
+  try {
+    // For now, we're just returning the original image
+    // In a real implementation, this would call an AI service to enhance the image
+    // For example, remove background, adjust lighting, etc.
+    
+    return imageData;
+    
+    // Example of how this would work with an AI service:
+    /*
+    const response = await fetch('/api/enhance-face', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageData }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to enhance image');
+    }
+    
+    const result = await response.json();
+    return result.enhancedImage;
+    */
+  } catch (error) {
+    console.error('Error enhancing image:', error);
+    return null;
+  }
+};
+
 // Function to check if a student has completed face registration
 export const checkFaceRegistrationStatus = async (studentId: string): Promise<{completed: boolean, count: number}> => {
   try {

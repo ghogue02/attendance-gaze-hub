@@ -1,6 +1,7 @@
 
 import { motion } from 'framer-motion';
 import { UserCheck, UserX, Clock } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
 export type BuilderStatus = 'present' | 'absent' | 'pending';
 
@@ -55,12 +56,16 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
       <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
         <div className="w-20 h-20 rounded-full overflow-hidden bg-secondary flex-shrink-0 shadow-sm">
           {builder.image ? (
-            <img
-              src={builder.image}
-              alt={builder.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            <Avatar className="w-full h-full">
+              <AvatarImage 
+                src={builder.image} 
+                alt={builder.name} 
+                className="w-full h-full object-cover"
+              />
+              <AvatarFallback className="text-2xl font-bold text-primary">
+                {builder.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-primary">
               {builder.name.substring(0, 2).toUpperCase()}

@@ -4,7 +4,7 @@ import { Camera, Check, RefreshCw, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Builder } from './BuilderCard';
-import { registerFaceImage, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
+import { registerFaceImage, checkFaceRegistrationStatus, updateBuilderAvatar } from '@/utils/faceRecognition';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 
@@ -121,6 +121,12 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
       const newCapturedImages = [...capturedImages];
       newCapturedImages[currentAngle] = imageData;
       setCapturedImages(newCapturedImages);
+      
+      // If this is the front-facing image (angle 0), update the builder's avatar
+      if (currentAngle === 0) {
+        await updateBuilderAvatar(builder.id, imageData);
+        toast.success("Profile image updated!");
+      }
       
       if (result.completed) {
         setRegistrationComplete(true);

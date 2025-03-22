@@ -1,7 +1,6 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, RefreshCw, AlertCircle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCamera } from '@/hooks/use-camera';
@@ -46,7 +45,6 @@ export const SimpleFaceCapture = ({
     }
   });
 
-  // Clean up countdown timer on unmount
   useEffect(() => {
     return () => {
       if (countdownTimerRef.current) {
@@ -123,7 +121,6 @@ export const SimpleFaceCapture = ({
   const handleRetry = () => {
     setCaptureFailed(false);
     setStatusMessage("Position your face in the frame");
-    // If we've tried multiple times, suggest refreshing the camera
     if (captureAttempts > 2) {
       startCamera();
     }
@@ -215,3 +212,4 @@ export const SimpleFaceCapture = ({
     </div>
   );
 };
+

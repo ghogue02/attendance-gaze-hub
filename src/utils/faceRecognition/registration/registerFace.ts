@@ -7,7 +7,7 @@ import { detectFaces } from '../recognitionUtils';
 export const registerFaceImage = async (
   studentId: string, 
   imageData: string,
-  isReregistration: boolean = false
+  isUpdateMode: boolean = false
 ): Promise<FaceRegistrationResult> => {
   try {
     console.log(`Starting face registration for student ${studentId}`);
@@ -57,7 +57,7 @@ export const registerFaceImage = async (
     }
     
     // For initial registration, use the image as profile picture
-    if (!isReregistration) {
+    if (!isUpdateMode) {
       console.log("Processing image as profile picture");
       
       // Update the student's profile image
@@ -81,7 +81,7 @@ export const registerFaceImage = async (
     }
     
     // Clear existing registrations to ensure fresh data
-    if (isReregistration) {
+    if (isUpdateMode) {
       const { error: deleteError } = await supabase
         .from('face_registrations')
         .delete()

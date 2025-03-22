@@ -19,12 +19,16 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       return [];
     }
     
-    // Get attendance data for today - use simple date without timezone adjustments
-    const today = new Date().toISOString().split('T')[0];
+    // Get attendance data for today using a consistent date format
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    console.log('Fetching attendance for today:', todayStr);
+    
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
       .select('*')
-      .eq('date', today);
+      .eq('date', todayStr);
       
     if (attendanceError) {
       console.error('Error fetching attendance:', attendanceError);
@@ -84,14 +88,15 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
 // Function to mark attendance manually
 export const markAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string): Promise<boolean> => {
   try {
-    // Use simple date without timezone adjustments
-    const today = new Date().toISOString().split('T')[0];
+    // Generate consistent date format
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    console.log('Marking attendance for builder:', builderId, 'with status:', status);
+    console.log('Marking attendance for builder:', builderId, 'with status:', status, 'date:', todayStr);
     
     const attendanceData: any = {
       student_id: builderId,
-      date: today,
+      date: todayStr,
       status: status, // Store the actual status value
       time_recorded: new Date().toISOString(),
     };

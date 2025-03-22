@@ -39,16 +39,22 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
       setIsLoading(true);
       
       try {
-        const today = new Date();
-        const startDate = new Date(today);
-        startDate.setDate(startDate.getDate() - (days - 1));
+        // Calculate the date range - we want the most recent days
+        const endDate = new Date(); // Today
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - (days - 1));
         
-        const startDateStr = startDate.toISOString().split('T')[0];
-        const endDateStr = today.toISOString().split('T')[0];
+        // Format dates for query, avoiding timezone issues
+        const formatDateForQuery = (date: Date) => {
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        };
         
-        console.log(`Fetching ALL attendance chart data without filtering from ${startDateStr} to ${endDateStr}`);
+        const startDateStr = formatDateForQuery(startDate);
+        const endDateStr = formatDateForQuery(endDate);
         
-        // Fetch attendance data directly without any filtering
+        console.log(`Fetching attendance chart data from ${startDateStr} to ${endDateStr}`);
+        
+        // Fetch attendance data 
         const { data: attendanceData, error } = await supabase
           .from('attendance')
           .select('*')
@@ -73,11 +79,14 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
           const date = new Date(startDate);
           date.setDate(date.getDate() + i);
           
-          // Format date as ISO string and extract date part
-          const dateStr = date.toISOString().split('T')[0];
+          // Format date string
+          const formatDateString = (date: Date) => {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          };
           
-          // Format date as "DD Day" for x-axis
-          // We'll use a format that doesn't rely on timezone
+          const dateStr = formatDateString(date);
+          
+          // Create display format for chart x-axis (DD Day)
           const dayNum = date.getDate().toString().padStart(2, '0');
           const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
           const dayStr = `${dayNum} ${dayOfWeek}`;
@@ -124,6 +133,8 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
               
               // Increment the counter for this status
               dateMap[dateStr][status as keyof Omit<DailyAttendance, 'name' | 'date'>] += 1;
+            } else {
+              console.log(`Date ${dateStr} not in range for chart display`);
             }
           });
         }

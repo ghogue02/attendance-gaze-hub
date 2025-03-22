@@ -1,7 +1,7 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Builder, BuilderStatus } from '@/components/BuilderCard';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -43,15 +43,6 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
       setIsLoading(true);
       
       try {
-        // Get the past 7 days
-        const today = new Date();
-        const startDate = new Date(today);
-        startDate.setDate(startDate.getDate() - 6); // Get last 7 days including today
-        
-        const startDateStr = startDate.toISOString().split('T')[0];
-        
-        console.log(`Fetching ALL attendance records from ${startDateStr} to ${today.toISOString().split('T')[0]}`);
-        
         // Create a map of student IDs to names for easier lookup
         const builderMap = new Map();
         
@@ -63,11 +54,11 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           });
         });
         
-        // Fetch ALL attendance data without any filtering
+        // Fetch ALL attendance data without any filtering or date constraints
+        // to make sure we get the complete history
         const { data, error } = await supabase
           .from('attendance')
           .select('*')
-          .gte('date', startDateStr)
           .order('date', { ascending: false });
           
         if (error) {
@@ -100,11 +91,11 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           
           // Determine the status - if there's an excuse_reason, it should be "excused"
           let status: BuilderStatus = record.status as BuilderStatus;
-          if (record.excuse_reason && status === 'absent') {
+          if (record.excuse_reason && record.status === 'absent') {
             status = 'excused';
           }
           
-          // Parse the date directly from the record without any timezone modifications
+          // Use the date string directly from the database
           const dateStr = record.date;
           
           return {
@@ -133,21 +124,21 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
     fetchAttendanceHistory();
   }, [builders]);
   
+  // Format date string from YYYY-MM-DD format to MMM D, YYYY display format
   const formatDate = (dateStr: string) => {
     try {
       // Ensure we have a valid date string
       if (!dateStr) return '';
       
-      // Split the date if it contains a 'T' (ISO format)
-      const datePart = dateStr.split('T')[0];
+      // Parse date components to avoid timezone issues
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
       
-      // Create a date object directly from the date string
-      // This avoids timezone issues by explicitly parsing in UTC
-      const year = parseInt(datePart.substring(0, 4));
-      const month = parseInt(datePart.substring(5, 7)) - 1; // JS months are 0-based
-      const day = parseInt(datePart.substring(8, 10));
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1; // JS months are 0-based
+      const day = parseInt(parts[2]);
       
-      // Create date with correct parts
+      // Create date with correct parts and no timezone adjustments
       const date = new Date(year, month, day);
       
       // Format the date as "MMM d, yyyy" (e.g., "Mar 22, 2025")

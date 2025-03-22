@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { FaceRegistrationResult } from './types';
+import { FaceRegistrationResult } from '../types';
 
 // Function to register a face image for a student
 export const registerFaceImage = async (
@@ -55,42 +55,10 @@ export const registerFaceImage = async (
       console.log('Successfully updated profile image');
     }
     
-    // Store the face data directly in the database
-    try {
-      // Delete any existing face registration for this angle and student
-      // This ensures we don't have duplicate angles for the same student
-      const { error: deleteError } = await supabase
-        .from('face_registrations')
-        .delete()
-        .eq('student_id', studentId)
-        .eq('angle_index', angleIndex);
-        
-      if (deleteError) {
-        console.error('Error deleting existing face registration:', deleteError);
-      }
-      
-      // Insert the new face registration
-      const { error: insertError } = await supabase
-        .from('face_registrations')
-        .insert({
-          student_id: studentId,
-          face_data: imageData,
-          angle_index: angleIndex
-        });
-        
-      if (insertError) {
-        console.error('Error inserting face registration:', insertError);
-        return {
-          success: false,
-          message: 'Failed to register face data'
-        };
-      }
-    } catch (e) {
-      console.error('Exception during face registration:', e);
-      return {
-        success: false,
-        message: 'Exception during face registration'
-      };
+    // Store the face data
+    const result = await storeFaceRegistration(studentId, imageData, angleIndex);
+    if (!result.success) {
+      return result;
     }
     
     // Count registrations for this student
@@ -146,57 +114,51 @@ export const registerFaceImage = async (
   }
 };
 
-// Function to update a builder's avatar with a captured face image
-export const updateBuilderAvatar = async (builderId: string, imageData: string): Promise<boolean> => {
+// Helper function to store face registration data
+async function storeFaceRegistration(
+  studentId: string,
+  faceData: string,
+  angleIndex: number
+): Promise<FaceRegistrationResult> {
   try {
-    console.log("Starting builder avatar update process");
-    
-    // Update the builder's avatar in the database without AI enhancement
-    const { error } = await supabase
-      .from('students')
-      .update({ 
-        image_url: imageData,
-        last_face_update: new Date().toISOString()
-      })
-      .eq('id', builderId);
-    
-    if (error) {
-      console.error('Error updating avatar:', error);
-      return false;
-    }
-    
-    console.log('Successfully updated avatar');
-    return true;
-  } catch (error) {
-    console.error('Error updating avatar:', error);
-    return false;
-  }
-};
-
-// Function to check if a student has completed face registration
-export const checkFaceRegistrationStatus = async (studentId: string): Promise<{completed: boolean, count: number}> => {
-  try {
-    // Query face registrations directly
-    const { data, error } = await supabase
+    // Delete any existing face registration for this angle and student
+    // This ensures we don't have duplicate angles for the same student
+    const { error: deleteError } = await supabase
       .from('face_registrations')
-      .select('angle_index')
-      .eq('student_id', studentId);
+      .delete()
+      .eq('student_id', studentId)
+      .eq('angle_index', angleIndex);
       
-    if (error) {
-      console.error('Error counting registrations:', error);
-      return { completed: false, count: 0 };
+    if (deleteError) {
+      console.error('Error deleting existing face registration:', deleteError);
     }
     
-    const registeredAngles = data || [];
-    const registeredCount = registeredAngles.length;
-    const requiredAngles = 5; // We require 5 different angle captures
-    
+    // Insert the new face registration
+    const { error: insertError } = await supabase
+      .from('face_registrations')
+      .insert({
+        student_id: studentId,
+        face_data: faceData,
+        angle_index: angleIndex
+      });
+      
+    if (insertError) {
+      console.error('Error inserting face registration:', insertError);
+      return {
+        success: false,
+        message: 'Failed to register face data'
+      };
+    }
+
     return {
-      completed: registeredCount >= requiredAngles,
-      count: registeredCount
+      success: true,
+      message: 'Face data stored successfully'
     };
-  } catch (error) {
-    console.error('Error in checkFaceRegistrationStatus:', error);
-    return { completed: false, count: 0 };
+  } catch (e) {
+    console.error('Exception during face registration:', e);
+    return {
+      success: false,
+      message: 'Exception during face registration'
+    };
   }
-};
+}

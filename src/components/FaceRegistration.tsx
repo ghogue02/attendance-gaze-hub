@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Camera, Check, RefreshCw, ChevronRight, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -86,7 +85,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     
     console.log(`Capturing image for angle ${currentAngle}`);
     
-    const result = await registerFaceImage(builder.id, imageData, currentAngle);
+    const result = await registerFaceImage(builder.id, imageData, isUpdateMode);
     console.log("Registration result:", result);
     
     if (result.success) {
@@ -102,14 +101,12 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
         toast.success("Profile image updated!");
       }
       
-      // Only set registrationComplete to true when all angles are completed and we're not in update mode
       if (result.completed && !isUpdateMode) {
         console.log("Registration complete!");
         setRegistrationComplete(true);
         setProgress(100);
         stopCamera();
       } else if (result.imageCount) {
-        // In update mode, continue with the next angle
         if (result.nextAngleIndex !== undefined) {
           setCurrentAngle(result.nextAngleIndex);
         } else {
@@ -117,7 +114,6 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
         }
         setProgress((result.imageCount / 5) * 100);
         
-        // If all angles are completed in update mode, only mark as complete after the last angle
         if (result.completed && isUpdateMode && result.nextAngleIndex === 0) {
           console.log("Update complete!");
           setRegistrationComplete(true);

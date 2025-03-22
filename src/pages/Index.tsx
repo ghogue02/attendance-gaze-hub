@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { RecognitionResult } from '@/components/home/RecognitionResult';
 import { useAttendanceSystem } from '@/hooks/useAttendanceSystem';
 import { motion } from 'framer-motion';
-import { Camera, UserCircle2, HelpCircle, RotateCw } from 'lucide-react';
+import { Camera, UserCircle2 } from 'lucide-react';
 import AttendanceCamera from '@/components/AttendanceCamera';
 
 const Index = () => {
@@ -20,26 +21,6 @@ const Index = () => {
     startAttendance,
     reset
   } = useAttendanceSystem();
-
-  // Add state for force user selection
-  const [forceUser, setForceUser] = useState<string | null>(null);
-
-  // Function to toggle forced user for testing
-  const toggleForceUser = (username: string) => {
-    if (forceUser === username) {
-      setForceUser(null);
-      // Remove force_user parameter from URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('force_user');
-      window.history.replaceState({}, '', url.toString());
-    } else {
-      setForceUser(username);
-      // Add force_user parameter to URL
-      const url = new URL(window.location.href);
-      url.searchParams.set('force_user', username);
-      window.history.replaceState({}, '', url.toString());
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/50">
@@ -88,39 +69,6 @@ const Index = () => {
                       onCheckedChange={setPassiveMode} 
                     />
                   </div>
-                  
-                  {/* Test mode controls for easier debugging */}
-                  <div className="flex items-center justify-between glass-card p-4 bg-amber-50/50">
-                    <div className="flex items-center">
-                      <span className="mr-2">Test Mode</span>
-                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">Debug</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={forceUser === 'greg' ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleForceUser('greg')}
-                      >
-                        Greg
-                      </Button>
-                      <Button
-                        variant={forceUser === 'stefano' ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleForceUser('stefano')}
-                      >
-                        Stefano
-                      </Button>
-                      {forceUser && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleForceUser(forceUser)}
-                        >
-                          <RotateCw size={16} />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
                 </div>
                 
                 <p className="text-sm text-muted-foreground text-center">
@@ -149,16 +97,6 @@ const Index = () => {
                     </Link>
                   </Button>
                 </div>
-                
-                {forceUser && (
-                  <div className="text-xs text-center p-2 bg-amber-100 rounded-lg text-amber-800">
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                      <HelpCircle size={14} />
-                      <span className="font-medium">Test Mode Active</span>
-                    </div>
-                    <p>System will recognize you as {forceUser === 'greg' ? 'Greg Hogue' : 'Stefano Barros'}</p>
-                  </div>
-                )}
               </div>
             )}
           </motion.div>

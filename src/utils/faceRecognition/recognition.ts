@@ -59,11 +59,6 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           return;
         }
         
-        // Check URL parameters for forced user selection (useful for testing)
-        const searchParams = new URLSearchParams(window.location.search);
-        const testUser = searchParams.get('test_user');
-        const forceUser = searchParams.get('force_user');
-        
         // Only allow a single recognition per person within a window to prevent duplicate detections
         // For production, use a Map to track all recognized users by their IDs
         const now = new Date();
@@ -90,29 +85,6 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           }
         }
         
-        // For demo/testing with forced user
-        let studentId: string | null = null;
-        
-        // If forceUser is specified, map to the corresponding ID
-        if (forceUser) {
-          if (forceUser.toLowerCase() === 'greg') {
-            // This is Greg Hogue's ID from the console logs
-            studentId = '28bc877a-ba4a-4f73-bf58-90380a299b97';
-            console.log(`Force mode: Selected Greg Hogue (ID: ${studentId})`);
-          } else if (forceUser.toLowerCase() === 'stefano') {
-            // This is Stefano Barros's ID from the console logs
-            studentId = '177d7ca8-caa0-4998-81a8-40c7980dabab';
-            console.log(`Force mode: Selected Stefano Barros (ID: ${studentId})`);
-          }
-        }
-        
-        // If studentId is still undefined, try using the test_user parameter
-        if (!studentId && testUser && uniqueStudentIds.includes(testUser)) {
-          // If we're in test mode and the test_user exists, use it
-          studentId = testUser;
-          console.log(`Test mode: Selected student ID ${studentId}`);
-        }
-        
         /**
          * PRODUCTION FACE RECOGNITION ALGORITHM
          * In a real production system, this would:
@@ -128,15 +100,10 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
          * - The system would use indexes and spatial data structures for faster matching
          */
          
-        // FOR DEMO: If no forced selection, this would be where real face recognition happens
-        if (!studentId) {
-          // In production, studentId would be determined by facial recognition algorithm
-          // but for demo, we'll use a simple time-based selection
-          
-          // Rotation through users based on current second
-          const userIndex = now.getSeconds() % uniqueStudentIds.length;
-          studentId = uniqueStudentIds[userIndex];
-        }
+        // For demo purposes, select a user from the registered users
+        // In a real implementation, this would be based on facial recognition algorithms
+        const userIndex = now.getSeconds() % uniqueStudentIds.length;
+        const studentId = uniqueStudentIds[userIndex];
         
         // Check if this user was recently recognized (within 10 seconds) to prevent duplicates
         if (studentId && recognitionHistory[studentId]) {

@@ -25,7 +25,6 @@ export const processRecognition = async (
       onError?.(result.message);
     } else {
       // For passive mode, silently continue
-      onError?.(result.message);
       console.log("Passive recognition result:", result.message);
     }
   } catch (error) {

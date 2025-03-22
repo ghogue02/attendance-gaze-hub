@@ -50,7 +50,7 @@ export const registerFaceImage = async (
         .from('students')
         .update({ 
           image_url: enhancedImage || imageData,
-          last_face_update: new Date().toISOString() // Add timestamp of last face update
+          last_face_update: new Date().toISOString() // Now this column exists in the database
         })
         .eq('id', studentId);
         
@@ -179,7 +179,7 @@ export const updateBuilderAvatar = async (builderId: string, imageData: string):
       .from('students')
       .update({ 
         image_url: enhancedImage || imageData,
-        last_face_update: new Date().toISOString() // Add timestamp of last face update
+        last_face_update: new Date().toISOString() // Now this column exists in the database
       })
       .eq('id', builderId);
     

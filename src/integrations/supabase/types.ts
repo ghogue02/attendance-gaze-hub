@@ -89,6 +89,7 @@ export type Database = {
           first_name: string
           id: string
           image_url: string | null
+          last_face_update: string | null
           last_name: string
           student_id: string | null
           updated_at: string | null
@@ -99,6 +100,7 @@ export type Database = {
           first_name: string
           id?: string
           image_url?: string | null
+          last_face_update?: string | null
           last_name: string
           student_id?: string | null
           updated_at?: string | null
@@ -109,6 +111,7 @@ export type Database = {
           first_name?: string
           id?: string
           image_url?: string | null
+          last_face_update?: string | null
           last_name?: string
           student_id?: string | null
           updated_at?: string | null

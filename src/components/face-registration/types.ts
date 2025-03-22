@@ -8,7 +8,6 @@ export interface RegistrationCaptureProps {
 
 export interface AutoCaptureProps {
   isActive: boolean;
-  setIsActive: (active: boolean) => void;
   onToggle: () => void;
 }
 

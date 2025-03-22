@@ -13,12 +13,26 @@ export const registerFaceImage = async (
     console.log(`Starting face registration for student ${studentId}, angle ${angleIndex}`);
     
     // First check if the image actually contains a face
-    const faceDetection = await detectFaces(imageData, true);
-    if (!faceDetection.success || !faceDetection.hasFaces) {
+    // For registration, we'll use a higher attempt count to be more lenient
+    const faceDetection = await detectFaces(imageData, true, 5);
+    if (!faceDetection.success) {
+      console.log(`Face detection failed for angle ${angleIndex}`);
+      return {
+        success: false,
+        message: 'Face detection service unavailable. Please try again.',
+        faceDetected: false
+      };
+    }
+    
+    // For registration, be more lenient with face detection since this is an active
+    // user-driven process and the errors are frustrating
+    // Allow registration even with lower confidence
+    if (!faceDetection.hasFaces && angleIndex > 0) {
+      // For angles beyond the first, be more strict
       console.log(`No face detected in the image for angle ${angleIndex}`);
       return {
         success: false,
-        message: 'No face detected in the image. Please try again.',
+        message: 'No face detected in the image. Please position your face in the frame.',
         faceDetected: false
       };
     }

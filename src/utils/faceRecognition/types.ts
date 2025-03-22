@@ -38,4 +38,5 @@ export interface FallbackDetectionConfig {
   mockDetectionRate: number;
   minConsecutiveFailures: number;
   detectionDelay: number;
+  alwaysDetectAfterFailures?: number;
 }

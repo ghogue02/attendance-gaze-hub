@@ -42,6 +42,7 @@ const Dashboard = () => {
     setIsLoading(true);
     try {
       const data = await getAllStudents();
+      console.log('Loaded students:', data); // Add logging to debug
       setStudents(data);
       setFilteredStudents(data);
     } catch (error) {

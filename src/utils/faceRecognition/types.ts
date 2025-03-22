@@ -32,3 +32,10 @@ export interface FaceDetectionResult {
   message: string;
   faceVertices?: any;
 }
+
+// Fallback mock face detection parameters
+export interface FallbackDetectionConfig {
+  mockDetectionRate: number;
+  minConsecutiveFailures: number;
+  detectionDelay: number;
+}

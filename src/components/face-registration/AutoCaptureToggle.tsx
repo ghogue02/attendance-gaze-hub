@@ -3,7 +3,7 @@ import { AutoCaptureProps } from './types';
 
 export const AutoCaptureToggle = ({ isActive, onToggle }: AutoCaptureProps) => {
   return (
-    <div className="flex items-center justify-between bg-background/80 p-3 rounded-lg shadow-sm border border-muted">
+    <div className="flex items-center justify-between bg-background/80 p-3 rounded-lg shadow-sm border border-muted mb-4">
       <span className="text-sm font-medium">Auto-capture: </span>
       <div className="relative inline-flex items-center cursor-pointer">
         <input 

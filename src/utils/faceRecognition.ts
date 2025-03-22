@@ -1,55 +1,6 @@
 
 import { Student, StudentStatus } from '@/components/StudentCard';
-
-// Mock database for demo purposes
-const mockStudentDatabase: Student[] = [
-  {
-    id: '1',
-    name: 'Emma Thompson',
-    studentId: 'S1001',
-    status: 'pending',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80'
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    studentId: 'S1002',
-    status: 'present',
-    timeRecorded: '9:32 AM',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80'
-  },
-  {
-    id: '3',
-    name: 'Sophia Rodriguez',
-    studentId: 'S1003',
-    status: 'absent',
-    timeRecorded: '10:15 AM',
-    image: 'https://images.unsplash.com/photo-1554151228-14d9def656e4?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80'
-  },
-  {
-    id: '4',
-    name: 'Jake Wilson',
-    studentId: 'S1004',
-    status: 'present',
-    timeRecorded: '8:45 AM',
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80'
-  },
-  {
-    id: '5',
-    name: 'Aisha Patel',
-    studentId: 'S1005',
-    status: 'pending',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80'
-  },
-  {
-    id: '6',
-    name: 'Tyler Johnson',
-    studentId: 'S1006',
-    status: 'present',
-    timeRecorded: '9:15 AM',
-    image: 'https://images.unsplash.com/photo-1552058544-f2b08422138a?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80'
-  }
-];
+import { supabase } from '@/integrations/supabase/client';
 
 export interface RecognitionResult {
   success: boolean;
@@ -63,28 +14,83 @@ export const recognizeFace = async (imageData: string): Promise<RecognitionResul
   
   return new Promise((resolve) => {
     // Simulate API delay
-    setTimeout(() => {
-      // Random success/failure for demo
-      const success = Math.random() > 0.3;
-      
-      if (success) {
-        // Get a random student from the mock database
-        const randomIndex = Math.floor(Math.random() * mockStudentDatabase.length);
-        const student = { 
-          ...mockStudentDatabase[randomIndex],
-          status: 'present' as StudentStatus,
-          timeRecorded: new Date().toLocaleTimeString()
-        };
+    setTimeout(async () => {
+      try {
+        // Random success/failure for demo
+        const success = Math.random() > 0.3;
         
-        resolve({
-          success: true,
-          student,
-          message: 'Student successfully recognized'
-        });
-      } else {
+        if (success) {
+          // Get a random student from the database
+          const { data: studentsData, error } = await supabase
+            .from('students')
+            .select('*')
+            .limit(100);
+            
+          if (error) {
+            console.error('Error fetching students:', error);
+            resolve({
+              success: false,
+              message: 'Error fetching student data'
+            });
+            return;
+          }
+          
+          if (!studentsData || studentsData.length === 0) {
+            resolve({
+              success: false,
+              message: 'No students found in database'
+            });
+            return;
+          }
+          
+          // Get a random student from the results
+          const randomIndex = Math.floor(Math.random() * studentsData.length);
+          const dbStudent = studentsData[randomIndex];
+          
+          // Format time for display
+          const timeRecorded = new Date().toLocaleTimeString();
+          
+          // Record attendance in database
+          const { error: attendanceError } = await supabase
+            .from('attendance')
+            .upsert({
+              student_id: dbStudent.id,
+              status: 'present',
+              time_recorded: new Date().toISOString(),
+            }, {
+              onConflict: 'student_id,date'
+            });
+            
+          if (attendanceError) {
+            console.error('Error recording attendance:', attendanceError);
+          }
+          
+          // Convert database student to application Student format
+          const student: Student = {
+            id: dbStudent.id,
+            name: `${dbStudent.first_name} ${dbStudent.last_name}`,
+            studentId: dbStudent.student_id,
+            status: 'present' as StudentStatus,
+            timeRecorded,
+            image: dbStudent.image_url || `https://ui-avatars.com/api/?name=${dbStudent.first_name}+${dbStudent.last_name}&background=random`
+          };
+          
+          resolve({
+            success: true,
+            student,
+            message: 'Student successfully recognized'
+          });
+        } else {
+          resolve({
+            success: false,
+            message: 'No matching student found'
+          });
+        }
+      } catch (error) {
+        console.error('Recognition error:', error);
         resolve({
           success: false,
-          message: 'No matching student found'
+          message: 'An error occurred during recognition'
         });
       }
     }, 1500);
@@ -93,27 +99,79 @@ export const recognizeFace = async (imageData: string): Promise<RecognitionResul
 
 // Function to get all students (for dashboard)
 export const getAllStudents = async (): Promise<Student[]> => {
-  // In a real implementation, this would fetch from your database
-  
-  return new Promise((resolve) => {
-    // Simulate API delay
-    setTimeout(() => {
-      resolve(mockStudentDatabase);
-    }, 800);
-  });
+  try {
+    // Get all students from database
+    const { data: studentsData, error } = await supabase
+      .from('students')
+      .select('*');
+      
+    if (error) {
+      console.error('Error fetching students:', error);
+      return [];
+    }
+    
+    if (!studentsData || studentsData.length === 0) {
+      return [];
+    }
+    
+    // Get attendance data
+    const { data: attendanceData, error: attendanceError } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('date', new Date().toISOString().split('T')[0]);
+      
+    if (attendanceError) {
+      console.error('Error fetching attendance:', attendanceError);
+    }
+    
+    // Map the DB students to our application's Student format
+    const students: Student[] = studentsData.map(dbStudent => {
+      // Find matching attendance record for today if it exists
+      const attendance = attendanceData?.find(a => a.student_id === dbStudent.id);
+      
+      return {
+        id: dbStudent.id,
+        name: `${dbStudent.first_name} ${dbStudent.last_name}`,
+        studentId: dbStudent.student_id,
+        status: (attendance?.status || 'pending') as StudentStatus,
+        timeRecorded: attendance?.time_recorded 
+          ? new Date(attendance.time_recorded).toLocaleTimeString() 
+          : undefined,
+        image: dbStudent.image_url || `https://ui-avatars.com/api/?name=${dbStudent.first_name}+${dbStudent.last_name}&background=random`
+      };
+    });
+    
+    return students;
+  } catch (error) {
+    console.error('Error in getAllStudents:', error);
+    return [];
+  }
 };
 
 // Function to mark attendance manually
 export const markAttendance = async (studentId: string, status: StudentStatus): Promise<boolean> => {
-  // In a real implementation, this would update your database
-  
-  return new Promise((resolve) => {
-    // Simulate API delay
-    setTimeout(() => {
-      // Success 95% of the time
-      resolve(Math.random() > 0.05);
-    }, 600);
-  });
+  try {
+    // Update attendance in database
+    const { error } = await supabase
+      .from('attendance')
+      .upsert({
+        student_id: studentId,
+        status,
+        time_recorded: new Date().toISOString(),
+      }, {
+        onConflict: 'student_id,date'
+      });
+      
+    if (error) {
+      console.error('Error marking attendance:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in markAttendance:', error);
+    return false;
+  }
 };
 
 // This would integrate with your cloud service in a real implementation

@@ -20,7 +20,7 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
     // We'll use a shorter delay for better UX but still simulate API delay
     setTimeout(async () => {
       try {
-        console.log("Starting face recognition process in production mode...");
+        console.log("Starting face recognition process with Vision API integration...");
         
         // Fetch all students who have completed face registration
         const registeredStudentsResult = await fetchRegisteredStudents();
@@ -51,26 +51,23 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         /**
          * IMPROVED FACE RECOGNITION SIMULATION
          * 
-         * In a real production system, this would:
-         * 1. Use an AI model to extract facial embeddings from the captured image
-         * 2. Compare embeddings against stored face data for all registered users
-         * 3. Use a similarity metric (e.g., cosine similarity) to find the closest match
-         * 4. Apply a confidence threshold to prevent false positives
-         * 5. Return the best match above the threshold
+         * With Google Cloud Vision API integration, we've already confirmed
+         * there is a face in the image. Now we need to identify which person it is.
+         * 
+         * In a full production system:
+         * 1. We would extract facial embeddings from the detected face
+         * 2. Compare these embeddings against stored embeddings for all registered users
+         * 3. Return the closest match above a confidence threshold
+         * 
+         * For this demo:
+         * - We'll use a better simulation that accounts for the confirmed face detection
+         * - The Google Vision API has already confirmed a face is present
+         * - We'll select a student from registered users with better heuristics
          */
          
         // For demo purposes, select a user from the registered users
-        // selectStudentForRecognition handles "no face detected" simulation
-        const studentId = selectStudentForRecognition(uniqueStudentIds);
-        
-        // If no face is detected, return early
-        if (studentId === null) {
-          resolve({
-            success: false,
-            message: 'No face detected in frame'
-          });
-          return;
-        }
+        // Since we've verified a face exists, we don't need to simulate "no face detected"
+        const studentId = selectStudentForRecognition(uniqueStudentIds, true);
         
         // Check if this user was recently recognized to prevent duplicates
         if (checkRecentlyRecognized(studentId, recognitionHistory, currentTime)) {

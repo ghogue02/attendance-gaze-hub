@@ -56,10 +56,10 @@ export const manageRecognitionHistory = () => {
     try {
       recognitionHistory = JSON.parse(recognitionHistoryStr);
       
-      // Clean up old entries (older than 2 minutes)
-      const twoMinutesAgo = currentTime - 120000;
+      // Clean up old entries (older than 1 minute)
+      const oneMinuteAgo = currentTime - 60000;
       for (const id in recognitionHistory) {
-        if (recognitionHistory[id] < twoMinutesAgo) {
+        if (recognitionHistory[id] < oneMinuteAgo) {
           delete recognitionHistory[id];
         }
       }
@@ -80,8 +80,8 @@ export const checkRecentlyRecognized = (studentId: string, recognitionHistory: {
     const lastRecognitionTime = recognitionHistory[studentId];
     const timeSinceLastRecognition = currentTime - lastRecognitionTime;
     
-    // In passive mode, require longer intervals between recognitions of the same person
-    if (timeSinceLastRecognition < 30000) { // 30 seconds instead of 10
+    // Reduce cooldown for faster recognition in line scenarios (10 seconds)
+    if (timeSinceLastRecognition < 10000) {
       console.log(`User ${studentId} was recently recognized ${timeSinceLastRecognition}ms ago. Skipping.`);
       return true;
     }
@@ -150,8 +150,8 @@ export const selectStudentForRecognition = (uniqueStudentIds: string[]) => {
   // In a real system, this would be based on actual face detection algorithms
   const rand = Math.random();
   
-  // Add ~35% chance of no face detected to simulate more realistic behavior in passive mode
-  if (rand < 0.35) {
+  // Reduce the chance of "no face detected" to 15% for faster recognition in line scenarios
+  if (rand < 0.15) {
     console.log("No face detected in frame");
     return null;
   }
@@ -161,4 +161,3 @@ export const selectStudentForRecognition = (uniqueStudentIds: string[]) => {
   const userIndex = (now.getSeconds() * 1000 + now.getMilliseconds()) % uniqueStudentIds.length;
   return uniqueStudentIds[userIndex];
 };
-

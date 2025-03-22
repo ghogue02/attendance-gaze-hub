@@ -130,7 +130,6 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           message: 'An error occurred during recognition'
         });
       }
-    }, passive ? 200 : 500); // Even faster recognition for production scenarios
+    }, passive ? 100 : 500); // Even faster recognition in passive mode (100ms)
   });
 };
-

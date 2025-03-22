@@ -29,7 +29,7 @@ export const CameraView = ({
           onBuilderDetected={onBuilderDetected}
           isCameraActive={isCameraActive}
           passive={passiveMode}
-          passiveInterval={3000}
+          passiveInterval={1000} // Reduced to 1 second for faster scanning
         />
       ) : detectedBuilder ? (
         <div className="flex flex-col items-center justify-center h-full py-10">

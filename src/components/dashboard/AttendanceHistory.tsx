@@ -50,7 +50,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
         
         const startDateStr = startDate.toISOString().split('T')[0];
         
-        console.log(`Fetching attendance from ${startDateStr} to ${today.toISOString().split('T')[0]}`);
+        console.log(`Fetching ALL attendance records from ${startDateStr} to ${today.toISOString().split('T')[0]}`);
         
         // Build a map of student IDs to names
         const builderMap = new Map(
@@ -60,7 +60,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           }])
         );
         
-        // Fetch attendance data without filtering by student_id
+        // Fetch ALL attendance data without any student_id filter
         const { data, error } = await supabase
           .from('attendance')
           .select('*')
@@ -73,9 +73,10 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           return;
         }
         
-        console.log('Attendance history data:', data?.length || 0, 'records');
+        console.log('Raw attendance history data:', data?.length || 0, 'records', data);
         
         if (!data || data.length === 0) {
+          console.log('No attendance data found');
           setAttendanceHistory([]);
           setIsLoading(false);
           return;
@@ -84,6 +85,16 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
         // Map database records to our format
         const history: AttendanceRecord[] = data.map(record => {
           const builder = builderMap.get(record.student_id);
+          
+          // Debug the record
+          console.log('Processing record:', { 
+            id: record.id,
+            student_id: record.student_id,
+            status: record.status,
+            date: record.date,
+            builder: builder ? `${builder.name} (${builder.builderId})` : 'Unknown'
+          });
+          
           return {
             id: record.id,
             name: builder?.name || 'Unknown',
@@ -99,7 +110,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           };
         });
         
-        console.log('Processed attendance history:', history.length);
+        console.log('Processed attendance history:', history.length, history);
         setAttendanceHistory(history);
       } catch (error) {
         console.error('Error in fetchAttendanceHistory:', error);

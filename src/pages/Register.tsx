@@ -8,6 +8,7 @@ import FaceRegistration from '@/components/FaceRegistration';
 import BuilderCard, { Builder } from '@/components/BuilderCard';
 import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
 
 interface RegisterProps {
   faceRegistration?: boolean;

@@ -5,19 +5,19 @@ import { Camera, ChevronDown, Users, CheckCircle, UserCircle2 } from 'lucide-rea
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import AttendanceCamera from '@/components/AttendanceCamera';
-import StudentCard, { Student } from '@/components/StudentCard';
+import BuilderCard, { Builder } from '@/components/BuilderCard';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [detectedStudent, setDetectedStudent] = useState<Student | null>(null);
+  const [detectedBuilder, setDetectedBuilder] = useState<Builder | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const [passiveMode, setPassiveMode] = useState(false);
 
-  const handleStudentDetected = (student: Student) => {
-    setDetectedStudent(student);
+  const handleBuilderDetected = (builder: Builder) => {
+    setDetectedBuilder(builder);
     
     // Don't automatically close camera in passive mode
     if (!passiveMode) {
@@ -29,12 +29,12 @@ const Index = () => {
 
   const startAttendance = () => {
     setShowIntro(false);
-    setDetectedStudent(null);
+    setDetectedBuilder(null);
     setIsCameraActive(true);
   };
 
   const reset = () => {
-    setDetectedStudent(null);
+    setDetectedBuilder(null);
     setIsCameraActive(false);
     setShowIntro(true);
     setPassiveMode(false);
@@ -42,7 +42,7 @@ const Index = () => {
 
   // Simulated stats for the UI
   const stats = [
-    { label: 'Enrolled Students', value: '248', icon: <Users size={20} /> },
+    { label: 'Enrolled Builders', value: '248', icon: <Users size={20} /> },
     { label: 'Attendance Today', value: '86%', icon: <CheckCircle size={20} /> },
   ];
 
@@ -62,7 +62,7 @@ const Index = () => {
             FaceID Attendance System
           </h1>
           <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
-            The simplest way to track student attendance using advanced facial recognition technology.
+            The simplest way to track builder attendance using advanced facial recognition technology.
             Fast, accurate, and secure.
           </p>
         </motion.div>
@@ -100,7 +100,7 @@ const Index = () => {
                       </div>
                       <div>
                         <span className="font-medium">Register your face</span>
-                        <p className="text-muted-foreground mt-1">Students need to register their face before using the system.</p>
+                        <p className="text-muted-foreground mt-1">Builders need to register their face before using the system.</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
@@ -142,7 +142,7 @@ const Index = () => {
                   
                   <p className="text-sm text-muted-foreground text-center">
                     {passiveMode 
-                      ? "Passive mode will automatically recognize students without clicks" 
+                      ? "Passive mode will automatically recognize builders without clicks" 
                       : "Enable passive mode for automatic face recognition"}
                   </p>
                   
@@ -168,7 +168,7 @@ const Index = () => {
                   </div>
                 </div>
               </>
-            ) : detectedStudent ? (
+            ) : detectedBuilder ? (
               <div className="flex flex-col space-y-6">
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
                   <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" />
@@ -178,12 +178,12 @@ const Index = () => {
                   </p>
                 </div>
                 
-                <StudentCard student={detectedStudent} />
+                <BuilderCard builder={detectedBuilder} />
                 
                 {passiveMode ? (
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-4">
-                      Passive mode is active. The system will continue to scan for additional students.
+                      Passive mode is active. The system will continue to scan for additional builders.
                     </p>
                     <Button 
                       onClick={reset}
@@ -240,34 +240,34 @@ const Index = () => {
           >
             {isCameraActive ? (
               <AttendanceCamera 
-                onStudentDetected={handleStudentDetected}
+                onBuilderDetected={handleBuilderDetected}
                 isCameraActive={isCameraActive}
                 passive={passiveMode}
                 passiveInterval={3000}
               />
-            ) : detectedStudent ? (
+            ) : detectedBuilder ? (
               <div className="flex flex-col items-center justify-center h-full py-10">
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg mb-4"
                 >
-                  {detectedStudent.image ? (
+                  {detectedBuilder.image ? (
                     <img 
-                      src={detectedStudent.image} 
-                      alt={detectedStudent.name} 
+                      src={detectedBuilder.image} 
+                      alt={detectedBuilder.name} 
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full bg-primary/20 flex items-center justify-center text-4xl font-bold text-primary">
-                      {detectedStudent.name.substring(0, 2).toUpperCase()}
+                      {detectedBuilder.name.substring(0, 2).toUpperCase()}
                     </div>
                   )}
                 </motion.div>
-                <h3 className="text-2xl font-bold">{detectedStudent.name}</h3>
-                <p className="text-muted-foreground">ID: {detectedStudent.studentId}</p>
+                <h3 className="text-2xl font-bold">{detectedBuilder.name}</h3>
+                <p className="text-muted-foreground">ID: {detectedBuilder.builderId}</p>
                 <div className="mt-4 px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                  Attendance recorded at {detectedStudent.timeRecorded}
+                  Attendance recorded at {detectedBuilder.timeRecorded}
                 </div>
               </div>
             ) : (

@@ -29,6 +29,8 @@ export const detectFaces = async (
     console.log(`Detecting faces (attempt #${debugAttempt}), passive: ${isPassive}, time: ${timestamp}`);
     
     // Call the Supabase Edge Function
+    console.log('Calling Supabase function with image data length:', imageData.length);
+    
     const { data, error } = await supabase.functions.invoke('detect-faces', {
       body: { 
         imageData, 
@@ -42,7 +44,7 @@ export const detectFaces = async (
       console.error('Error calling face detection function:', error);
       return { 
         success: false, 
-        message: 'Error calling face detection service',
+        message: `Error calling face detection service: ${error.message}`,
         hasFaces: false 
       };
     }
@@ -78,7 +80,7 @@ export const detectFaces = async (
     console.error('Face detection error:', error);
     return { 
       success: false, 
-      message: 'Face detection service error',
+      message: `Face detection service error: ${error.message || 'Unknown error'}`,
       hasFaces: false 
     };
   }

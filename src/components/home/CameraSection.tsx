@@ -1,22 +1,27 @@
 
 import { motion } from 'framer-motion';
-import { Camera, AlertCircle } from 'lucide-react';
+import { Camera, AlertCircle, Bug } from 'lucide-react';
 import { Builder } from '@/components/BuilderCard';
 import AttendanceCamera from '@/components/AttendanceCamera';
 import BuilderResult from './BuilderResult';
+import { Button } from '@/components/ui/button';
 
 interface CameraSectionProps {
   isCameraActive: boolean;
   detectedBuilder: Builder | null;
   passiveMode: boolean;
+  debugMode?: boolean;
   onBuilderDetected: (builder: Builder) => void;
+  toggleDebugMode?: () => void;
 }
 
 const CameraSection = ({
   isCameraActive,
   detectedBuilder,
   passiveMode,
-  onBuilderDetected
+  debugMode = true,
+  onBuilderDetected,
+  toggleDebugMode
 }: CameraSectionProps) => {
   return (
     <motion.div
@@ -26,13 +31,29 @@ const CameraSection = ({
       className="glass-card p-4 md:p-6"
     >
       {isCameraActive ? (
-        <AttendanceCamera 
-          onBuilderDetected={onBuilderDetected}
-          isCameraActive={isCameraActive}
-          passive={passiveMode}
-          passiveInterval={300} // More aggressive scanning (every 300ms)
-          debugMode={true} // Enable debug mode for more visual feedback
-        />
+        <>
+          <AttendanceCamera 
+            onBuilderDetected={onBuilderDetected}
+            isCameraActive={isCameraActive}
+            passive={passiveMode}
+            passiveInterval={300} // More aggressive scanning (every 300ms)
+            debugMode={debugMode} // Enable debug mode for more visual feedback
+          />
+          
+          {toggleDebugMode && (
+            <div className="mt-4 flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleDebugMode}
+                className="flex items-center gap-2 text-xs"
+              >
+                <Bug size={14} />
+                {debugMode ? 'Hide Debug' : 'Show Debug'}
+              </Button>
+            </div>
+          )}
+        </>
       ) : detectedBuilder ? (
         <BuilderResult detectedBuilder={detectedBuilder} />
       ) : (

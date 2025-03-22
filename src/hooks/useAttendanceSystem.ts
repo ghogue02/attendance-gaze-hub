@@ -7,6 +7,7 @@ export const useAttendanceSystem = () => {
   const [detectedBuilder, setDetectedBuilder] = useState<Builder | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const [passiveMode, setPassiveMode] = useState(false);
+  const [debugMode, setDebugMode] = useState(true); // Enable debug mode by default
 
   // Automatically start camera when passive mode is enabled
   useEffect(() => {
@@ -49,12 +50,19 @@ export const useAttendanceSystem = () => {
     }
   };
 
+  // Toggle debug mode
+  const toggleDebugMode = () => {
+    setDebugMode(prev => !prev);
+  };
+
   return {
     isCameraActive,
     detectedBuilder,
     showIntro,
     passiveMode,
+    debugMode,
     setPassiveMode: togglePassiveMode,
+    toggleDebugMode,
     handleBuilderDetected,
     startAttendance,
     reset

@@ -40,6 +40,7 @@ serve(async (req) => {
     }
     
     console.log(`Processing face detection request at ${timestamp || 'unknown time'}, passive mode: ${isPassive ? 'yes' : 'no'}, attempt #${debugAttempt}`);
+    console.log(`Image data length: ${imageData.length}`);
 
     // Remove data:image/jpeg;base64, prefix if present
     const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '')
@@ -49,7 +50,7 @@ serve(async (req) => {
     if (!googleCredentials) {
       console.error('Missing Google Cloud credentials')
       return new Response(JSON.stringify({ 
-        error: 'Server configuration error',
+        error: 'Server configuration error: Missing Google Cloud credentials',
         success: false,
         hasFaces: false,
         debugAttempt
@@ -65,6 +66,7 @@ serve(async (req) => {
     const visionApiEndpoint = 'https://vision.googleapis.com/v1/images:annotate'
     
     // First, get an access token
+    console.log("Requesting OAuth token...");
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -81,7 +83,7 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       console.error('Failed to get access token:', tokenData)
       return new Response(JSON.stringify({ 
-        error: 'Authentication failed', 
+        error: 'Authentication failed with Google API', 
         details: tokenData,
         success: false,
         hasFaces: false,
@@ -136,7 +138,7 @@ serve(async (req) => {
     if (!apiResponse.ok) {
       console.error('Vision API error:', apiData);
       return new Response(JSON.stringify({ 
-        error: 'Vision API error', 
+        error: 'Vision API error: ' + (apiData.error?.message || 'Unknown error'), 
         details: apiData,
         success: false,
         hasFaces: false,

@@ -14,7 +14,14 @@ export const registerFaceImage = async (
     
     // Check if the image contains a face - pass attempt #3 to indicate this is a registration attempt
     // This will make the detection more lenient
+    console.log("Calling detectFaces function for face detection...");
     const faceDetection = await detectFaces(imageData, false, 3);
+    console.log("Face detection result:", {
+      success: faceDetection.success,
+      hasFaces: faceDetection.hasFaces,
+      confidence: faceDetection.confidence,
+      message: faceDetection.message
+    });
     
     // If face detection service is unavailable or no face detected, be more tolerant
     // For registration purposes, we'll proceed even if no face is detected

@@ -9,7 +9,9 @@ const Index = () => {
     detectedBuilder,
     showIntro,
     passiveMode,
+    debugMode,
     setPassiveMode,
+    toggleDebugMode,
     handleBuilderDetected,
     startAttendance,
     reset
@@ -21,7 +23,9 @@ const Index = () => {
         isCameraActive={isCameraActive}
         detectedBuilder={detectedBuilder}
         passiveMode={passiveMode}
+        debugMode={debugMode}
         setPassiveMode={setPassiveMode}
+        toggleDebugMode={toggleDebugMode}
         handleBuilderDetected={handleBuilderDetected}
         startAttendance={startAttendance}
         reset={reset}

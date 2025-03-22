@@ -1,14 +1,20 @@
 
-import { Builder } from '@/components/BuilderCard';
-import { RecognitionResult } from '@/components/home/RecognitionResult';
+import React from 'react';
+import AttendanceSection from './AttendanceSection';
 import AttendanceOptions from './AttendanceOptions';
 import CameraSection from './CameraSection';
+import StatsSection from './StatsSection';
+import HowItWorksSection from './HowItWorksSection';
+import { Builder } from '@/components/BuilderCard';
+import { Button } from '@/components/ui/button';
 
 interface IndexContentProps {
   isCameraActive: boolean;
   detectedBuilder: Builder | null;
   passiveMode: boolean;
-  setPassiveMode: (value: boolean) => void;
+  debugMode?: boolean;
+  setPassiveMode: (passive: boolean) => void;
+  toggleDebugMode?: () => void;
   handleBuilderDetected: (builder: Builder) => void;
   startAttendance: () => void;
   reset: () => void;
@@ -18,35 +24,42 @@ const IndexContent = ({
   isCameraActive,
   detectedBuilder,
   passiveMode,
+  debugMode = true,
   setPassiveMode,
+  toggleDebugMode,
   handleBuilderDetected,
   startAttendance,
   reset
 }: IndexContentProps) => {
   return (
-    <div className="grid md:grid-cols-2 gap-8 items-center mt-8">
-      <div className="flex flex-col space-y-6">
-        {detectedBuilder ? (
-          <RecognitionResult
-            detectedBuilder={detectedBuilder}
-            passiveMode={passiveMode}
-            reset={reset}
-          />
-        ) : (
-          <AttendanceOptions
-            passiveMode={passiveMode}
-            setPassiveMode={setPassiveMode}
-            startAttendance={startAttendance}
-          />
-        )}
+    <div className="space-y-6 py-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <AttendanceSection 
+          isCameraActive={isCameraActive}
+          detectedBuilder={detectedBuilder}
+          startAttendance={startAttendance}
+          reset={reset}
+        />
+        
+        <CameraSection 
+          isCameraActive={isCameraActive}
+          detectedBuilder={detectedBuilder}
+          passiveMode={passiveMode}
+          debugMode={debugMode}
+          onBuilderDetected={handleBuilderDetected}
+          toggleDebugMode={toggleDebugMode}
+        />
       </div>
       
-      <CameraSection
-        isCameraActive={isCameraActive}
-        detectedBuilder={detectedBuilder}
+      <AttendanceOptions 
         passiveMode={passiveMode}
-        onBuilderDetected={handleBuilderDetected}
+        setPassiveMode={setPassiveMode}
       />
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <StatsSection />
+        <HowItWorksSection />
+      </div>
     </div>
   );
 };

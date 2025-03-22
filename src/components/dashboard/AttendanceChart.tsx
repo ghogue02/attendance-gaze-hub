@@ -13,7 +13,7 @@ import {
 import { Builder } from '@/components/BuilderCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 interface AttendanceChartProps {
@@ -72,10 +72,15 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         for (let i = 0; i < days; i++) {
           const date = new Date(startDate);
           date.setDate(date.getDate() + i);
+          
+          // Format date as ISO string and extract date part
           const dateStr = date.toISOString().split('T')[0];
           
           // Format date as "DD Day" for x-axis
-          const dayStr = format(date, 'dd EEE');
+          // We'll use a format that doesn't rely on timezone
+          const dayNum = date.getDate().toString().padStart(2, '0');
+          const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+          const dayStr = `${dayNum} ${dayOfWeek}`;
           
           dateMap[dateStr] = {
             name: dayStr,
@@ -90,10 +95,8 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         // Fill in the actual attendance data
         if (attendanceData && attendanceData.length > 0) {
           attendanceData.forEach(record => {
-            // Make sure we handle all date formats
-            const dateStr = typeof record.date === 'string' 
-              ? record.date.split('T')[0] 
-              : new Date(record.date).toISOString().split('T')[0];
+            // Use the date directly from the record
+            const dateStr = record.date;
             
             if (dateMap[dateStr]) {
               let status = 'Absent'; // Default status

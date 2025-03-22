@@ -19,7 +19,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       return [];
     }
     
-    // Get attendance data for today
+    // Get attendance data for today - use simple date without timezone adjustments
     const today = new Date().toISOString().split('T')[0];
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
@@ -84,6 +84,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
 // Function to mark attendance manually
 export const markAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string): Promise<boolean> => {
   try {
+    // Use simple date without timezone adjustments
     const today = new Date().toISOString().split('T')[0];
     
     console.log('Marking attendance for builder:', builderId, 'with status:', status);

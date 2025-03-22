@@ -104,14 +104,15 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
             status = 'excused';
           }
           
+          // Parse the date directly from the record without any timezone modifications
+          const dateStr = record.date;
+          
           return {
             id: record.id,
             name: builder?.name || `Unknown (ID: ${record.student_id.substring(0, 8)}...)`,
             builderId: builder?.builderId || '',
             status,
-            date: typeof record.date === 'string' 
-              ? record.date 
-              : new Date(record.date).toISOString().split('T')[0],
+            date: dateStr,
             timeRecorded: record.time_recorded 
               ? new Date(record.time_recorded).toLocaleTimeString() 
               : undefined,
@@ -137,10 +138,19 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
       // Ensure we have a valid date string
       if (!dateStr) return '';
       
-      // Create a new date from the string
-      const date = new Date(dateStr);
+      // Split the date if it contains a 'T' (ISO format)
+      const datePart = dateStr.split('T')[0];
       
-      // Format the date (MMM d, yyyy)
+      // Create a date object directly from the date string
+      // This avoids timezone issues by explicitly parsing in UTC
+      const year = parseInt(datePart.substring(0, 4));
+      const month = parseInt(datePart.substring(5, 7)) - 1; // JS months are 0-based
+      const day = parseInt(datePart.substring(8, 10));
+      
+      // Create date with correct parts
+      const date = new Date(year, month, day);
+      
+      // Format the date as "MMM d, yyyy" (e.g., "Mar 22, 2025")
       return format(date, 'MMM d, yyyy');
     } catch (e) {
       console.error('Error formatting date:', e, dateStr);

@@ -1,356 +1,318 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { FaceDetectionResult, FallbackDetectionConfig } from './types';
+import { Builder, BuilderStatus } from '@/components/BuilderCard';
 
-/**
- * Fetch registered students from the database
- */
-export const fetchRegisteredStudents = async () => {
-  const { data: registeredStudents, error: regError } = await supabase
-    .from('face_registrations')
-    .select('student_id, face_data')
-    .order('created_at', { ascending: false });
-    
-  if (regError) {
-    console.error('Error fetching registered students:', regError);
-    return { success: false, message: 'Error checking face registrations', data: null };
-  }
-  
-  if (!registeredStudents || registeredStudents.length === 0) {
-    console.log('No registered faces found in the system');
-    return { success: false, message: 'No registered faces found in the system', data: null };
-  }
-
-  return { success: true, data: registeredStudents };
+// Cache for fetched data
+const dataCache = {
+  registeredStudents: null,
+  recognitionHistory: new Map(),
+  lastCleanup: Date.now()
 };
 
-/**
- * Group face registrations by student ID
- */
-export const groupRegistrationsByStudent = (registeredStudents: any[]) => {
-  const studentRegistrations: {[key: string]: string[]} = {};
+interface DetectFacesResult {
+  success: boolean;
+  message?: string;
+  hasFaces: boolean;
+  faceCount?: number;
+  confidence?: number;
+  faceVertices?: any;
+}
+
+// Function to detect faces in an image using Google Cloud Vision API
+export const detectFaces = async (
+  imageData: string, 
+  isPassive: boolean = false,
+  debugAttempt: number = 0
+): Promise<DetectFacesResult> => {
+  try {
+    const timestamp = new Date().toISOString();
+    console.log(`Detecting faces (attempt #${debugAttempt}), passive: ${isPassive}, time: ${timestamp}`);
+    
+    // Call the Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('detect-faces', {
+      body: { 
+        imageData, 
+        isPassive,
+        timestamp,
+        debugAttempt // Pass the attempt number for debugging
+      }
+    });
+    
+    if (error) {
+      console.error('Error calling face detection function:', error);
+      return { 
+        success: false, 
+        message: 'Error calling face detection service',
+        hasFaces: false 
+      };
+    }
+    
+    console.log(`Face detection result:`, { 
+      success: data.success,
+      hasFaces: data.hasFaces,
+      faceCount: data.faceCount,
+      confidence: data.confidence,
+      attempt: data.debugAttempt,
+      message: data.message
+    });
+    
+    if (!data.success) {
+      console.error('Face detection was not successful:', data.error || 'Unknown error');
+      return {
+        success: false,
+        message: data.error || 'Face detection failed',
+        hasFaces: false
+      };
+    }
+    
+    // Return the processed results
+    return { 
+      success: true,
+      hasFaces: data.hasFaces,
+      faceCount: data.faceCount,
+      confidence: data.confidence,
+      faceVertices: data.faceVertices,
+      message: data.message
+    };
+  } catch (error) {
+    console.error('Face detection error:', error);
+    return { 
+      success: false, 
+      message: 'Face detection service error',
+      hasFaces: false 
+    };
+  }
+};
+
+interface RegisteredStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  student_id: string;
+  image_url: string;
+  last_face_update: string;
+}
+
+interface FetchRegisteredStudentsResult {
+  success: boolean;
+  message?: string;
+  data?: RegisteredStudent[];
+}
+
+// Function to fetch all students who have completed face registration
+export const fetchRegisteredStudents = async (): Promise<FetchRegisteredStudentsResult> => {
+  try {
+    // Check if data is cached and less than 5 minutes old
+    if (dataCache.registeredStudents && Date.now() - dataCache.lastCleanup < 300000) {
+      console.log('Using cached registered students data');
+      return {
+        success: true,
+        data: dataCache.registeredStudents
+      };
+    }
+    
+    console.log('Fetching registered students from database');
+    
+    const { data, error } = await supabase
+      .from('students')
+      .select('*')
+      .not('image_url', 'is', null); // Only fetch students with a profile image
+      
+    if (error) {
+      console.error('Error fetching students:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch registered students'
+      };
+    }
+    
+    // Cache the fetched data
+    dataCache.registeredStudents = data;
+    dataCache.lastCleanup = Date.now();
+    
+    return {
+      success: true,
+      data: data
+    };
+  } catch (error) {
+    console.error('Error fetching registered students:', error);
+    return {
+      success: false,
+      message: 'An error occurred while fetching registered students'
+    };
+  }
+};
+
+interface FaceRegistration {
+  id: string;
+  student_id: string;
+  face_data: string;
+  angle_index: number;
+}
+
+// Function to group face registrations by student ID
+export const groupRegistrationsByStudent = (registrations: RegisteredStudent[]): { [studentId: string]: FaceRegistration[] } => {
+  const grouped: { [studentId: string]: FaceRegistration[] } = {};
   
-  registeredStudents.forEach(reg => {
-    if (!studentRegistrations[reg.student_id]) {
-      studentRegistrations[reg.student_id] = [];
+  registrations.forEach(student => {
+    if (!grouped[student.id]) {
+      grouped[student.id] = [];
     }
-    if (reg.face_data) {
-      studentRegistrations[reg.student_id].push(reg.face_data);
-    }
+    grouped[student.id].push({
+      id: student.id,
+      student_id: student.student_id,
+      face_data: student.image_url,
+      angle_index: 0 // This is a simplification
+    } as FaceRegistration);
   });
   
-  return studentRegistrations;
+  return grouped;
 };
 
-/**
- * Manage recognition history to prevent duplicate detections
- */
-export const manageRecognitionHistory = () => {
-  const now = new Date();
-  const currentTime = now.getTime();
+interface ManageRecognitionHistoryResult {
+  recognitionHistory: Map<string, number>;
+  currentTime: number;
+}
+
+// Function to manage recognition history and clean up old entries
+export const manageRecognitionHistory = (): ManageRecognitionHistoryResult => {
+  const currentTime = Date.now();
+  const recognitionHistory = dataCache.recognitionHistory;
   
-  // Get the recognition history from sessionStorage
-  const recognitionHistoryStr = window.sessionStorage.getItem('recognitionHistory');
-  let recognitionHistory: {[id: string]: number} = {};
-  
-  if (recognitionHistoryStr) {
-    try {
-      recognitionHistory = JSON.parse(recognitionHistoryStr);
-      
-      // Clean up old entries (older than 1 minute)
-      const oneMinuteAgo = currentTime - 60000;
-      for (const id in recognitionHistory) {
-        if (recognitionHistory[id] < oneMinuteAgo) {
-          delete recognitionHistory[id];
-        }
+  // Clean up history every 5 minutes
+  if (currentTime - dataCache.lastCleanup > 300000) {
+    console.log('Cleaning up recognition history');
+    const cutoff = currentTime - 60000; // 1 minute
+    
+    recognitionHistory.forEach((timestamp, studentId) => {
+      if (timestamp < cutoff) {
+        recognitionHistory.delete(studentId);
       }
-    } catch (e) {
-      console.error('Error parsing recognition history:', e);
-      recognitionHistory = {};
-    }
+    });
+    
+    dataCache.lastCleanup = currentTime;
   }
   
   return { recognitionHistory, currentTime };
 };
 
-/**
- * Check if student was recently recognized
- */
-export const checkRecentlyRecognized = (studentId: string, recognitionHistory: {[id: string]: number}, currentTime: number) => {
-  if (studentId && recognitionHistory[studentId]) {
-    const lastRecognitionTime = recognitionHistory[studentId];
-    const timeSinceLastRecognition = currentTime - lastRecognitionTime;
-    
-    // Reduce cooldown for faster recognition in line scenarios (10 seconds)
-    if (timeSinceLastRecognition < 10000) {
-      console.log(`User ${studentId} was recently recognized ${timeSinceLastRecognition}ms ago. Skipping.`);
-      return true;
-    }
+// Function to check if a student was recently recognized
+export const checkRecentlyRecognized = (studentId: string, recognitionHistory: Map<string, number>, currentTime: number): boolean => {
+  const lastRecognized = recognitionHistory.get(studentId);
+  const recentlyRecognized = lastRecognized && (currentTime - lastRecognized < 10000); // 10 seconds
+  
+  if (recentlyRecognized) {
+    console.log(`Student ${studentId} was recently recognized`);
   }
   
-  return false;
+  return recentlyRecognized;
 };
 
-/**
- * Get student details from database
- */
-export const fetchStudentDetails = async (studentId: string) => {
-  const { data: studentData, error: studentError } = await supabase
-    .from('students')
-    .select('*')
-    .eq('id', studentId)
-    .single();
-    
-  if (studentError || !studentData) {
-    console.error('Error fetching student data:', studentError);
-    return { success: false, message: 'Error retrieving student information', data: null };
-  }
-  
-  return { success: true, data: studentData };
-};
+interface FetchStudentDetailsResult {
+  success: boolean;
+  message?: string;
+  data?: RegisteredStudent;
+}
 
-/**
- * Record attendance in database
- */
-export const recordAttendance = async (studentId: string) => {
-  const { error: attendanceError } = await supabase
-    .from('attendance')
-    .upsert({
-      student_id: studentId,
-      status: 'present',
-      time_recorded: new Date().toISOString(),
-    }, {
-      onConflict: 'student_id,date'
-    });
-    
-  if (attendanceError) {
-    console.error('Error recording attendance:', attendanceError);
-    return { success: false, message: 'Error recording attendance' };
-  }
-  
-  console.log('Successfully recorded attendance');
-  return { success: true, message: 'Successfully recorded attendance' };
-};
-
-/**
- * Update recognition history in session storage
- */
-export const updateRecognitionHistory = (studentId: string, recognitionHistory: {[id: string]: number}, currentTime: number) => {
-  recognitionHistory[studentId] = currentTime;
-  window.sessionStorage.setItem('recognitionHistory', JSON.stringify(recognitionHistory));
-};
-
-/**
- * Select a student for recognition in a more realistic way
- * This function simulates face recognition in demo mode
- */
-export const selectStudentForRecognition = (uniqueStudentIds: string[], faceDetected = false) => {
-  if (!faceDetected) {
-    const noFaceDetectionRate = 0.85;
-    
-    const frameConsistency = Math.floor(Date.now() / 250);
-    const seedRandom = (seed: number) => {
-      const x = Math.sin(seed) * 10000;
-      return x - Math.floor(x);
-    };
-    
-    const rand = seedRandom(frameConsistency);
-    
-    if (window.sessionStorage.getItem('cameraStartTime') === null) {
-      window.sessionStorage.setItem('cameraStartTime', Date.now().toString());
-      console.log("Camera just started, higher chance of no face detected");
-      
-      if (rand < 0.95) {
-        console.log("No face detected in frame (camera startup)");
-        return null;
-      }
-    }
-    
-    const cameraStartTime = parseInt(window.sessionStorage.getItem('cameraStartTime') || '0');
-    const timeSinceStart = Date.now() - cameraStartTime;
-    
-    if (timeSinceStart < 2000 && rand < 0.95) {
-      console.log("No face detected in frame (camera warmup)");
-      return null;
-    }
-    
-    if (rand < noFaceDetectionRate) {
-      console.log("No face detected in frame");
-      return null;
-    }
-  }
-  
-  const studentSelectionSeed = Math.floor(Date.now() / 500);
-  const seedRandom = (seed: number) => {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  };
-  
-  const studentRand = seedRandom(studentSelectionSeed);
-  const userIndex = Math.floor(studentRand * uniqueStudentIds.length);
-  
-  return uniqueStudentIds[userIndex];
-};
-
-/**
- * Detect faces in an image
- * 
- * @param imageData Base64-encoded image data
- * @param debugMode Enable debug mode for logging
- * @param attemptCount Current number of face detection attempts (for fallback)
- */
-export const detectFaces = async (
-  imageData: string, 
-  debugMode: boolean = false,
-  attemptCount: number = 0
-): Promise<FaceDetectionResult> => {
+// Function to fetch student details from the database
+export const fetchStudentDetails = async (studentId: string): Promise<FetchStudentDetailsResult> => {
   try {
-    if (debugMode) {
-      console.log('Detecting faces in image...');
-    }
-
-    // Increase max retry attempts to improve reliability
-    const maxRetries = 2;
-    let retryCount = 0;
-    let lastError = null;
+    console.log(`Fetching student details for student ID ${studentId}`);
     
-    // Implement retry logic for more reliable detection
-    while (retryCount <= maxRetries) {
-      try {
-        const { data, error } = await supabase.functions.invoke('detect-faces', {
-          body: { 
-            imageData,
-            isPassive: retryCount > 0 ? false : true, // More detailed on retries
-            timestamp: new Date().toISOString()
-          }
-        });
-
-        if (error) {
-          lastError = error;
-          console.error(`Face detection error (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
-          retryCount++;
-          continue;
-        }
-
-        if (!data.success) {
-          lastError = data.error;
-          console.error(`Face detection service error (attempt ${retryCount + 1}/${maxRetries + 1}):`, data.error || 'Unknown error');
-          retryCount++;
-          continue;
-        }
-
-        if (debugMode) {
-          console.log('Face detection result:', data);
-        }
-
-        // If we found a face, or we've done at least one retry and still don't see a face,
-        // return the result
-        if (data.hasFaces || retryCount > 0) {
-          return {
-            success: true,
-            hasFaces: data.hasFaces,
-            faceCount: data.faceCount,
-            confidence: data.confidence,
-            message: data.message,
-            faceVertices: data.faceVertices
-          };
-        }
-        
-        // If we didn't find a face, retry with more aggressive parameters
-        retryCount++;
-      } catch (error) {
-        lastError = error;
-        console.error(`Face detection error (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
-        retryCount++;
-      }
+    const { data, error } = await supabase
+      .from('students')
+      .select('*')
+      .eq('id', studentId)
+      .single();
       
-      // Short delay between retries
-      if (retryCount <= maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-    }
-
-    // All retries failed, use fallback
-    console.error('All face detection attempts failed, using fallback');
-    const fallbackResult = performFallbackDetection(attemptCount, true);
-    
-    if (debugMode) {
-      console.log('Using fallback detection after retries:', fallbackResult);
+    if (error) {
+      console.error('Error fetching student details:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch student details'
+      };
     }
     
-    return fallbackResult;
+    return {
+      success: true,
+      data: data as RegisteredStudent
+    };
   } catch (error) {
-    console.error('Error during face detection:', error);
-    const fallbackResult = performFallbackDetection(attemptCount, true);
-      
-    if (debugMode) {
-      console.log('Using fallback detection due to exception:', fallbackResult);
-    }
-    
-    return fallbackResult;
+    console.error('Error fetching student details:', error);
+    return {
+      success: false,
+      message: 'An error occurred while fetching student details'
+    };
   }
 };
 
-const performFallbackDetection = (attempts: number = 0, forceDetection: boolean = false): FaceDetectionResult => {
-  // Improved fallback detection with better reliability
-  const config: FallbackDetectionConfig = {
-    mockDetectionRate: 0.85, // Increased from 0.7
-    minConsecutiveFailures: 2, // Reduced from 3
-    detectionDelay: 1000,
-    alwaysDetectAfterFailures: 3 // Reduced from 4
-  };
-  
-  // If force detection is enabled, assume we have a face
-  if (forceDetection) {
+// Function to record attendance in the database
+export const recordAttendance = async (studentId: string): Promise<void> => {
+  try {
+    console.log(`Recording attendance for student ID ${studentId}`);
+    
+    const { error } = await supabase
+      .from('attendance')
+      .insert({
+        student_id: studentId,
+        timestamp: new Date()
+      });
+      
+    if (error) {
+      console.error('Error recording attendance:', error);
+    }
+  } catch (error) {
+    console.error('Error recording attendance:', error);
+  }
+};
+
+// Function to update recognition history
+export const updateRecognitionHistory = (studentId: string, recognitionHistory: Map<string, number>, currentTime: number): void => {
+  console.log(`Updating recognition history for student ID ${studentId}`);
+  recognitionHistory.set(studentId, currentTime);
+};
+
+// Function to select a student for recognition (simulation)
+export const selectStudentForRecognition = (studentIds: string[], hasFaces: boolean): string => {
+  // If face detection is certain, pick a random student
+  const randomIndex = Math.floor(Math.random() * studentIds.length);
+  return studentIds[randomIndex];
+};
+
+interface CheckFaceRegistrationStatusResult {
+  completed: boolean;
+  count: number;
+  nextAngleIndex?: number;
+}
+
+export const checkFaceRegistrationStatus = async (studentId: string): Promise<CheckFaceRegistrationStatusResult> => {
+  try {
+    console.log(`Checking face registration status for student ${studentId}`);
+    
+    const { data, error } = await supabase
+      .from('face_registrations')
+      .select('*')
+      .eq('student_id', studentId);
+      
+    if (error) {
+      console.error('Error checking face registration status:', error);
+      return {
+        completed: false,
+        count: 0
+      };
+    }
+    
+    const count = data.length;
+    const completed = count >= 5;
+    
     return {
-      success: true,
-      hasFaces: true,
-      confidence: 0.75,
-      faceCount: 1,
-      message: 'Fallback detection: Face detected with good confidence'
+      completed,
+      count
+    };
+  } catch (error) {
+    console.error('Error checking face registration status:', error);
+    return {
+      completed: false,
+      count: 0
     };
   }
-  
-  // If we're still in the initial attempts phase, always return no face
-  if (attempts <= config.minConsecutiveFailures) {
-    return {
-      success: true,
-      hasFaces: false,
-      message: 'Fallback detection: No face detected (insufficient attempts)'
-    };
-  }
-  
-  // After several failures, improve the chance of a successful detection
-  // to avoid user frustration
-  if (attempts >= config.alwaysDetectAfterFailures) {
-    return {
-      success: true,
-      hasFaces: true,
-      confidence: 0.75,
-      faceCount: 1,
-      message: 'Fallback detection: Face detected with good confidence'
-    };
-  }
-  
-  const now = Date.now();
-  const seed = Math.floor(now / 1000);
-  const seedRandom = (seed: number) => {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  };
-  
-  const rand = seedRandom(seed);
-  // Increase detection rate significantly after more attempts
-  const adjustedRate = config.mockDetectionRate + (attempts * 0.08);
-  const hasFaces = rand < Math.min(adjustedRate, 0.95); // Cap at 95% to maintain some realism
-  
-  return {
-    success: true,
-    hasFaces,
-    confidence: hasFaces ? 0.75 : 0,
-    faceCount: hasFaces ? 1 : 0,
-    message: hasFaces 
-      ? 'Fallback detection: Face detected with good confidence' 
-      : 'Fallback detection: No face detected'
-  };
 };

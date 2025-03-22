@@ -29,8 +29,8 @@ const DashboardHeader = ({ selectedDate, onRefresh }: DashboardHeaderProps) => {
         <UserProfileImage 
           userName="Greg Hogue" 
           className="w-12 h-12 mr-4" 
-          // Add a hardcoded ID for Greg Hogue to test with
-          // In a real app, this would come from authentication context
+          // Add the correct ID for Greg Hogue from the database
+          userId="28bc877a-ba4a-4f73-bf58-90380a299b97"
         />
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>

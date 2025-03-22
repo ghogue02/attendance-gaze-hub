@@ -1,9 +1,8 @@
 
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Link } from 'react-router-dom';
 import { Camera, UserCircle2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 interface AttendanceOptionsProps {
   passiveMode: boolean;
@@ -13,34 +12,27 @@ interface AttendanceOptionsProps {
 
 const AttendanceOptions = ({ 
   passiveMode, 
-  setPassiveMode, 
-  startAttendance 
+  setPassiveMode,
+  startAttendance
 }: AttendanceOptionsProps) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -30 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5, delay: 0.2 }}
-      className="glass-card p-6 flex flex-col space-y-6"
-    >
-      <h2 className="text-xl font-semibold text-center">Attendance Options</h2>
+    <div className="glass-card p-6 space-y-4">
+      <h2 className="text-xl font-semibold mb-4">Attendance Options</h2>
       
-      <div className="flex flex-col space-y-3">
-        <div className="flex items-center justify-between glass-card p-4">
-          <div className="flex items-center">
-            <span className="mr-2">Passive Mode</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">New</span>
-          </div>
-          <Switch 
-            checked={passiveMode} 
-            onCheckedChange={setPassiveMode} 
-          />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <span className="mr-2">Passive Mode</span>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">New</span>
         </div>
+        <Switch 
+          checked={passiveMode} 
+          onCheckedChange={setPassiveMode} 
+        />
       </div>
       
-      <p className="text-sm text-muted-foreground text-center">
+      <p className="text-sm text-muted-foreground">
         {passiveMode 
-          ? "Passive mode will automatically recognize builders without clicks" 
+          ? "Passive mode is active. Camera will automatically start scanning for faces." 
           : "Enable passive mode for automatic face recognition"}
       </p>
       
@@ -48,9 +40,10 @@ const AttendanceOptions = ({
         <Button
           onClick={startAttendance}
           className="flex-1 flex items-center justify-center gap-2"
+          disabled={passiveMode}
         >
           <Camera size={20} />
-          Start Face Recognition
+          {passiveMode ? "Camera Already Active" : "Start Face Recognition"}
         </Button>
         
         <Button
@@ -64,7 +57,7 @@ const AttendanceOptions = ({
           </Link>
         </Button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

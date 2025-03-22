@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/BuilderCard';
 
@@ -18,25 +17,18 @@ interface DetectFacesResult {
   faceVertices?: any;
 }
 
-// Function to detect faces in an image using Google Cloud Vision API
-export const detectFaces = async (
-  imageData: string, 
-  isPassive: boolean = false,
-  debugAttempt: number = 0
-): Promise<DetectFacesResult> => {
+// Function to detect faces using Google Cloud Vision API via Supabase Edge Function
+export async function detectFaces(imageData: string, isPassive = false, debugAttempt = 0) {
   try {
-    const timestamp = new Date().toISOString();
-    console.log(`Detecting faces (attempt #${debugAttempt}), passive: ${isPassive}, time: ${timestamp}`);
+    console.log(`Calling detect-faces edge function (attempt #${debugAttempt})...`);
     
     // Call the Supabase Edge Function
-    console.log('Calling Supabase function with image data length:', imageData.length);
-    
     const { data, error } = await supabase.functions.invoke('detect-faces', {
       body: { 
         imageData, 
         isPassive,
-        timestamp,
-        debugAttempt // Pass the attempt number for debugging
+        timestamp: new Date().toISOString(),
+        debugAttempt
       }
     });
     
@@ -44,47 +36,44 @@ export const detectFaces = async (
       console.error('Error calling face detection function:', error);
       return { 
         success: false, 
-        message: `Error calling face detection service: ${error.message}`,
-        hasFaces: false 
+        message: 'Error calling face detection service: ' + error.message,
+        hasFaces: false,
+        debugAttempt
       };
     }
     
-    console.log(`Face detection result:`, { 
-      success: data.success,
-      hasFaces: data.hasFaces,
-      faceCount: data.faceCount,
-      confidence: data.confidence,
-      attempt: data.debugAttempt,
-      message: data.message
-    });
-    
-    if (!data.success) {
-      console.error('Face detection was not successful:', data.error || 'Unknown error');
+    if (!data || !data.success) {
+      console.error('Face detection was not successful:', data?.error || 'Unknown error');
       return {
         success: false,
-        message: data.error || 'Face detection failed',
-        hasFaces: false
+        message: data?.error || 'Face detection failed',
+        hasFaces: false,
+        debugAttempt
       };
     }
     
-    // Return the processed results
+    console.log(`Face detection result:`, data);
+    
+    // Process the response
     return { 
       success: true,
       hasFaces: data.hasFaces,
       faceCount: data.faceCount,
       confidence: data.confidence,
       faceVertices: data.faceVertices,
-      message: data.message
+      message: data.message || (data.hasFaces ? `Detected ${data.faceCount} faces` : 'No face detected in frame'),
+      debugAttempt
     };
   } catch (error) {
     console.error('Face detection error:', error);
     return { 
       success: false, 
-      message: `Face detection service error: ${error.message || 'Unknown error'}`,
-      hasFaces: false 
+      message: 'Face detection service error: ' + (error instanceof Error ? error.message : String(error)),
+      hasFaces: false,
+      debugAttempt
     };
   }
-};
+}
 
 interface RegisteredStudent {
   id: string;
@@ -248,25 +237,40 @@ export const fetchStudentDetails = async (studentId: string): Promise<FetchStude
   }
 };
 
-// Function to record attendance in the database
-export const recordAttendance = async (studentId: string): Promise<void> => {
+// Function to record attendance
+export const recordAttendance = async (studentId: string, status: string = "present") => {
   try {
-    console.log(`Recording attendance for student ID ${studentId}`);
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().split(' ')[0];
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('attendance')
       .insert({
         student_id: studentId,
-        status: 'present',
-        date: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
-        time_recorded: new Date().toISOString()
+        status: status,
+        date: date,
+        time_recorded: time
       });
-      
+    
     if (error) {
       console.error('Error recording attendance:', error);
+      return {
+        success: false,
+        message: 'Failed to record attendance'
+      };
     }
+    
+    return {
+      success: true,
+      message: 'Attendance recorded successfully'
+    };
   } catch (error) {
-    console.error('Error recording attendance:', error);
+    console.error('Exception during attendance recording:', error);
+    return {
+      success: false,
+      message: 'Exception during attendance recording'
+    };
   }
 };
 

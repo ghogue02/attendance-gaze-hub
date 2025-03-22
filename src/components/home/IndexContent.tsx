@@ -51,12 +51,6 @@ const IndexContent = ({
         />
       </div>
       
-      <AttendanceOptions 
-        passiveMode={passiveMode}
-        setPassiveMode={setPassiveMode}
-        startAttendance={startAttendance} 
-      />
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StatsSection />
         <HowItWorksSection passiveMode={passiveMode} />

@@ -2,6 +2,7 @@
 import { useAttendanceSystem } from '@/hooks/useAttendanceSystem';
 import IndexLayout from '@/components/home/IndexLayout';
 import IndexContent from '@/components/home/IndexContent';
+import AttendanceOptions from '@/components/home/AttendanceOptions';
 
 const Index = () => {
   const {
@@ -29,6 +30,11 @@ const Index = () => {
         handleBuilderDetected={handleBuilderDetected}
         startAttendance={startAttendance}
         reset={reset}
+      />
+      <AttendanceOptions
+        passiveMode={passiveMode}
+        setPassiveMode={setPassiveMode}
+        startAttendance={startAttendance}
       />
     </IndexLayout>
   );

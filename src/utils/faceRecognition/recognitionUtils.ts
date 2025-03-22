@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/BuilderCard';
 
@@ -254,7 +255,9 @@ export const recordAttendance = async (studentId: string): Promise<void> => {
       .from('attendance')
       .insert({
         student_id: studentId,
-        timestamp: new Date()
+        status: 'present',
+        date: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
+        time_recorded: new Date().toISOString()
       });
       
     if (error) {

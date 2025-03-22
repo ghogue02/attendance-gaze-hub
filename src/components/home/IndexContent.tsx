@@ -1,10 +1,10 @@
 
 import React from 'react';
-import AttendanceSection from './AttendanceSection';
+import { AttendanceSection } from './AttendanceSection';
 import AttendanceOptions from './AttendanceOptions';
 import CameraSection from './CameraSection';
-import StatsSection from './StatsSection';
-import HowItWorksSection from './HowItWorksSection';
+import { StatsSection } from './StatsSection';
+import { HowItWorksSection } from './HowItWorksSection';
 import { Builder } from '@/components/BuilderCard';
 import { Button } from '@/components/ui/button';
 
@@ -54,11 +54,12 @@ const IndexContent = ({
       <AttendanceOptions 
         passiveMode={passiveMode}
         setPassiveMode={setPassiveMode}
+        startAttendance={startAttendance} 
       />
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StatsSection />
-        <HowItWorksSection />
+        <HowItWorksSection passiveMode={passiveMode} />
       </div>
     </div>
   );

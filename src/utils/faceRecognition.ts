@@ -1,3 +1,4 @@
+
 import { Student, StudentStatus } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,6 +13,14 @@ export interface FaceRegistrationResult {
   message: string;
   imageCount?: number;
   completed?: boolean;
+}
+
+interface FaceRegistration {
+  id: string;
+  student_id: string;
+  face_data: string;
+  angle_index: number;
+  created_at: string;
 }
 
 // Function to register a face image for a student
@@ -60,35 +69,68 @@ export const registerFaceImage = async (
       }
     }
     
-    // Store the face data in a new table for registration
+    // Store the face data directly in the database
     // In a real implementation, we'd store face embeddings, not raw images
-    const { error: registrationError } = await supabase
-      .from('face_registrations')
-      .insert({
-        student_id: studentId,
-        face_data: imageData,
-        angle_index: angleIndex
-      });
-      
+    const { error: registrationError } = await supabase.rpc('insert_face_registration', {
+      p_student_id: studentId,
+      p_face_data: imageData,
+      p_angle_index: angleIndex
+    }).single();
+    
     if (registrationError) {
       console.error('Error registering face:', registrationError);
-      return {
-        success: false,
-        message: 'Failed to register face data'
-      };
+      // Try an alternative approach if RPC fails
+      try {
+        const { error: insertError } = await supabase.from('face_registrations').insert({
+          student_id: studentId,
+          face_data: imageData,
+          angle_index: angleIndex
+        });
+        
+        if (insertError) {
+          console.error('Error with direct insert:', insertError);
+          return {
+            success: false,
+            message: 'Failed to register face data'
+          };
+        }
+      } catch (e) {
+        console.error('Exception during insert:', e);
+        return {
+          success: false,
+          message: 'Exception during face registration'
+        };
+      }
     }
     
-    // Get the count of angles registered for this student
-    const { count, error: countError } = await supabase
-      .from('face_registrations')
-      .select('*', { count: 'exact', head: false })
-      .eq('student_id', studentId);
-      
+    // Count registrations for this student
+    const { count, error: countError } = await supabase.rpc('count_face_registrations', {
+      p_student_id: studentId
+    });
+    
+    let registeredCount = 0;
+    
     if (countError) {
-      console.error('Error counting registrations:', countError);
+      console.error('Error counting registrations with RPC:', countError);
+      // Fallback to direct query
+      try {
+        const { data, error, count: directCount } = await supabase
+          .from('face_registrations')
+          .select('*', { count: 'exact', head: false })
+          .eq('student_id', studentId);
+          
+        if (error) {
+          console.error('Error with direct count:', error);
+        } else {
+          registeredCount = directCount || 0;
+        }
+      } catch (e) {
+        console.error('Exception during count:', e);
+      }
+    } else {
+      registeredCount = count || 0;
     }
     
-    const registeredCount = count || 0;
     const requiredAngles = 5; // We require 5 different angle captures
     
     return {
@@ -151,14 +193,36 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           const randomIndex = Math.floor(Math.random() * studentsData.length);
           const dbStudent = studentsData[randomIndex];
           
-          // Check if this student has registered their face
-          const { count, error: regError } = await supabase
-            .from('face_registrations')
-            .select('*', { count: 'exact', head: false })
-            .eq('student_id', dbStudent.id);
-            
+          // Check if this student has registered their face using RPC
+          const { count, error: regError } = await supabase.rpc('count_face_registrations', {
+            p_student_id: dbStudent.id
+          });
+          
+          let registeredCount = 0;
+          
+          if (regError) {
+            console.error('Error counting registrations with RPC:', regError);
+            // Fallback to direct query to get registration count
+            try {
+              const { data, error: countError, count: directCount } = await supabase
+                .from('face_registrations')
+                .select('*', { count: 'exact', head: false })
+                .eq('student_id', dbStudent.id);
+                
+              if (countError) {
+                console.error('Error with direct count:', countError);
+              } else {
+                registeredCount = directCount || 0;
+              }
+            } catch (e) {
+              console.error('Exception during count:', e);
+            }
+          } else {
+            registeredCount = count || 0;
+          }
+          
           // If student hasn't registered face or not enough angles, return error
-          if (regError || !count || count < 5) {
+          if (registeredCount < 5) {
             resolve({
               success: false,
               message: 'Student has not completed face registration'
@@ -297,14 +361,36 @@ export const markAttendance = async (studentId: string, status: StudentStatus): 
 // Function to check if a student has completed face registration
 export const checkFaceRegistrationStatus = async (studentId: string): Promise<{completed: boolean, count: number}> => {
   try {
-    const { count, error } = await supabase
-      .from('face_registrations')
-      .select('*', { count: 'exact', head: false })
-      .eq('student_id', studentId);
-      
+    // Try with RPC first
+    const { count, error } = await supabase.rpc('count_face_registrations', {
+      p_student_id: studentId
+    });
+    
     if (error) {
-      console.error('Error checking registration status:', error);
-      return { completed: false, count: 0 };
+      console.error('Error with RPC count, using direct query:', error);
+      // Fallback to direct query
+      try {
+        const { data, error: countError, count: directCount } = await supabase
+          .from('face_registrations')
+          .select('*', { count: 'exact', head: false })
+          .eq('student_id', studentId);
+          
+        if (countError) {
+          console.error('Error counting registrations:', countError);
+          return { completed: false, count: 0 };
+        }
+        
+        const registeredCount = directCount || 0;
+        const requiredAngles = 5; // We require 5 different angle captures
+        
+        return {
+          completed: registeredCount >= requiredAngles,
+          count: registeredCount
+        };
+      } catch (e) {
+        console.error('Exception during count:', e);
+        return { completed: false, count: 0 };
+      }
     }
     
     const registeredCount = count || 0;

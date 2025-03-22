@@ -47,6 +47,38 @@ export type Database = {
           },
         ]
       }
+      face_registrations: {
+        Row: {
+          angle_index: number
+          created_at: string
+          face_data: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          angle_index: number
+          created_at?: string
+          face_data: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          angle_index?: number
+          created_at?: string
+          face_data?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "face_registrations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           created_at: string | null

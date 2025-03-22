@@ -93,7 +93,7 @@ serve(async (req) => {
     const accessToken = tokenData.access_token
     console.log('Successfully obtained access token');
 
-    // Prepare Vision API request - use more aggressive face detection parameters
+    // IMPROVED: Better Vision API detection parameters for more reliable face detection
     const requestBody = {
       requests: [
         {
@@ -103,14 +103,16 @@ serve(async (req) => {
           features: [
             {
               type: 'FACE_DETECTION',
-              maxResults: 10
+              maxResults: 10,
+              // Set higher model value for better detection
+              model: 'builtin/latest'
             }
           ],
           imageContext: {
             // Optimize for frontal face detection and detection in webcam images
             faceRecognitionParams: {
-              // Lower confidence threshold to detect more faces
-              confidenceThreshold: 0.5
+              // Lower confidence threshold to detect more faces - more aggressive detection
+              confidenceThreshold: 0.3
             }
           }
         }
@@ -118,7 +120,7 @@ serve(async (req) => {
     }
 
     // Call Vision API
-    console.log('Calling Vision API...');
+    console.log('Calling Vision API with improved detection parameters...');
     const apiResponse = await fetch(visionApiEndpoint, {
       method: 'POST',
       headers: {

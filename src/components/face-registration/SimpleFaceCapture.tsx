@@ -48,8 +48,10 @@ export const SimpleFaceCapture = ({
       height: { ideal: 720 }
     },
     onCameraStart: () => {
-      setStatusMessage("Positioning face detection...");
-      startFaceDetection();
+      setStatusMessage("Getting ready...");
+      setTimeout(() => {
+        startFaceDetection();
+      }, 500); // Give the camera a moment to warm up
     }
   });
 
@@ -77,7 +79,7 @@ export const SimpleFaceCapture = ({
     setDetectionActive(true);
     setStatusMessage("Looking for your face...");
     
-    // Check for faces every 1 second
+    // More frequent checks - every 750ms instead of 1000ms
     faceDetectionIntervalRef.current = setInterval(async () => {
       if (!isCapturing || processing || countdown !== null) return;
       
@@ -85,7 +87,8 @@ export const SimpleFaceCapture = ({
       if (!imageData) return;
       
       try {
-        const result = await detectFaces(imageData, true);
+        // Pass the attempt count for better fallback behavior
+        const result = await detectFaces(imageData, true, facePresentDurationRef.current);
         
         if (result.success && result.hasFaces) {
           facePresentDurationRef.current += 1;
@@ -93,24 +96,59 @@ export const SimpleFaceCapture = ({
           if (!isFaceDetected) {
             setIsFaceDetected(true);
             setStatusMessage("Face detected! Hold still...");
+            // Play a subtle sound to indicate detection
+            playDetectionSound();
           }
           
-          // If face has been present consistently for 2 seconds, start countdown
+          // Reduced timing: If face has been present for just 1.5 seconds, start countdown
           if (facePresentDurationRef.current >= 2 && countdown === null && !processing) {
             startCountdown();
           }
         } else {
-          facePresentDurationRef.current = 0;
-          
-          if (isFaceDetected) {
+          // Reset, but don't immediately lose face detection
+          if (facePresentDurationRef.current > 0) {
+            facePresentDurationRef.current = Math.max(0, facePresentDurationRef.current - 1);
+            
+            if (facePresentDurationRef.current === 0 && isFaceDetected) {
+              setIsFaceDetected(false);
+              setStatusMessage("Face lost. Please center your face in the frame.");
+            }
+          } else if (isFaceDetected) {
             setIsFaceDetected(false);
-            setStatusMessage("Face lost. Please position your face in the frame.");
+            setStatusMessage("Face lost. Please center your face in the frame.");
           }
         }
       } catch (error) {
         console.error("Face detection error:", error);
+        // Don't reset face detection on errors - more resilient
       }
-    }, 1000);
+    }, 750);
+  };
+
+  // Simple sound effect for face detection
+  const playDetectionSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 880; // A5 note
+      gainNode.gain.value = 0.1; // Quiet
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.start();
+      
+      // Short beep
+      setTimeout(() => {
+        oscillator.stop();
+      }, 150);
+    } catch (e) {
+      // Ignore errors with audio - not critical
+      console.log("Audio not supported");
+    }
   };
 
   const startCountdown = () => {
@@ -212,7 +250,7 @@ export const SimpleFaceCapture = ({
         <canvas ref={canvasRef} className="hidden" />
         
         {isCapturing && !cameraError && !processing && (
-          <div className={`absolute inset-0 border-2 ${isFaceDetected ? 'border-green-500 opacity-70' : 'border-primary opacity-50'} pointer-events-none ${isFaceDetected ? '' : 'animate-pulse'}`} />
+          <div className={`absolute inset-0 border-4 rounded-xl ${isFaceDetected ? 'border-green-500 opacity-70' : 'border-primary opacity-50'} pointer-events-none ${isFaceDetected ? '' : 'animate-pulse'}`} />
         )}
         
         {countdown !== null && (
@@ -222,8 +260,8 @@ export const SimpleFaceCapture = ({
         )}
         
         {statusMessage && !cameraError && !processing && (
-          <div className="absolute bottom-3 left-0 right-0 flex justify-center">
-            <div className={`${isFaceDetected ? 'bg-green-900/70 text-white' : 'bg-black/70 text-white'} px-3 py-1 rounded-full text-sm`}>
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+            <div className={`${isFaceDetected ? 'bg-green-900/80 text-white' : 'bg-black/80 text-white'} px-4 py-2 rounded-full text-sm font-medium`}>
               {statusMessage}
             </div>
           </div>
@@ -268,7 +306,7 @@ export const SimpleFaceCapture = ({
         ) : (
           <div className="text-sm text-muted-foreground text-center max-w-md">
             <p>Look directly at the camera with your face centered in the frame. Good lighting will improve recognition.</p>
-            {isFaceDetected && <p className="text-green-500 mt-2">Face detected! Hold still for automatic capture.</p>}
+            {isFaceDetected && <p className="text-green-500 mt-2 font-medium">Face detected! Hold still for automatic capture.</p>}
           </div>
         )}
       </div>

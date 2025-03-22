@@ -201,8 +201,8 @@ const enhanceFaceImage = async (imageData: string): Promise<string | null> => {
     // Apply a series of effects to create a professional headshot look:
     
     // 1. Increase contrast slightly
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
+    const imageDataObj = ctx.getImageData(0, 0, width, height);
+    const data = imageDataObj.data;
     
     // Contrast adjustment
     const contrast = 15; // Increase contrast by 15%
@@ -216,7 +216,7 @@ const enhanceFaceImage = async (imageData: string): Promise<string | null> => {
       // Alpha channel unchanged
     }
     
-    ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(imageDataObj, 0, 0);
     
     // 2. Apply a subtle vignette effect (darkened edges)
     ctx.globalCompositeOperation = 'multiply';

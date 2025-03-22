@@ -1,13 +1,12 @@
-
 import { motion } from 'framer-motion';
-import BuilderCard, { Builder } from '@/components/BuilderCard';
+import BuilderCard, { Builder, BuilderStatus } from '@/components/BuilderCard';
 
 interface BuildersListProps {
   isLoading: boolean;
   filteredBuilders: Builder[];
   searchQuery: string;
   onClearFilters: () => void;
-  onVerify: (builderId: string) => void;
+  onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
 }
 
 const BuildersList = ({ 
@@ -58,7 +57,7 @@ const BuildersList = ({
         >
           <BuilderCard 
             builder={builder} 
-            onVerify={() => onVerify(builder.id)} 
+            onVerify={onVerify} 
           />
         </motion.div>
       ))}

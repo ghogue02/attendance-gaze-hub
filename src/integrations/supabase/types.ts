@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           created_at: string | null
           date: string
+          excuse_reason: string | null
           id: string
           status: string
           student_id: string
@@ -22,6 +23,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           date?: string
+          excuse_reason?: string | null
           id?: string
           status: string
           student_id: string
@@ -31,6 +33,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           date?: string
+          excuse_reason?: string | null
           id?: string
           status?: string
           student_id?: string

@@ -70,27 +70,46 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
 // Function to mark attendance manually
 export const markAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string): Promise<boolean> => {
   try {
-    const attendanceData: Record<string, any> = {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const attendanceData = {
       student_id: builderId,
+      date: today,
       status,
       time_recorded: new Date().toISOString(),
     };
     
     // Add excuse reason if status is 'excused'
     if (status === 'excused' && excuseReason) {
-      attendanceData.excuse_reason = excuseReason;
-    }
-    
-    // Update attendance in database
-    const { error } = await supabase
-      .from('attendance')
-      .upsert(attendanceData, {
-        onConflict: 'student_id,date'
-      });
+      // Using the spread operator to add the excuse_reason property
+      const dataWithReason = {
+        ...attendanceData,
+        excuse_reason: excuseReason
+      };
       
-    if (error) {
-      console.error('Error marking attendance:', error);
-      return false;
+      // Update attendance in database
+      const { error } = await supabase
+        .from('attendance')
+        .upsert(dataWithReason, {
+          onConflict: 'student_id,date'
+        });
+        
+      if (error) {
+        console.error('Error marking attendance with excuse:', error);
+        return false;
+      }
+    } else {
+      // Regular attendance without excuse reason
+      const { error } = await supabase
+        .from('attendance')
+        .upsert(attendanceData, {
+          onConflict: 'student_id,date'
+        });
+        
+      if (error) {
+        console.error('Error marking attendance:', error);
+        return false;
+      }
     }
     
     return true;

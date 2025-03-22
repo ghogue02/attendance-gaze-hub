@@ -106,19 +106,17 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
                 student_id: record.student_id
               });
               
-              // Handle different status formats
-              if (record.status) {
-                if (record.status === 'present') {
-                  status = 'Present';
-                } else if (record.status === 'absent' && record.excuse_reason) {
-                  status = 'Excused';
-                } else if (record.status === 'absent') {
-                  status = 'Absent';
-                } else if (record.status === 'excused') {
-                  status = 'Excused';
-                } else if (record.status === 'late') {
-                  status = 'Late';
-                }
+              // Handle different status formats and excuse reasons
+              if (record.status === 'present') {
+                status = 'Present';
+              } else if (record.status === 'absent' && record.excuse_reason) {
+                status = 'Excused';
+              } else if (record.status === 'absent') {
+                status = 'Absent';
+              } else if (record.status === 'excused') {
+                status = 'Excused';
+              } else if (record.status === 'late') {
+                status = 'Late';
               }
               
               // Increment the counter for this status

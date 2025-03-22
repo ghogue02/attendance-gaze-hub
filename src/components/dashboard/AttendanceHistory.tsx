@@ -1,7 +1,7 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Builder, BuilderStatus } from '@/components/BuilderCard';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -98,11 +98,17 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
             builder: builder ? `${builder.name} (${builder.builderId})` : 'Unknown student'
           });
           
+          // Determine the status - if there's an excuse_reason, it should be "excused"
+          let status: BuilderStatus = record.status as BuilderStatus;
+          if (record.excuse_reason && status === 'absent') {
+            status = 'excused';
+          }
+          
           return {
             id: record.id,
             name: builder?.name || `Unknown (ID: ${record.student_id.substring(0, 8)}...)`,
             builderId: builder?.builderId || '',
-            status: record.status as BuilderStatus,
+            status,
             date: typeof record.date === 'string' 
               ? record.date 
               : new Date(record.date).toISOString().split('T')[0],
@@ -128,8 +134,16 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
   
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), 'MMM d, yyyy');
+      // Ensure we have a valid date string
+      if (!dateStr) return '';
+      
+      // Create a new date from the string
+      const date = new Date(dateStr);
+      
+      // Format the date (MMM d, yyyy)
+      return format(date, 'MMM d, yyyy');
     } catch (e) {
+      console.error('Error formatting date:', e, dateStr);
       return dateStr;
     }
   };
@@ -166,7 +180,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
                   <TableCell>{record.builderId}</TableCell>
                   <TableCell>
                     <span className={`font-medium capitalize ${getStatusColor(record.status)}`}>
-                      {record.status}
+                      {record.status === 'excused' ? 'Excused Absence' : record.status}
                     </span>
                   </TableCell>
                   <TableCell>{record.timeRecorded || '—'}</TableCell>

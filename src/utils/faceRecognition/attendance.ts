@@ -49,11 +49,22 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(dbBuilder.first_name)}+${encodeURIComponent(dbBuilder.last_name)}&background=random`;
       }
       
+      // Determine the correct status based on attendance record
+      let status: BuilderStatus = 'pending';
+      if (attendance) {
+        // If there's an excuse reason, mark as excused regardless of status in DB
+        if (attendance.excuse_reason) {
+          status = 'excused';
+        } else {
+          status = attendance.status as BuilderStatus;
+        }
+      }
+      
       return {
         id: dbBuilder.id,
         name: `${dbBuilder.first_name} ${dbBuilder.last_name}`,
         builderId: dbBuilder.student_id || '',
-        status: (attendance?.status || 'pending') as BuilderStatus,
+        status,
         timeRecorded: attendance?.time_recorded 
           ? new Date(attendance.time_recorded).toLocaleTimeString() 
           : undefined,
@@ -80,12 +91,12 @@ export const markAttendance = async (builderId: string, status: BuilderStatus, e
     const attendanceData: any = {
       student_id: builderId,
       date: today,
-      status: status === 'excused' ? 'absent' : status, // Map 'excused' to 'absent' in the database
+      status: status, // Store the actual status value
       time_recorded: new Date().toISOString(),
     };
     
-    // Add excuse reason if status is 'excused'
-    if (status === 'excused' && excuseReason) {
+    // Add excuse reason if provided
+    if (excuseReason) {
       attendanceData.excuse_reason = excuseReason;
     }
     

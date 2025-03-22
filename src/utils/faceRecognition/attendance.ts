@@ -54,7 +54,8 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         timeRecorded: attendance?.time_recorded 
           ? new Date(attendance.time_recorded).toLocaleTimeString() 
           : undefined,
-        image: imageUrl
+        image: imageUrl,
+        excuseReason: attendance?.excuse_reason
       };
     });
     
@@ -67,16 +68,23 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
 };
 
 // Function to mark attendance manually
-export const markAttendance = async (builderId: string, status: BuilderStatus): Promise<boolean> => {
+export const markAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string): Promise<boolean> => {
   try {
+    const attendanceData: Record<string, any> = {
+      student_id: builderId,
+      status,
+      time_recorded: new Date().toISOString(),
+    };
+    
+    // Add excuse reason if status is 'excused'
+    if (status === 'excused' && excuseReason) {
+      attendanceData.excuse_reason = excuseReason;
+    }
+    
     // Update attendance in database
     const { error } = await supabase
       .from('attendance')
-      .upsert({
-        student_id: builderId,
-        status,
-        time_recorded: new Date().toISOString(),
-      }, {
+      .upsert(attendanceData, {
         onConflict: 'student_id,date'
       });
       

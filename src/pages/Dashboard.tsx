@@ -57,14 +57,9 @@ const Dashboard = () => {
     }
   };
 
-  const handleMarkAttendance = async (builderId: string) => {
+  const handleMarkAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
     try {
-      // Find the current builder's status to toggle it
-      const builder = builders.find(s => s.id === builderId);
-      if (!builder) return;
-      
-      const newStatus: 'present' | 'absent' = builder.status === 'present' ? 'absent' : 'present';
-      const success = await markAttendance(builderId, newStatus);
+      const success = await markAttendance(builderId, status, excuseReason);
       
       if (success) {
         // Update local state
@@ -73,14 +68,16 @@ const Dashboard = () => {
             builder.id === builderId
               ? { 
                   ...builder, 
-                  status: newStatus,
+                  status,
+                  excuseReason: status === 'excused' ? excuseReason : undefined,
                   timeRecorded: new Date().toLocaleTimeString() 
                 }
               : builder
           )
         );
         
-        toast.success(`Attendance marked as ${newStatus}`);
+        const statusText = status === 'excused' ? 'Excused absence' : `Attendance marked as ${status}`;
+        toast.success(statusText);
       } else {
         toast.error('Failed to update attendance');
       }

@@ -1,6 +1,14 @@
 
-import { Search, Filter } from 'lucide-react';
-import type { BuilderStatus } from '@/components/BuilderCard';
+import { Input } from "@/components/ui/input";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { BuilderStatus } from "@/components/BuilderCard";
+import { Search } from "lucide-react";
 
 interface BuilderFiltersProps {
   searchQuery: string;
@@ -9,38 +17,40 @@ interface BuilderFiltersProps {
   setStatusFilter: (status: BuilderStatus | 'all') => void;
 }
 
-const BuilderFilters = ({ 
-  searchQuery, 
-  setSearchQuery, 
-  statusFilter, 
-  setStatusFilter 
+const BuilderFilters = ({
+  searchQuery,
+  setSearchQuery,
+  statusFilter,
+  setStatusFilter
 }: BuilderFiltersProps) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 mb-6">
+    <div className="flex flex-col md:flex-row gap-4 mb-6 mt-8">
       <div className="relative flex-1">
-        <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-        <input
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
           type="text"
           placeholder="Search by name or ID..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="input-field w-full pl-10"
+          className="pl-10"
         />
       </div>
       
-      <div className="flex items-center gap-2">
-        <Filter size={18} className="text-muted-foreground" />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as BuilderStatus | 'all')}
-          className="input-field"
-        >
-          <option value="all">All Status</option>
-          <option value="present">Present</option>
-          <option value="absent">Absent</option>
-          <option value="pending">Pending</option>
-        </select>
-      </div>
+      <Select 
+        value={statusFilter} 
+        onValueChange={(value) => setStatusFilter(value as BuilderStatus | 'all')}
+      >
+        <SelectTrigger className="w-full md:w-[180px]">
+          <SelectValue placeholder="Filter by status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Statuses</SelectItem>
+          <SelectItem value="present">Present</SelectItem>
+          <SelectItem value="absent">Absent</SelectItem>
+          <SelectItem value="excused">Excused Absence</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 };

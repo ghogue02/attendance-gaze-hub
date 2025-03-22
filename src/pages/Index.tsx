@@ -5,6 +5,8 @@ import { StatsSection } from '@/components/home/StatsSection';
 import { AttendanceSection } from '@/components/home/AttendanceSection';
 import { HowItWorksSection } from '@/components/home/HowItWorksSection';
 import { RecognitionResult } from '@/components/home/RecognitionResult';
+import { AttendanceInstructionsSection } from '@/components/home/AttendanceInstructionsSection';
+import { CameraView } from '@/components/home/CameraView';
 import { useAttendanceSystem } from '@/hooks/useAttendanceSystem';
 import { motion } from 'framer-motion';
 

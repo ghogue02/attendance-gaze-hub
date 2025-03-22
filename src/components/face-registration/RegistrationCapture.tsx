@@ -8,7 +8,6 @@ import { CaptureControls } from './CaptureControls';
 import { useCamera } from '@/hooks/use-camera';
 import { detectFaces } from '@/utils/faceRecognition/recognitionUtils';
 import { RegistrationCaptureProps } from './types';
-import { AutoCaptureToggle } from './AutoCaptureToggle';
 
 export const RegistrationCapture = ({ 
   builder, 
@@ -326,13 +325,6 @@ export const RegistrationCapture = ({
           capturedImages={capturedImages}
           angleInstructions={angleInstructions}
         />
-        
-        <div className="mt-4">
-          <AutoCaptureToggle 
-            isActive={autoCapture} 
-            onToggle={handleToggleAutoCapture} 
-          />
-        </div>
         
         <CaptureControls
           autoCapture={autoCapture}

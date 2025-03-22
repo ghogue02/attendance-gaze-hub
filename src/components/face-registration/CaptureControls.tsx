@@ -13,7 +13,7 @@ export const CaptureControls = ({
   currentAngle
 }: CaptureControlsProps) => {
   return (
-    <div className="flex flex-col space-y-4 mt-auto">
+    <div className="flex flex-col space-y-4 mt-4">
       <AutoCaptureToggle 
         isActive={autoCapture} 
         onToggle={onToggleAutoCapture}

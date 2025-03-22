@@ -1,22 +1,33 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { Camera, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Student, StudentStatus } from './StudentCard';
 import { recognizeFace } from '@/utils/faceRecognition';
+import { Button } from './ui/button';
 
 interface AttendanceCameraProps {
   onStudentDetected?: (student: Student) => void;
   isCameraActive?: boolean;
+  passive?: boolean; // New passive mode prop
+  passiveInterval?: number; // How often to scan in passive mode (ms)
 }
 
-const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: AttendanceCameraProps) => {
+const AttendanceCamera = ({ 
+  onStudentDetected, 
+  isCameraActive = false,
+  passive = false,
+  passiveInterval = 5000 // 5 second default interval
+}: AttendanceCameraProps) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [processingImage, setProcessingImage] = useState(false);
+  const [lastDetectionTime, setLastDetectionTime] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const passiveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isCameraActive) {
@@ -29,6 +40,21 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
       stopCamera();
     };
   }, [isCameraActive]);
+
+  // Set up passive mode interval
+  useEffect(() => {
+    if (passive && isCapturing && !processingImage) {
+      passiveTimeoutRef.current = setTimeout(() => {
+        captureImagePassive();
+      }, passiveInterval);
+    }
+
+    return () => {
+      if (passiveTimeoutRef.current) {
+        clearTimeout(passiveTimeoutRef.current);
+      }
+    };
+  }, [passive, isCapturing, processingImage, lastDetectionTime, passiveInterval]);
 
   const startCamera = async () => {
     try {
@@ -47,6 +73,14 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
+      
+      // Initial passive capture if in passive mode
+      if (passive) {
+        // Small delay to make sure video is initialized
+        setTimeout(() => {
+          captureImagePassive();
+        }, 1000);
+      }
     } catch (err) {
       console.error('Error accessing camera:', err);
       setCameraError('Unable to access camera. Please check permissions.');
@@ -64,6 +98,10 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
       videoRef.current.srcObject = null;
     }
     
+    if (passiveTimeoutRef.current) {
+      clearTimeout(passiveTimeoutRef.current);
+    }
+    
     setIsCapturing(false);
   };
 
@@ -71,6 +109,19 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
     if (!videoRef.current || !canvasRef.current) return;
     
     setProcessingImage(true);
+    processCapturedImage(false);
+  };
+  
+  const captureImagePassive = () => {
+    if (!videoRef.current || !canvasRef.current || processingImage) return;
+    
+    // Don't show processing UI in passive mode
+    processCapturedImage(true);
+  };
+  
+  const processCapturedImage = (isPassive: boolean) => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
@@ -82,18 +133,39 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
     
     const imageData = canvas.toDataURL('image/jpeg');
     
-    recognizeFace(imageData).then(result => {
+    // In passive mode, don't show UI feedback unless successful
+    if (!isPassive) {
+      setProcessingImage(true);
+    }
+    
+    recognizeFace(imageData, isPassive).then(result => {
       if (result.success && result.student) {
         onStudentDetected?.(result.student);
-        toast.success(result.message);
-      } else {
+        
+        if (isPassive) {
+          // Only show toast in passive mode on success
+          toast.success(`Attendance recorded: ${result.student.name}`);
+        } else {
+          toast.success(result.message);
+        }
+        
+        // Update last detection time to prevent constant detections
+        setLastDetectionTime(Date.now());
+      } else if (!isPassive) {
+        // Only show error messages in active mode
         toast.error(result.message);
       }
-      setProcessingImage(false);
+      
+      if (!isPassive) {
+        setProcessingImage(false);
+      }
     }).catch(error => {
       console.error('Face recognition error:', error);
-      toast.error('An error occurred during face recognition');
-      setProcessingImage(false);
+      
+      if (!isPassive) {
+        toast.error('An error occurred during face recognition');
+        setProcessingImage(false);
+      }
     });
   };
 
@@ -124,13 +196,14 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white p-4 text-center">
             <div>
               <p className="mb-3">{cameraError}</p>
-              <button
+              <Button
                 onClick={startCamera}
-                className="btn-primary flex items-center gap-2 text-sm mx-auto"
+                className="flex items-center gap-2 text-sm mx-auto"
+                variant="secondary"
               >
                 <RefreshCw size={16} />
                 Retry
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -153,18 +226,26 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
         </AnimatePresence>
       </div>
       
-      <div className="mt-4 flex justify-center">
-        <button
-          onClick={captureImage}
-          disabled={!isCapturing || processingImage}
-          className={`btn-primary flex items-center gap-2 ${
-            (!isCapturing || processingImage) && 'opacity-50 cursor-not-allowed'
-          }`}
-        >
-          <Camera size={18} />
-          <span>Capture Attendance</span>
-        </button>
-      </div>
+      {!passive && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            onClick={captureImage}
+            disabled={!isCapturing || processingImage}
+            className={`flex items-center gap-2 ${
+              (!isCapturing || processingImage) && 'opacity-50 cursor-not-allowed'
+            }`}
+          >
+            <Camera size={18} />
+            <span>Capture Attendance</span>
+          </Button>
+        </div>
+      )}
+      
+      {passive && (
+        <div className="mt-2 text-center text-sm text-muted-foreground">
+          <p>Passive recognition active. Just look at the camera.</p>
+        </div>
+      )}
     </div>
   );
 };

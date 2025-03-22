@@ -1,22 +1,30 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, ChevronDown, Users, CheckCircle } from 'lucide-react';
+import { Camera, ChevronDown, Users, CheckCircle, UserCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import AttendanceCamera from '@/components/AttendanceCamera';
 import StudentCard, { Student } from '@/components/StudentCard';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [detectedStudent, setDetectedStudent] = useState<Student | null>(null);
   const [showIntro, setShowIntro] = useState(true);
+  const [passiveMode, setPassiveMode] = useState(false);
 
   const handleStudentDetected = (student: Student) => {
     setDetectedStudent(student);
-    setTimeout(() => {
-      setIsCameraActive(false);
-    }, 1000);
+    
+    // Don't automatically close camera in passive mode
+    if (!passiveMode) {
+      setTimeout(() => {
+        setIsCameraActive(false);
+      }, 1000);
+    }
   };
 
   const startAttendance = () => {
@@ -29,6 +37,7 @@ const Index = () => {
     setDetectedStudent(null);
     setIsCameraActive(false);
     setShowIntro(true);
+    setPassiveMode(false);
   };
 
   // Simulated stats for the UI
@@ -90,8 +99,8 @@ const Index = () => {
                         1
                       </div>
                       <div>
-                        <span className="font-medium">Activate the camera</span>
-                        <p className="text-muted-foreground mt-1">Click the button below to start the facial recognition process.</p>
+                        <span className="font-medium">Register your face</span>
+                        <p className="text-muted-foreground mt-1">Students need to register their face before using the system.</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
@@ -99,8 +108,12 @@ const Index = () => {
                         2
                       </div>
                       <div>
-                        <span className="font-medium">Capture attendance</span>
-                        <p className="text-muted-foreground mt-1">Position your face in the frame and click to record your attendance.</p>
+                        <span className="font-medium">Activate the camera</span>
+                        <p className="text-muted-foreground mt-1">
+                          {passiveMode 
+                            ? "Passive mode automatically scans for faces" 
+                            : "Click the button below to start the facial recognition process"}
+                        </p>
                       </div>
                     </li>
                     <li className="flex gap-3">
@@ -115,13 +128,45 @@ const Index = () => {
                   </ol>
                 </div>
                 
-                <button 
-                  onClick={startAttendance}
-                  className="btn-primary py-4 flex items-center justify-center gap-2 mx-auto md:mx-0 w-full md:w-auto"
-                >
-                  <Camera size={20} />
-                  Start Face Recognition
-                </button>
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-center justify-between glass-card p-4">
+                    <div className="flex items-center">
+                      <span className="mr-2">Passive Mode</span>
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">New</span>
+                    </div>
+                    <Switch 
+                      checked={passiveMode} 
+                      onCheckedChange={setPassiveMode} 
+                    />
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground text-center">
+                    {passiveMode 
+                      ? "Passive mode will automatically recognize students without clicks" 
+                      : "Enable passive mode for automatic face recognition"}
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                    <Button
+                      onClick={startAttendance}
+                      className="flex-1 flex items-center justify-center gap-2"
+                    >
+                      <Camera size={20} />
+                      Start Face Recognition
+                    </Button>
+                    
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="flex-1 flex items-center justify-center gap-2"
+                    >
+                      <Link to="/register">
+                        <UserCircle2 size={20} />
+                        Register Face
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
               </>
             ) : detectedStudent ? (
               <div className="flex flex-col space-y-6">
@@ -135,26 +180,54 @@ const Index = () => {
                 
                 <StudentCard student={detectedStudent} />
                 
-                <button 
-                  onClick={reset}
-                  className="btn-primary py-4 flex items-center justify-center gap-2 mx-auto md:mx-0"
-                >
-                  Record Another Attendance
-                </button>
+                {passiveMode ? (
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Passive mode is active. The system will continue to scan for additional students.
+                    </p>
+                    <Button 
+                      onClick={reset}
+                      variant="outline"
+                    >
+                      Reset Camera
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={reset}
+                    className="py-4 flex items-center justify-center gap-2 mx-auto md:mx-0"
+                  >
+                    Record Another Attendance
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="flex flex-col space-y-6 items-center md:items-start">
                 <h2 className="text-xl font-semibold">Attendance Recognition</h2>
                 <p className="text-muted-foreground text-center md:text-left">
-                  Position your face clearly in the frame and click the capture button.
+                  {passiveMode
+                    ? "Passive mode is active. Just look at the camera to be recognized."
+                    : "Position your face clearly in the frame and click the capture button."}
                 </p>
                 
-                <button 
+                <div className="flex items-center space-x-4">
+                  <Switch 
+                    checked={passiveMode} 
+                    onCheckedChange={setPassiveMode} 
+                    id="passive-mode"
+                  />
+                  <label htmlFor="passive-mode" className="text-sm">
+                    Passive Mode {passiveMode ? "Enabled" : "Disabled"}
+                  </label>
+                </div>
+                
+                <Button 
                   onClick={() => setIsCameraActive(false)}
-                  className="btn-secondary py-3 flex items-center justify-center gap-2"
+                  variant="secondary"
+                  className="py-3 flex items-center justify-center gap-2"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
           </motion.div>
@@ -169,6 +242,8 @@ const Index = () => {
               <AttendanceCamera 
                 onStudentDetected={handleStudentDetected}
                 isCameraActive={isCameraActive}
+                passive={passiveMode}
+                passiveInterval={3000}
               />
             ) : detectedStudent ? (
               <div className="flex flex-col items-center justify-center h-full py-10">
@@ -202,7 +277,9 @@ const Index = () => {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Face Recognition</h3>
                 <p className="text-muted-foreground max-w-xs mb-6">
-                  Click the button to activate the camera and start the attendance process.
+                  {passiveMode 
+                    ? "Activate camera to begin passive scanning for faces" 
+                    : "Click the button to activate the camera and start the attendance process"}
                 </p>
                 <motion.div 
                   animate={{ y: [0, 10, 0] }}

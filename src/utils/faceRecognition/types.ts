@@ -30,4 +30,5 @@ export interface FaceDetectionResult {
   faceCount?: number;
   confidence?: number;
   message: string;
+  faceVertices?: any;
 }

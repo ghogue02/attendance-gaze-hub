@@ -8,18 +8,23 @@ interface RecognitionOptions {
   onSuccess?: (builder: Builder) => void;
   onError?: (message: string) => void;
   onComplete?: () => void;
+  debugMode?: boolean;
 }
 
 export const processRecognition = async (
   imageData: string,
   options: RecognitionOptions
 ) => {
-  const { isPassive, onSuccess, onError, onComplete } = options;
+  const { isPassive, onSuccess, onError, onComplete, debugMode } = options;
   
   try {
     // First, check if there are actually faces in the image using Google Cloud Vision
     console.log('Sending image to Vision API for face detection...');
     const faceDetectionResult = await detectFacesWithVision(imageData, isPassive);
+    
+    if (debugMode) {
+      console.log('Vision API result:', faceDetectionResult);
+    }
     
     if (!faceDetectionResult.success) {
       // If there was an error with the Vision API, fall back to the simulated recognition
@@ -78,7 +83,11 @@ async function detectFacesWithVision(imageData: string, isPassive: boolean) {
     console.log('Calling detect-faces edge function...');
     // Call the Supabase Edge Function
     const { data, error } = await supabase.functions.invoke('detect-faces', {
-      body: { imageData, isPassive }
+      body: { 
+        imageData, 
+        isPassive,
+        timestamp: new Date().toISOString() // Add timestamp to help debug
+      }
     });
     
     if (error) {

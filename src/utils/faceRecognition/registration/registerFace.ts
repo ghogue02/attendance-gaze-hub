@@ -9,6 +9,8 @@ export const registerFaceImage = async (
   angleIndex: number
 ): Promise<FaceRegistrationResult> => {
   try {
+    console.log(`Starting face registration for student ${studentId}, angle ${angleIndex}`);
+    
     // Fetch the student record
     const { data: student, error: fetchError } = await supabase
       .from('students')
@@ -31,7 +33,15 @@ export const registerFaceImage = async (
     const storageName = `${studentId}_angle${angleIndex}_${Date.now()}.jpg`;
     console.log(`Processing image for angle ${angleIndex}, storage name: ${storageName}`);
     
-    // If it's the first image, use it as the profile image
+    // Test if the image is valid by checking for the base64 prefix
+    if (!imageData.startsWith('data:image/')) {
+      return {
+        success: false,
+        message: 'Invalid image format'
+      };
+    }
+    
+    // If it's the first image, use it as the profile image without AI enhancement
     if (isFirstImage) {
       console.log("Processing first angle image as profile picture");
       
@@ -79,6 +89,8 @@ export const registerFaceImage = async (
     const registeredCount = registeredAngles.length;
     const requiredAngles = 5; // We require 5 different angle captures
     
+    console.log(`Current registration count: ${registeredCount} of ${requiredAngles} required angles`);
+    
     // Determine the next angle index
     // Find the next available angle index that hasn't been registered yet
     let nextAngleIndex = 0;
@@ -121,6 +133,8 @@ async function storeFaceRegistration(
   angleIndex: number
 ): Promise<FaceRegistrationResult> {
   try {
+    console.log(`Storing face data for student ${studentId}, angle ${angleIndex}`);
+    
     // Delete any existing face registration for this angle and student
     // This ensures we don't have duplicate angles for the same student
     const { error: deleteError } = await supabase

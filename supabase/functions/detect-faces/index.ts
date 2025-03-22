@@ -30,7 +30,7 @@ serve(async (req) => {
 
     // Parse request body
     const requestData = await req.json()
-    const { imageData, isPassive } = requestData
+    const { imageData, isPassive, timestamp } = requestData
 
     if (!imageData) {
       return new Response(JSON.stringify({ error: 'Image data is required' }), {
@@ -38,6 +38,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+    
+    console.log(`Processing face detection request at ${timestamp || 'unknown time'}, passive mode: ${isPassive ? 'yes' : 'no'}`);
 
     // Remove data:image/jpeg;base64, prefix if present
     const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '')
@@ -46,7 +48,11 @@ serve(async (req) => {
     const googleCredentials = Deno.env.get('GOOGLE_CLOUD_CREDENTIALS')
     if (!googleCredentials) {
       console.error('Missing Google Cloud credentials')
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Server configuration error',
+        success: false,
+        hasFaces: false
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -65,7 +71,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: generateJWT(credentials)
+        assertion: await generateJWT(credentials)
       })
     })
 
@@ -73,7 +79,12 @@ serve(async (req) => {
     
     if (!tokenResponse.ok) {
       console.error('Failed to get access token:', tokenData)
-      return new Response(JSON.stringify({ error: 'Authentication failed', details: tokenData }), {
+      return new Response(JSON.stringify({ 
+        error: 'Authentication failed', 
+        details: tokenData,
+        success: false,
+        hasFaces: false
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -82,7 +93,7 @@ serve(async (req) => {
     const accessToken = tokenData.access_token
     console.log('Successfully obtained access token');
 
-    // Prepare Vision API request - we'll use a lower quality setting to improve performance
+    // Prepare Vision API request - use more aggressive face detection parameters
     const requestBody = {
       requests: [
         {
@@ -96,11 +107,10 @@ serve(async (req) => {
             }
           ],
           imageContext: {
-            // Increase likelihood of detecting faces by optimizing for face photos
+            // Optimize for frontal face detection and detection in webcam images
             faceRecognitionParams: {
-              // Use a slightly higher confidence threshold to reduce false positives
-              // but not so high that we miss actual faces
-              confidenceThreshold: 0.6
+              // Lower confidence threshold to detect more faces
+              confidenceThreshold: 0.5
             }
           }
         }
@@ -138,15 +148,25 @@ serve(async (req) => {
     const faceCount = hasFaces ? apiData.responses[0].faceAnnotations.length : 0
     const confidence = hasFaces ? 
       apiData.responses[0].faceAnnotations[0].detectionConfidence : 0
-
+    
     console.log(`Vision API detected ${faceCount} faces with confidence: ${confidence}`);
+    
+    // Get face vertices for debugging if available
+    const faceVertices = hasFaces && apiData.responses[0].faceAnnotations[0].boundingPoly?.vertices 
+      ? apiData.responses[0].faceAnnotations[0].boundingPoly.vertices 
+      : null;
+    
+    if (faceVertices) {
+      console.log(`Face bounding box: ${JSON.stringify(faceVertices)}`);
+    }
 
-    // Enhanced response
+    // Enhanced response with more details when in active mode
     return new Response(JSON.stringify({ 
       success: true,
       hasFaces,
       faceCount,
       confidence,
+      faceVertices: faceVertices,
       detailsRaw: isPassive ? null : apiData, // Only include raw details in active mode to reduce payload size
       message: hasFaces 
         ? `Detected ${faceCount} face(s) with confidence ${confidence.toFixed(2)}`
@@ -169,7 +189,7 @@ serve(async (req) => {
 })
 
 // Generate a JWT for Google API authentication
-function generateJWT(credentials: any) {
+async function generateJWT(credentials: any) {
   const header = {
     alg: 'RS256',
     typ: 'JWT',
@@ -212,7 +232,7 @@ function generateJWT(credentials: any) {
   const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0))
   
   // Create a CryptoKey object from the PEM data
-  const importedKey = crypto.subtle.importKey(
+  const importedKey = await crypto.subtle.importKey(
     'pkcs8',
     binaryKey,
     {
@@ -223,24 +243,22 @@ function generateJWT(credentials: any) {
     ['sign']
   )
   
-  return importedKey.then(key => {
-    return crypto.subtle.sign(
-      { name: 'RSASSA-PKCS1-v1_5' },
-      key,
-      signatureInput
-    ).then(signature => {
-      // Convert signature to base64
-      const signatureBytes = new Uint8Array(signature)
-      let base64Signature = ''
-      
-      for (let i = 0; i < signatureBytes.length; i++) {
-        base64Signature += String.fromCharCode(signatureBytes[i])
-      }
-      
-      const encodedSignature = btoa(base64Signature).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-      
-      // Return complete JWT
-      return `${payload}.${encodedSignature}`
-    })
-  })
+  const signature = await crypto.subtle.sign(
+    { name: 'RSASSA-PKCS1-v1_5' },
+    importedKey,
+    signatureInput
+  )
+  
+  // Convert signature to base64
+  const signatureBytes = new Uint8Array(signature)
+  let base64Signature = ''
+  
+  for (let i = 0; i < signatureBytes.length; i++) {
+    base64Signature += String.fromCharCode(signatureBytes[i])
+  }
+  
+  const encodedSignature = btoa(base64Signature).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Return complete JWT
+  return `${payload}.${encodedSignature}`
 }

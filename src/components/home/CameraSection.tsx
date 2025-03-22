@@ -1,6 +1,6 @@
 
 import { motion } from 'framer-motion';
-import { Camera } from 'lucide-react';
+import { Camera, AlertCircle } from 'lucide-react';
 import { Builder } from '@/components/BuilderCard';
 import AttendanceCamera from '@/components/AttendanceCamera';
 import BuilderResult from './BuilderResult';
@@ -30,7 +30,8 @@ const CameraSection = ({
           onBuilderDetected={onBuilderDetected}
           isCameraActive={isCameraActive}
           passive={passiveMode}
-          passiveInterval={500} // Much more aggressive scanning (every 500ms)
+          passiveInterval={300} // More aggressive scanning (every 300ms)
+          debugMode={true} // Enable debug mode for more visual feedback
         />
       ) : detectedBuilder ? (
         <BuilderResult detectedBuilder={detectedBuilder} />

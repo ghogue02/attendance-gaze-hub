@@ -23,6 +23,7 @@ export const RegistrationCapture = ({
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   
   const {
     videoRef,
@@ -40,6 +41,15 @@ export const RegistrationCapture = ({
     }
   });
 
+  useEffect(() => {
+    // Show a helpful message to the user
+    if (isCapturing) {
+      setStatusMessage('Camera active. Position your face and click Capture.');
+    } else if (cameraError) {
+      setStatusMessage('Camera error. Please check permissions.');
+    }
+  }, [isCapturing, cameraError]);
+
   const angleInstructions = [
     "Look directly at the camera",
     "Turn your head slightly to the left",
@@ -49,65 +59,78 @@ export const RegistrationCapture = ({
   ];
 
   const captureImage = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      toast.error('Camera not initialized properly');
+      return;
+    }
     
     setProcessing(true);
+    setStatusMessage('Processing image...');
     const imageData = captureImageData();
     
     if (!imageData) {
       toast.error('Failed to capture image');
       setProcessing(false);
+      setStatusMessage('Failed to capture image. Try again.');
       return;
     }
     
     console.log(`Capturing image for angle ${currentAngle}`);
     
-    const result = await registerFaceImage(builder.id, imageData, currentAngle);
-    console.log("Registration result:", result);
-    
-    if (result.success) {
-      toast.success(result.message);
+    try {
+      const result = await registerFaceImage(builder.id, imageData, currentAngle);
+      console.log("Registration result:", result);
       
-      const newCapturedImages = [...capturedImages];
-      newCapturedImages[currentAngle] = imageData;
-      setCapturedImages(newCapturedImages);
-      
-      if (currentAngle === 0) {
-        console.log("Updating builder avatar with angle 0 image");
-        await updateBuilderAvatar(builder.id, imageData);
-        toast.success("Profile image updated!");
-      }
-      
-      // Only set registrationComplete to true when all angles are completed and we're not in update mode
-      if (result.completed && !isUpdateMode) {
-        console.log("Registration complete!");
-        onRegistrationUpdate(true, 100, currentAngle);
-      } else if (result.imageCount) {
-        // In update mode, continue with the next angle
-        let nextAngle = currentAngle;
-        if (result.nextAngleIndex !== undefined) {
-          nextAngle = result.nextAngleIndex;
-          setCurrentAngle(nextAngle);
-        } else {
-          nextAngle = (currentAngle + 1) % 5;
-          setCurrentAngle(nextAngle);
+      if (result.success) {
+        toast.success(result.message);
+        setStatusMessage(`Angle ${currentAngle + 1} registered successfully!`);
+        
+        const newCapturedImages = [...capturedImages];
+        newCapturedImages[currentAngle] = imageData;
+        setCapturedImages(newCapturedImages);
+        
+        if (currentAngle === 0) {
+          console.log("Updating builder avatar with angle 0 image");
+          await updateBuilderAvatar(builder.id, imageData);
+          toast.success("Profile image updated!");
         }
         
-        const newProgress = (result.imageCount / 5) * 100;
-        setProgress(newProgress);
-        onRegistrationUpdate(false, newProgress, nextAngle);
-        
-        // If all angles are completed in update mode, only mark as complete after the last angle
-        if (result.completed && isUpdateMode && result.nextAngleIndex === 0) {
-          console.log("Update complete!");
-          onRegistrationUpdate(true, 100, nextAngle);
+        // Only set registrationComplete to true when all angles are completed and we're not in update mode
+        if (result.completed && !isUpdateMode) {
+          console.log("Registration complete!");
+          onRegistrationUpdate(true, 100, currentAngle);
+        } else if (result.imageCount) {
+          // In update mode, continue with the next angle
+          let nextAngle = currentAngle;
+          if (result.nextAngleIndex !== undefined) {
+            nextAngle = result.nextAngleIndex;
+            setCurrentAngle(nextAngle);
+          } else {
+            nextAngle = (currentAngle + 1) % 5;
+            setCurrentAngle(nextAngle);
+          }
+          
+          const newProgress = (result.imageCount / 5) * 100;
+          setProgress(newProgress);
+          onRegistrationUpdate(false, newProgress, nextAngle);
+          
+          // If all angles are completed in update mode, only mark as complete after the last angle
+          if (result.completed && isUpdateMode && result.nextAngleIndex === 0) {
+            console.log("Update complete!");
+            onRegistrationUpdate(true, 100, nextAngle);
+          }
         }
+      } else {
+        toast.error(result.message);
+        setStatusMessage(`Error: ${result.message}`);
       }
-    } else {
-      toast.error(result.message);
+    } catch (error) {
+      console.error('Error during registration:', error);
+      toast.error('An unexpected error occurred');
+      setStatusMessage('Registration error. Please try again.');
+    } finally {
+      setProcessing(false);
     }
-    
-    setProcessing(false);
   };
 
   return (
@@ -119,6 +142,7 @@ export const RegistrationCapture = ({
         cameraError={cameraError}
         processing={processing}
         startCamera={startCamera}
+        statusMessage={statusMessage}
       />
       
       <div className="flex flex-col">

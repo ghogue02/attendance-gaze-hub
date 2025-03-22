@@ -1,15 +1,25 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Users, ListCheck, Check, AlertCircle } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import FaceRegistration from '@/components/FaceRegistration';
 import StudentCard, { Student } from '@/components/StudentCard';
 import { getAllStudents, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-const Register = () => {
+interface RegisterProps {
+  faceRegistration?: boolean;
+}
+
+const Register = ({ faceRegistration }: RegisterProps) => {
+  const { studentId } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -19,6 +29,24 @@ const Register = () => {
   useEffect(() => {
     loadStudents();
   }, []);
+
+  useEffect(() => {
+    // If in face registration mode and we have a studentId, find that student
+    if (faceRegistration && studentId && students.length > 0) {
+      const foundStudent = students.find(s => s.id === studentId);
+      if (foundStudent) {
+        setSelectedStudent(foundStudent);
+        setRegistrationOpen(true);
+      } else {
+        toast({
+          title: "Student Not Found",
+          description: "The student ID in the URL doesn't match any registered student.",
+          variant: "destructive"
+        });
+        navigate('/register');
+      }
+    }
+  }, [faceRegistration, studentId, students, navigate, toast]);
 
   const loadStudents = async () => {
     setLoading(true);
@@ -50,6 +78,13 @@ const Register = () => {
   const handleRegistrationComplete = () => {
     // Refresh the list to update status
     loadStudents();
+    // Close the dialog
+    setRegistrationOpen(false);
+    
+    // If in direct face registration mode, navigate back to register
+    if (faceRegistration && studentId) {
+      navigate('/register');
+    }
   };
 
   return (

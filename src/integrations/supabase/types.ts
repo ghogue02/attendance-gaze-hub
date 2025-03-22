@@ -117,7 +117,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      count_face_registrations: {
+        Args: {
+          p_student_id: string
+        }
+        Returns: number
+      }
+      insert_face_registration: {
+        Args: {
+          p_student_id: string
+          p_face_data: string
+          p_angle_index: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

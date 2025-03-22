@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
@@ -29,7 +30,31 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
       setImageError(false);
       
       try {
-        // For Greg Hogue, use the specific ID from the database directly
+        console.log(`Fetching image for user: ${userName} (ID: ${userId})`);
+        
+        // First try to get the image by userId
+        if (userId) {
+          const { data, error } = await supabase
+            .from('face_registrations')
+            .select('face_data')
+            .eq('student_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+            
+          if (error) {
+            console.error(`Error fetching face data for userId ${userId}:`, error);
+          } else if (data?.face_data) {
+            console.log(`Found face data by ID ${userId}`);
+            setImageUrl(data.face_data);
+            setIsLoading(false);
+            return;
+          } else {
+            console.log(`No face data found for ID ${userId}, checking other methods`);
+          }
+        }
+        
+        // Fallback: For Greg Hogue, use the specific ID
         if (userName === 'Greg Hogue') {
           const gregId = '28bc877a-ba4a-4f73-bf58-90380a299b97';
           console.log('Using hardcoded ID for Greg Hogue:', gregId);
@@ -45,27 +70,7 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           if (error) {
             console.error('Error fetching face registration for Greg:', error);
           } else if (data?.face_data) {
-            console.log('Found face data for Greg:', data.face_data.substring(0, 50) + '...');
-            setImageUrl(data.face_data);
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        // Rest of the logic for other users
-        if (userId) {
-          const { data, error } = await supabase
-            .from('face_registrations')
-            .select('face_data')
-            .eq('student_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-            
-          if (error) {
-            console.error('Error fetching user by ID:', error);
-          } else if (data?.face_data) {
-            console.log('Found image by ID:', data.face_data.substring(0, 50) + '...');
+            console.log('Found face data for Greg');
             setImageUrl(data.face_data);
             setIsLoading(false);
             return;
@@ -74,7 +79,14 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
         
         // Fallback to local image for Greg Hogue
         if (userName?.toLowerCase() === 'greg hogue') {
+          console.log('Using local image fallback for Greg Hogue');
           setImageUrl('/greg-hogue.jpg');
+          setIsLoading(false);
+          return;
+        }
+      
+        // If all else fails, use the image from the builder object or show fallback
+        if (imageUrl) {
           setIsLoading(false);
         } else {
           setImageError(true);
@@ -88,7 +100,7 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
     };
     
     fetchUserImage();
-  }, [userName, userId]);
+  }, [userName, userId, imageUrl]);
 
   return (
     <Avatar className={`border-2 border-white/20 ${className}`}>

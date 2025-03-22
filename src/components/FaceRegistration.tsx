@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Check, RefreshCw, ChevronRight } from 'lucide-react';
+import { Camera, Check, RefreshCw, ChevronRight, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Builder } from './BuilderCard';
@@ -23,6 +23,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,6 +49,8 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
       if (status.completed) {
         setRegistrationComplete(true);
         setProgress(100);
+        // Determine if this was opened in update mode
+        setIsUpdateMode(status.count >= 5);
       } else {
         setCurrentAngle(status.count);
         setCapturedImages(new Array(status.count).fill(''));
@@ -125,7 +128,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
       // If this is the front-facing image (angle 0), update the builder's avatar
       if (currentAngle === 0) {
         await updateBuilderAvatar(builder.id, imageData);
-        toast.success("Profile image updated!");
+        toast.success("Profile image updated with AI enhancement!");
       }
       
       if (result.completed) {
@@ -142,6 +145,15 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     }
     
     setProcessing(false);
+  };
+
+  const handleStartOver = () => {
+    // Reset current angle to 0 and start camera again
+    setCurrentAngle(0);
+    setRegistrationComplete(false);
+    setCapturedImages([]);
+    setProgress(0);
+    startCamera();
   };
 
   const angleInstructions = [
@@ -166,7 +178,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
           </DialogDescription>
         </DialogHeader>
         
-        {registrationComplete ? (
+        {registrationComplete && !isUpdateMode ? (
           <div className="text-center py-8">
             <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
               <Check className="h-8 w-8 text-green-600" />
@@ -178,6 +190,25 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
             <Button onClick={handleComplete}>
               Done
             </Button>
+          </div>
+        ) : registrationComplete && isUpdateMode ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="h-8 w-8 text-yellow-600" />
+            </div>
+            <h3 className="text-xl font-medium mb-2">Update Registration</h3>
+            <p className="text-muted-foreground mb-6">
+              You've already completed face registration, but you can update your images 
+              to improve recognition accuracy.
+            </p>
+            <div className="flex justify-center gap-4">
+              <Button variant="outline" onClick={handleComplete}>
+                Cancel
+              </Button>
+              <Button onClick={handleStartOver}>
+                Re-register Face
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, ListCheck, Check, AlertCircle, Search } from 'lucide-react';
@@ -239,7 +238,7 @@ const Register = ({ faceRegistration }: RegisterProps) => {
                       variant={registrationStatus[builder.id]?.completed ? "outline" : "default"}
                       className="w-full mt-2"
                     >
-                      {registrationStatus[builder.id]?.completed ? "Update Registration" : "Register Face"}
+                      {registrationStatus[builder.id]?.completed ? "Update Face Data" : "Register Face"}
                     </Button>
                   </div>
                 </div>

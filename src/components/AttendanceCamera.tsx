@@ -26,6 +26,7 @@ const AttendanceCamera = ({
   const passiveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const recognizedBuildersRef = useRef<Set<string>>(new Set());
   const [scanCount, setScanCount] = useState(0);
+  const consecutiveFailsRef = useRef(0);
 
   const { 
     videoRef, 
@@ -48,6 +49,7 @@ const AttendanceCamera = ({
       setStatusMessage(passive ? "Scanning for builders..." : "Camera active, ready to capture");
       recognizedBuildersRef.current.clear();
       setScanCount(0);
+      consecutiveFailsRef.current = 0;
       
       // Initial passive capture if in passive mode
       if (passive) {
@@ -102,6 +104,7 @@ const AttendanceCamera = ({
         toast.success(`Builder successfully recognized: ${builder.name}`);
         recognizedBuildersRef.current.add(builder.id);
         setLastDetectionTime(Date.now());
+        consecutiveFailsRef.current = 0;
       },
       onError: (message) => {
         toast.error(message);
@@ -144,10 +147,20 @@ const AttendanceCamera = ({
           console.log(`Builder ${builder.name} already recognized recently`);
         }
         setLastDetectionTime(Date.now());
+        consecutiveFailsRef.current = 0;
       },
       onError: (message) => {
         // Don't show errors in passive mode, but we can update the status message
-        if (message !== 'Recently recognized') {
+        if (message === 'No face detected in frame') {
+          consecutiveFailsRef.current++;
+          
+          if (consecutiveFailsRef.current > 5) {
+            // After several consecutive failures, update the status message
+            setStatusMessage(`Waiting for builders... (Scan #${scanCount})`);
+          } else {
+            setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
+          }
+        } else if (message !== 'Recently recognized') {
           setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
         }
       },
@@ -184,3 +197,4 @@ const AttendanceCamera = ({
 };
 
 export default AttendanceCamera;
+

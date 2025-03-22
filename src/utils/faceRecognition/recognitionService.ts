@@ -20,12 +20,18 @@ export const processRecognition = async (
     
     if (result.success && result.builder) {
       onSuccess?.(result.builder);
-    } else if (!isPassive) {
-      // Only show error messages in active mode
-      onError?.(result.message);
     } else {
-      // For passive mode, silently continue
-      console.log("Passive recognition result:", result.message);
+      // Always pass the message to onError in passive mode for "No face detected"
+      // This allows AttendanceCamera to track consecutive failures
+      if (isPassive && result.message === 'No face detected in frame') {
+        onError?.(result.message);
+      } else if (!isPassive) {
+        // For other errors in active mode, show the error
+        onError?.(result.message);
+      } else {
+        // For other passive mode errors, just log
+        console.log("Passive recognition result:", result.message);
+      }
     }
   } catch (error) {
     console.error('Face recognition error:', error);
@@ -37,3 +43,4 @@ export const processRecognition = async (
     onComplete?.();
   }
 };
+

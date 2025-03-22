@@ -61,6 +61,22 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         // For demo purposes, select a user from the registered users
         const studentId = selectStudentForRecognition(uniqueStudentIds);
         
+        // New logic: If no face is detected in passive mode, return early
+        if (studentId === null && passive) {
+          resolve({
+            success: false,
+            message: 'No face detected in frame'
+          });
+          return;
+        } else if (studentId === null) {
+          // In active mode, we'll give a more user-friendly message
+          resolve({
+            success: false,
+            message: 'No face detected. Please position your face in the frame.'
+          });
+          return;
+        }
+        
         // Check if this user was recently recognized to prevent duplicates
         if (checkRecentlyRecognized(studentId, recognitionHistory, currentTime)) {
           resolve({
@@ -117,3 +133,4 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
     }, passive ? 200 : 500); // Even faster recognition for production scenarios
   });
 };
+

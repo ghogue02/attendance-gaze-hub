@@ -80,7 +80,8 @@ export const checkRecentlyRecognized = (studentId: string, recognitionHistory: {
     const lastRecognitionTime = recognitionHistory[studentId];
     const timeSinceLastRecognition = currentTime - lastRecognitionTime;
     
-    if (timeSinceLastRecognition < 10000) { // 10 seconds
+    // In passive mode, require longer intervals between recognitions of the same person
+    if (timeSinceLastRecognition < 30000) { // 30 seconds instead of 10
       console.log(`User ${studentId} was recently recognized ${timeSinceLastRecognition}ms ago. Skipping.`);
       return true;
     }
@@ -139,11 +140,25 @@ export const updateRecognitionHistory = (studentId: string, recognitionHistory: 
 };
 
 /**
- * Select a student for recognition 
- * In a real implementation, this would be based on facial recognition algorithms
+ * Select a student for recognition in a more realistic way
+ * This function simulates face recognition in demo mode
  */
 export const selectStudentForRecognition = (uniqueStudentIds: string[]) => {
+  // For demo purposes, we need to simulate more realistic face detection
+  // We'll add a probability of "no face detected" for passive mode
+  
+  // In a real system, this would be based on actual face detection algorithms
+  const rand = Math.random();
+  
+  // Add ~35% chance of no face detected to simulate more realistic behavior in passive mode
+  if (rand < 0.35) {
+    console.log("No face detected in frame");
+    return null;
+  }
+  
   const now = new Date();
-  const userIndex = now.getSeconds() % uniqueStudentIds.length;
+  // Use milliseconds to get more randomness and less predictability
+  const userIndex = (now.getSeconds() * 1000 + now.getMilliseconds()) % uniqueStudentIds.length;
   return uniqueStudentIds[userIndex];
 };
+

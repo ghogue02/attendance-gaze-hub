@@ -33,6 +33,10 @@ export const registerFaceImage = async (
     // Determine if this is the first image (to use as profile pic)
     const isFirstImage = angleIndex === 0;
     
+    // Generate a unique storage name including angle index
+    const storageName = `${studentId}_angle${angleIndex}_${Date.now()}.jpg`;
+    console.log(`Processing image for angle ${angleIndex}, storage name: ${storageName}`);
+    
     // If it's the first image, use it as the profile image
     if (isFirstImage) {
       console.log("Processing first angle image as profile picture");
@@ -44,7 +48,10 @@ export const registerFaceImage = async (
       // Update the student's profile image
       const { error: updateError } = await supabase
         .from('students')
-        .update({ image_url: enhancedImage || imageData })
+        .update({ 
+          image_url: enhancedImage || imageData,
+          last_face_update: new Date().toISOString() // Add timestamp of last face update
+        })
         .eq('id', studentId);
         
       if (updateError) {
@@ -60,6 +67,18 @@ export const registerFaceImage = async (
     
     // Store the face data directly in the database
     try {
+      // Delete any existing face registration for this angle and student
+      // This ensures we don't have duplicate angles for the same student
+      const { error: deleteError } = await supabase
+        .from('face_registrations')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('angle_index', angleIndex);
+        
+      if (deleteError) {
+        console.error('Error deleting existing face registration:', deleteError);
+      }
+      
       // Try using the RPC function first
       const { error: registrationError } = await supabase
         .rpc('insert_face_registration', {
@@ -158,7 +177,10 @@ export const updateBuilderAvatar = async (builderId: string, imageData: string):
     // Update the builder's avatar in the database
     const { error } = await supabase
       .from('students')
-      .update({ image_url: enhancedImage || imageData })
+      .update({ 
+        image_url: enhancedImage || imageData,
+        last_face_update: new Date().toISOString() // Add timestamp of last face update
+      })
       .eq('id', builderId);
     
     if (error) {

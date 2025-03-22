@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, ListCheck, Check, AlertCircle, Search } from 'lucide-react';
@@ -39,6 +40,7 @@ const Register = ({ faceRegistration }: RegisterProps) => {
 
   useEffect(() => {
     if (faceRegistration && builderId && builders.length > 0) {
+      console.log("Face registration mode with builderId:", builderId);
       const foundBuilder = builders.find(s => s.id === builderId);
       if (foundBuilder) {
         setSelectedBuilder(foundBuilder);
@@ -72,6 +74,7 @@ const Register = ({ faceRegistration }: RegisterProps) => {
     setLoading(true);
     try {
       const allBuilders = await getAllBuilders();
+      console.log("Loaded builders:", allBuilders.length);
       setBuilders(allBuilders);
       setFilteredBuilders(allBuilders);
       
@@ -91,13 +94,16 @@ const Register = ({ faceRegistration }: RegisterProps) => {
   };
 
   const handleStartRegistration = (builder: Builder) => {
+    console.log("Starting registration for builder:", builder.id);
     setSelectedBuilder(builder);
     setRegistrationOpen(true);
   };
 
   const handleRegistrationComplete = () => {
+    console.log("Registration completed, refreshing builder data");
     loadBuilders();
-    setRegistrationOpen(false);
+    // We won't close the registration dialog here - let the user close it manually
+    // so they can see the "complete" screen
     
     if (faceRegistration && builderId) {
       navigate('/register');

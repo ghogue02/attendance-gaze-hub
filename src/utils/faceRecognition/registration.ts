@@ -35,8 +35,11 @@ export const registerFaceImage = async (
     
     // If it's the first image, use it as the profile image
     if (isFirstImage) {
+      console.log("Processing first angle image as profile picture");
+      
       // Call the AI enhancement function
       const enhancedImage = await enhanceFaceImage(imageData);
+      console.log("Enhanced image received:", enhancedImage ? "Success" : "Failed");
       
       // Update the student's profile image
       const { error: updateError } = await supabase
@@ -142,8 +145,15 @@ export const registerFaceImage = async (
 // Function to update a builder's avatar with a captured face image
 export const updateBuilderAvatar = async (builderId: string, imageData: string): Promise<boolean> => {
   try {
+    console.log("Starting builder avatar update process");
+    
     // Apply AI enhancement to the image
     const enhancedImage = await enhanceFaceImage(imageData);
+    console.log("Enhanced avatar image received:", enhancedImage ? "Success" : "Failed");
+    
+    if (!enhancedImage) {
+      console.log("No enhanced image returned, using original");
+    }
     
     // Update the builder's avatar in the database
     const { error } = await supabase

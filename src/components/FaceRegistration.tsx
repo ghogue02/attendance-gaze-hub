@@ -46,13 +46,17 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     
     try {
       const status = await checkFaceRegistrationStatus(builder.id);
+      console.log("Registration status:", status);
+      
       if (status.completed) {
         setRegistrationComplete(true);
         setProgress(100);
         // Determine if this was opened in update mode
         setIsUpdateMode(status.count >= 5);
       } else {
+        // If there are existing captures, start from the next angle
         setCurrentAngle(status.count);
+        // Initialize the capturedImages array with empty strings
         setCapturedImages(new Array(status.count).fill(''));
         setProgress((status.count / 5) * 100);
         startCamera();
@@ -113,9 +117,11 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     context?.drawImage(video, 0, 0, canvas.width, canvas.height);
     
     const imageData = canvas.toDataURL('image/jpeg');
+    console.log(`Capturing image for angle ${currentAngle}`);
     
     // Register the face image for this angle
     const result = await registerFaceImage(builder.id, imageData, currentAngle);
+    console.log("Registration result:", result);
     
     if (result.success) {
       toast.success(result.message);
@@ -127,16 +133,20 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
       
       // If this is the front-facing image (angle 0), update the builder's avatar
       if (currentAngle === 0) {
+        console.log("Updating builder avatar with angle 0 image");
         await updateBuilderAvatar(builder.id, imageData);
         toast.success("Profile image updated with AI enhancement!");
       }
       
       if (result.completed) {
+        console.log("Registration complete!");
         setRegistrationComplete(true);
         setProgress(100);
         stopCamera();
-        onComplete?.();
+        
+        // Don't call onComplete yet - let the user dismiss the dialog
       } else if (result.imageCount) {
+        // Move to the next angle
         setCurrentAngle(result.imageCount);
         setProgress((result.imageCount / 5) * 100);
       }
@@ -166,6 +176,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
 
   const handleComplete = () => {
     onOpenChange(false);
+    onComplete?.();
   };
 
   return (

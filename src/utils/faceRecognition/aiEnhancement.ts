@@ -141,11 +141,11 @@ export class RunwareService {
       const taskUUID = crypto.randomUUID();
       
       return new Promise((resolve, reject) => {
+        // Create image inference payload
         const message = [{
-          taskType: "imageInference", // Changed from "imageToImage" to "imageInference"
+          taskType: "imageInference",
           taskUUID,
           model: "runware:100@1",
-          initialImage: imageData, // Use initialImage for controlling with an image
           positivePrompt: "professional portrait photo, high quality, sharp details, neutral background, studio lighting",
           negativePrompt: "blurry, distorted, low quality, cartoon, drawing",
           width: 512,
@@ -156,13 +156,15 @@ export class RunwareService {
           CFGScale: 2,
           scheduler: "FlowMatchEulerDiscreteScheduler",
           strength: 0.4,
+          image: imageData, // Use image property for the source image
           lora: [],
           seed: Math.floor(Math.random() * 100000000),
         }];
 
-        console.log("Sending image enhancement request:", JSON.stringify(message));
+        console.log("Sending image enhancement request with taskUUID:", taskUUID);
 
         this.messageCallbacks.set(taskUUID, (data) => {
+          console.log("Received callback data:", data);
           if (data.error) {
             console.error("Error in image enhancement:", data.error);
             reject(new Error(data.errorMessage || "Error enhancing image"));

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ListCheck, Check, AlertCircle } from 'lucide-react';
+import { Users, ListCheck, Check, AlertCircle, Search } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import FaceRegistration from '@/components/FaceRegistration';
@@ -9,6 +9,7 @@ import BuilderCard, { Builder } from '@/components/BuilderCard';
 import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface RegisterProps {
   faceRegistration?: boolean;
@@ -19,6 +20,8 @@ const Register = ({ faceRegistration }: RegisterProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [builders, setBuilders] = useState<Builder[]>([]);
+  const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
@@ -46,11 +49,27 @@ const Register = ({ faceRegistration }: RegisterProps) => {
     }
   }, [faceRegistration, builderId, builders, navigate, toast]);
 
+  // Filter builders by search query
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredBuilders(builders);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredBuilders(
+        builders.filter(builder => 
+          builder.name.toLowerCase().includes(query) || 
+          builder.builderId?.toLowerCase().includes(query)
+        )
+      );
+    }
+  }, [searchQuery, builders]);
+
   const loadBuilders = async () => {
     setLoading(true);
     try {
       const allBuilders = await getAllBuilders();
       setBuilders(allBuilders);
+      setFilteredBuilders(allBuilders);
       
       // Get registration status for all builders
       const statuses: {[key: string]: {completed: boolean, count: number}} = {};
@@ -158,6 +177,19 @@ const Register = ({ faceRegistration }: RegisterProps) => {
           </ol>
         </div>
 
+        {/* Search box */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search by name or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
         <div className="space-y-6">
           <h2 className="text-2xl font-bold">Builders</h2>
           
@@ -166,15 +198,24 @@ const Register = ({ faceRegistration }: RegisterProps) => {
               <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
               <p>Loading builders...</p>
             </div>
-          ) : builders.length === 0 ? (
+          ) : filteredBuilders.length === 0 ? (
             <div className="text-center py-10 glass-card">
               <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
               <p className="text-lg font-medium">No builders found</p>
-              <p className="text-sm text-muted-foreground">There are no builders in the system yet.</p>
+              <p className="text-sm text-muted-foreground">No results match your search criteria.</p>
+              {searchQuery && (
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => setSearchQuery('')}
+                >
+                  Clear Search
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {builders.map(builder => (
+              {filteredBuilders.map(builder => (
                 <div key={builder.id} className="glass-card p-4">
                   <BuilderCard builder={builder} />
                   

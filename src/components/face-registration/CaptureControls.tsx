@@ -17,7 +17,6 @@ export const CaptureControls = ({
       <AutoCaptureToggle 
         isActive={autoCapture} 
         onToggle={onToggleAutoCapture}
-        setIsActive={() => {}} // Not needed here, using onToggle instead
       />
       
       <Button

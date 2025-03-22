@@ -1,23 +1,19 @@
 
 import { useState, useRef } from 'react';
-import { toast } from 'sonner';
-import { Builder } from '@/components/BuilderCard';
-import { useCamera } from '@/hooks/use-camera';
-import { registerFaceWithoutDetection } from '@/utils/faceRecognition/fallbackRecognition';
+import { Camera, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Camera, RefreshCw } from 'lucide-react';
+import { Builder } from '@/components/BuilderCard';
+import { registerFaceWithoutDetection } from '@/utils/faceRecognition';
+import { toast } from 'sonner';
+import { useCamera } from '@/hooks/use-camera';
 
 interface SimplifiedCaptureProps {
   builder: Builder;
   onRegistrationComplete: (success: boolean) => void;
 }
 
-export const SimplifiedCapture = ({
-  builder,
-  onRegistrationComplete
-}: SimplifiedCaptureProps) => {
+export const SimplifiedCapture = ({ builder, onRegistrationComplete }: SimplifiedCaptureProps) => {
   const [processing, setProcessing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>("Position yourself in the frame and click Capture");
   
   const {
     videoRef,
@@ -25,6 +21,7 @@ export const SimplifiedCapture = ({
     isCapturing,
     cameraError,
     startCamera,
+    stopCamera,
     captureImageData
   } = useCamera({
     isCameraActive: true,
@@ -35,47 +32,59 @@ export const SimplifiedCapture = ({
     }
   });
 
-  const captureImage = async () => {
+  const handleCaptureAndRegister = async () => {
     if (!videoRef.current || !canvasRef.current) {
-      toast.error('Camera not initialized properly');
+      toast.error('Camera not ready');
       return;
     }
     
     setProcessing(true);
-    setStatusMessage('Processing image...');
-    
-    const imageData = captureImageData();
-    
-    if (!imageData) {
-      toast.error('Failed to capture image');
-      setProcessing(false);
-      setStatusMessage('Failed to capture image. Try again.');
-      return;
-    }
-    
     try {
+      // Capture the image data
+      const imageData = captureImageData();
+      
+      if (!imageData) {
+        toast.error('Failed to capture image');
+        setProcessing(false);
+        return;
+      }
+      
+      // Register the face using the simplified approach
       const result = await registerFaceWithoutDetection(builder.id, imageData);
       
       if (result.success) {
-        toast.success(result.message || 'Face registered successfully');
-        setStatusMessage('Face registered successfully!');
+        toast.success('Face registered successfully!');
         onRegistrationComplete(true);
       } else {
         toast.error(result.message || 'Registration failed');
-        setStatusMessage(`Error: ${result.message || 'Registration failed'}. Please try again.`);
-        setProcessing(false);
+        onRegistrationComplete(false);
       }
     } catch (error) {
-      console.error('Error during registration:', error);
-      toast.error('An unexpected error occurred');
-      setStatusMessage('Registration error. Please try again.');
+      console.error('Error in simplified capture:', error);
+      toast.error('An error occurred during registration');
+      onRegistrationComplete(false);
+    } finally {
       setProcessing(false);
     }
   };
 
+  if (cameraError) {
+    return (
+      <div className="text-center p-6 bg-destructive/10 rounded-lg">
+        <h3 className="font-semibold text-lg mb-2">Camera Error</h3>
+        <p className="text-muted-foreground mb-4">
+          {cameraError.message || 'Unable to access camera. Please check permissions and try again.'}
+        </p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="relative rounded-2xl overflow-hidden aspect-video shadow-glass border border-white/10 bg-black">
+      <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
         <video
           ref={videoRef}
           autoPlay
@@ -83,58 +92,41 @@ export const SimplifiedCapture = ({
           muted
           className="w-full h-full object-cover"
         />
-        
         <canvas ref={canvasRef} className="hidden" />
         
-        {statusMessage && !cameraError && !processing && (
-          <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-            <div className="bg-black/80 text-white px-4 py-2 rounded-full text-sm font-medium">
-              {statusMessage}
-            </div>
-          </div>
-        )}
-        
-        {cameraError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white p-4 text-center">
-            <div>
-              <p className="mb-3">{cameraError}</p>
-              <Button
-                onClick={startCamera}
-                className="flex items-center gap-2 text-sm mx-auto"
-                variant="secondary"
-              >
-                <RefreshCw size={16} />
-                Retry Camera
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        {processing && (
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center">
-            <svg className="animate-spin h-10 w-10 text-white mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p className="text-white">{statusMessage || 'Processing image...'}</p>
+        {!isCapturing && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <Button 
+              size="lg" 
+              onClick={startCamera}
+              className="flex items-center gap-2"
+            >
+              <Camera className="h-5 w-5" />
+              Start Camera
+            </Button>
           </div>
         )}
       </div>
       
-      <div className="flex justify-center">
-        <Button 
-          onClick={captureImage} 
-          disabled={processing || !isCapturing}
-          className="flex items-center gap-2"
+      <div className="flex flex-col space-y-2">
+        <p className="text-center text-muted-foreground">
+          This is a simplified registration process. Just look at the camera and click the button below.
+        </p>
+        
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={!isCapturing || processing}
+          onClick={handleCaptureAndRegister}
         >
-          <Camera size={16} />
-          {processing ? 'Processing...' : 'Capture Image'}
+          {processing ? (
+            <span>Processing...</span>
+          ) : (
+            <span className="flex items-center gap-2">
+              Register Face <ArrowRight className="h-4 w-4" />
+            </span>
+          )}
         </Button>
-      </div>
-      
-      <div className="text-sm text-muted-foreground text-center max-w-md mx-auto">
-        <p>Make sure your face is clearly visible in the frame before capturing.</p>
-        <p className="mt-2">This simplified registration process doesn't verify face detection but will work for attendance.</p>
       </div>
     </div>
   );

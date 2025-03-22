@@ -7,7 +7,8 @@ import { detectFaces } from '../recognitionUtils';
 export const registerFaceImage = async (
   studentId: string, 
   imageData: string, 
-  angleIndex: number
+  angleIndex: number,
+  isReregistration: boolean = false
 ): Promise<FaceRegistrationResult> => {
   try {
     console.log(`Starting face registration for student ${studentId}, angle ${angleIndex}`);
@@ -127,6 +128,25 @@ export const registerFaceImage = async (
         nextAngleIndex = i;
         break;
       }
+    }
+    
+    // When re-registering, we want to go through all angles sequentially
+    // regardless of which ones already exist
+    if (isReregistration) {
+      nextAngleIndex = (angleIndex + 1) % requiredAngles;
+      // Only mark as completed when we've gone through all angles
+      const isCompleted = angleIndex === requiredAngles - 1;
+      
+      console.log(`Re-registration: Current angle: ${angleIndex}, Next angle: ${nextAngleIndex}, Completed: ${isCompleted}`);
+      
+      return {
+        success: true,
+        message: `Angle ${angleIndex + 1} re-registered successfully`,
+        imageCount: registeredCount,
+        completed: isCompleted,
+        nextAngleIndex,
+        faceDetected: true
+      };
     }
     
     // If all angles are registered, cycle back to 0

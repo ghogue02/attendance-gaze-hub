@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Builder } from '../BuilderCard';
@@ -73,7 +72,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
           </DialogDescription>
         </DialogHeader>
         
-        {registrationComplete ? (
+        {registrationComplete && !isUpdateMode ? (
           <CompletionStatus 
             isComplete={registrationComplete} 
             isUpdateMode={isUpdateMode}
@@ -84,6 +83,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
           <RegistrationCapture 
             builder={builder}
             onRegistrationUpdate={handleRegistrationUpdate}
+            isUpdateMode={isUpdateMode}
           />
         )}
       </DialogContent>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { registerFaceImage, updateBuilderAvatar } from '@/utils/faceRecognition';
@@ -53,6 +54,7 @@ export const RegistrationCapture = ({
     }
   });
 
+  // Cleanup function for timeout
   useEffect(() => {
     return () => {
       if (autoCaptureTimeoutRef.current) {
@@ -61,6 +63,7 @@ export const RegistrationCapture = ({
     };
   }, []);
 
+  // Handle auto-capture toggle
   useEffect(() => {
     if (autoCapture && isCapturing && !processing) {
       startAutoCapture();
@@ -69,9 +72,11 @@ export const RegistrationCapture = ({
     }
   }, [autoCapture, isCapturing, processing]);
 
+  // Auto-capture logic
   const startAutoCapture = () => {
     if (!isCapturing || processing) return;
     
+    // Check if processing is hung
     const isHung = processing && (Date.now() - lastProcessingTimeRef.current > 3000);
     if (processing && !isHung) {
       autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 500);
@@ -83,6 +88,7 @@ export const RegistrationCapture = ({
       setProcessing(false);
     }
     
+    // Rate limit capture attempts
     const now = Date.now();
     const timeSinceLastCapture = now - lastCaptureAttemptRef.current;
     if (timeSinceLastCapture < 2000) {
@@ -93,6 +99,7 @@ export const RegistrationCapture = ({
     checkForFace();
   };
 
+  // Check for face in camera frame
   const checkForFace = async () => {
     if (!isCapturing || !videoRef.current) {
       autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 500);
@@ -112,6 +119,17 @@ export const RegistrationCapture = ({
       setStatusMessage(`Checking for face for angle ${currentAngle + 1}...`);
       console.log("Checking for face in current frame...");
       
+      // For a smoother experience with failing Vision API, be more lenient
+      // and try to proceed with capture more quickly
+      const failureThreshold = updateMode ? 3 : 4;
+      
+      if (consecutiveFailsRef.current >= failureThreshold) {
+        console.log(`Many detection attempts (${consecutiveFailsRef.current}), proceeding with capture`);
+        setStatusMessage(`Capturing angle ${currentAngle + 1}...`);
+        captureImage(imageData);
+        return;
+      }
+      
       const result = await detectFaces(imageData, true, consecutiveFailsRef.current);
       console.log("Face detection result:", result);
       
@@ -125,45 +143,41 @@ export const RegistrationCapture = ({
         consecutiveFailsRef.current++;
         console.log(`No face detected (attempt ${consecutiveFailsRef.current})`);
         
-        if (consecutiveFailsRef.current >= 5 && faceDetectionSuccessRef.current) {
-          console.log("Many consecutive failures after previous success - forcing capture");
-          setStatusMessage(`Face position may have changed. Capturing angle ${currentAngle + 1} anyway...`);
+        if (consecutiveFailsRef.current >= 3) {
+          // After a few failed attempts, just capture anyway
+          console.log("Multiple detection failures - proceeding with capture anyway");
+          setStatusMessage(`Capturing angle ${currentAngle + 1}...`);
           captureImage(imageData);
           return;
         }
         
-        if (consecutiveFailsRef.current > 5) {
-          setStatusMessage(`No face detected. Position your face in center of frame for angle ${currentAngle + 1}.`);
-        } else if (consecutiveFailsRef.current > 3) {
-          setStatusMessage(`Still looking for face. Please position yourself for angle ${currentAngle + 1}.`);
-        } else {
-          setStatusMessage(`Looking for face for angle ${currentAngle + 1}...`);
-        }
-        
-        const delay = Math.min(1000 + (consecutiveFailsRef.current * 100), 2000);
+        setStatusMessage(`Looking for face for angle ${currentAngle + 1}...`);
+        const delay = Math.min(800 + (consecutiveFailsRef.current * 100), 1500);
         autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, delay);
       }
     } catch (error) {
       console.error("Error in face detection:", error);
-      setStatusMessage("Error detecting face. Retrying...");
+      setStatusMessage("Error detecting face. Proceeding with capture...");
       
       consecutiveFailsRef.current++;
       
-      if (consecutiveFailsRef.current >= 6) {
-        console.log("Multiple errors in face detection - trying manual capture");
+      // After a couple errors, just try to capture anyway
+      if (consecutiveFailsRef.current >= 2) {
+        console.log("Multiple errors in face detection - trying to capture anyway");
         const imageData = captureImageData();
         if (imageData) {
-          setStatusMessage(`Proceeding with capture for angle ${currentAngle + 1} after detection errors...`);
+          setStatusMessage(`Proceeding with capture for angle ${currentAngle + 1}...`);
           captureImage(imageData);
           return;
         }
       }
       
-      const delay = Math.min(1500 + (consecutiveFailsRef.current * 200), 3000);
+      const delay = Math.min(1000 + (consecutiveFailsRef.current * 200), 2000);
       autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, delay);
     }
   };
 
+  // Capture and register image
   const captureImage = async (imageData?: string) => {
     if (!videoRef.current || !canvasRef.current) {
       toast.error('Camera not initialized properly');
@@ -198,52 +212,36 @@ export const RegistrationCapture = ({
         toast.success(result.message);
         setStatusMessage(`Angle ${currentAngle + 1} registered successfully!`);
         
+        // Store captured image
         const newCapturedImages = [...capturedImages];
         newCapturedImages[currentAngle] = imageData;
         setCapturedImages(newCapturedImages);
         
-        if (currentAngle === 0) {
-          console.log("Updating builder avatar with angle 0 image");
-          await updateBuilderAvatar(builder.id, imageData);
-          toast.success("Profile image updated!");
-        }
-        
         if (result.completed) {
           console.log("Registration complete!");
           onRegistrationUpdate(true, 100, currentAngle);
-        } else {
-          let nextAngle = currentAngle;
-          if (result.nextAngleIndex !== undefined) {
-            nextAngle = result.nextAngleIndex;
-            setCurrentAngle(nextAngle);
-          } else {
-            nextAngle = (currentAngle + 1) % 5;
-            setCurrentAngle(nextAngle);
-          }
+        } else if (result.nextAngleIndex !== undefined) {
+          // Move to next angle
+          const nextAngle = result.nextAngleIndex;
+          setCurrentAngle(nextAngle);
           
-          const newProgress = (result.imageCount / 5) * 100;
+          // Update progress
+          const newProgress = Math.min(((result.imageCount || 0) / 5) * 100, 80);
           setProgress(newProgress);
           onRegistrationUpdate(false, newProgress, nextAngle);
           
           setStatusMessage(`Ready for angle ${nextAngle + 1}. Position your face...`);
           consecutiveFailsRef.current = 0;
           faceDetectionSuccessRef.current = false;
+          
+          // Slight delay before next auto-capture
           if (autoCapture) {
-            autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1500);
+            autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1200);
           }
         }
-      } else if (!result.faceDetected) {
-        toast.error(result.message);
-        setStatusMessage(`No face detected. Please try again for angle ${currentAngle + 1}.`);
-        
-        consecutiveFailsRef.current = Math.max(0, consecutiveFailsRef.current - 1);
-        
-        if (autoCapture) {
-          autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1500);
-        }
       } else {
-        toast.error(result.message);
-        setStatusMessage(`Error: ${result.message}`);
+        toast.error(result.message || 'Registration failed');
+        setStatusMessage(`Error: ${result.message || 'Registration failed'}. Try again.`);
         
         if (autoCapture) {
           autoCaptureTimeoutRef.current = setTimeout(startAutoCapture, 1500);
@@ -262,6 +260,7 @@ export const RegistrationCapture = ({
     }
   };
 
+  // Toggle auto-capture mode
   const handleToggleAutoCapture = () => {
     const newAutoCapture = !autoCapture;
     setAutoCapture(newAutoCapture);

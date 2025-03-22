@@ -25,15 +25,13 @@ export const registerFaceImage = async (
       };
     }
     
-    // For registration, be more lenient with face detection since this is an active
-    // user-driven process and the errors are frustrating
-    // Allow registration even with lower confidence
-    if (!faceDetection.hasFaces && angleIndex > 0) {
-      // For angles beyond the first, be more strict
-      console.log(`No face detected in the image for angle ${angleIndex}`);
+    // Be more lenient with face detection for registration
+    // Only reject completely if no face is detected in initial capture
+    if (!faceDetection.hasFaces && angleIndex === 0 && !isReregistration) {
+      console.log(`No face detected in the first image`);
       return {
         success: false,
-        message: 'No face detected in the image. Please position your face in the frame.',
+        message: 'No face detected. Please position your face in the frame.',
         faceDetected: false
       };
     }
@@ -53,14 +51,11 @@ export const registerFaceImage = async (
       };
     }
     
-    // Determine if this is the first image (to use as profile pic)
-    const isFirstImage = angleIndex === 0;
-    
-    // Generate a unique storage name including angle index
+    // Generate a unique storage name
     const storageName = `${studentId}_angle${angleIndex}_${Date.now()}.jpg`;
     console.log(`Processing image for angle ${angleIndex}, storage name: ${storageName}`);
     
-    // Test if the image is valid by checking for the base64 prefix
+    // Test if the image is valid
     if (!imageData.startsWith('data:image/')) {
       return {
         success: false,
@@ -68,11 +63,12 @@ export const registerFaceImage = async (
       };
     }
     
-    // If it's the first image, use it as the profile image without AI enhancement
-    if (isFirstImage) {
+    // If it's the first angle (front facing) and not re-registering, 
+    // use it as the profile image
+    if (angleIndex === 0 && !isReregistration) {
       console.log("Processing first angle image as profile picture");
       
-      // Update the student's profile image without AI enhancement
+      // Update the student's profile image
       const { error: updateError } = await supabase
         .from('students')
         .update({ 
@@ -118,49 +114,19 @@ export const registerFaceImage = async (
     
     console.log(`Current registration count: ${registeredCount} of ${requiredAngles} required angles`);
     
-    // Determine the next angle index
-    // Find the next available angle index that hasn't been registered yet
-    let nextAngleIndex = 0;
-    const registeredAngleIndices = registeredAngles.map(reg => reg.angle_index);
+    // Calculate the next angle index - always sequential
+    let nextAngleIndex = (angleIndex + 1) % requiredAngles;
     
-    for (let i = 0; i < requiredAngles; i++) {
-      if (!registeredAngleIndices.includes(i)) {
-        nextAngleIndex = i;
-        break;
-      }
-    }
+    // Check if all angles are registered
+    const isCompleted = registeredCount >= requiredAngles;
     
-    // When re-registering, we want to go through all angles sequentially
-    // regardless of which ones already exist
-    if (isReregistration) {
-      nextAngleIndex = (angleIndex + 1) % requiredAngles;
-      // Only mark as completed when we've gone through all angles
-      const isCompleted = angleIndex === requiredAngles - 1;
-      
-      console.log(`Re-registration: Current angle: ${angleIndex}, Next angle: ${nextAngleIndex}, Completed: ${isCompleted}`);
-      
-      return {
-        success: true,
-        message: `Angle ${angleIndex + 1} re-registered successfully`,
-        imageCount: registeredCount,
-        completed: isCompleted,
-        nextAngleIndex,
-        faceDetected: true
-      };
-    }
-    
-    // If all angles are registered, cycle back to 0
-    if (registeredCount >= requiredAngles) {
-      nextAngleIndex = (angleIndex + 1) % requiredAngles;
-    }
-    
-    console.log(`Current angle: ${angleIndex}, Next angle: ${nextAngleIndex}, Total registered: ${registeredCount}`);
+    console.log(`Current angle: ${angleIndex}, Next angle: ${nextAngleIndex}, Completed: ${isCompleted}`);
     
     return {
       success: true,
       message: `Angle ${angleIndex + 1} registered successfully`,
       imageCount: registeredCount,
-      completed: registeredCount >= requiredAngles,
+      completed: isCompleted,
       nextAngleIndex,
       faceDetected: true
     };

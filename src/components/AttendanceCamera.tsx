@@ -1,9 +1,9 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Camera, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Student } from './StudentCard';
+import { Student, StudentStatus } from './StudentCard';
+import { recognizeFace } from '@/utils/faceRecognition';
 
 interface AttendanceCameraProps {
   onStudentDetected?: (student: Student) => void;
@@ -18,7 +18,6 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Start and stop video capture based on isCameraActive
   useEffect(() => {
     if (isCameraActive) {
       startCamera();
@@ -76,45 +75,31 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     
-    // Ensure canvas dimensions match video dimensions for proper scaling
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
-    // Draw video frame to canvas
     context?.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Get image data as base64
     const imageData = canvas.toDataURL('image/jpeg');
     
-    // Simulate processing the image for face recognition
-    // In a real implementation, this would send the image to your face recognition service
-    setTimeout(() => {
-      // Simulate successful recognition
-      if (Math.random() > 0.3) { // 70% chance of success for demo
-        const mockStudent: Student = {
-          id: '1234',
-          name: 'Alex Johnson',
-          studentId: 'S' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'),
-          status: 'present',
-          timeRecorded: new Date().toLocaleTimeString(),
-          image: imageData
-        };
-        
-        onStudentDetected?.(mockStudent);
-        toast.success('Student successfully recognized!');
+    recognizeFace(imageData).then(result => {
+      if (result.success && result.student) {
+        onStudentDetected?.(result.student);
+        toast.success(result.message);
       } else {
-        // Simulate failed recognition
-        toast.error('No student recognized. Try again.');
+        toast.error(result.message);
       }
-      
       setProcessingImage(false);
-    }, 1500);
+    }).catch(error => {
+      console.error('Face recognition error:', error);
+      toast.error('An error occurred during face recognition');
+      setProcessingImage(false);
+    });
   };
 
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="relative rounded-2xl overflow-hidden aspect-video shadow-glass border border-white/10 bg-black">
-        {/* Main video feed */}
         <video
           ref={videoRef}
           autoPlay
@@ -123,22 +108,18 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
           className="w-full h-full object-cover"
         />
         
-        {/* Canvas for capturing frames (hidden) */}
         <canvas ref={canvasRef} className="hidden" />
         
-        {/* Overlay with scanning effect */}
         {isCapturing && !cameraError && (
           <div className="absolute inset-0 border-2 border-primary pointer-events-none animate-pulse opacity-50" />
         )}
         
-        {/* Status indicators */}
         <div className="absolute top-3 right-3">
           <div className={`h-3 w-3 rounded-full ${isCapturing ? 'bg-green-500' : 'bg-red-500'}`}>
             <div className={`h-3 w-3 rounded-full ${isCapturing ? 'bg-green-500' : 'bg-red-500'} animate-ping opacity-75`} />
           </div>
         </div>
         
-        {/* Camera error message */}
         {cameraError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white p-4 text-center">
             <div>
@@ -154,7 +135,6 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
           </div>
         )}
         
-        {/* Processing overlay */}
         <AnimatePresence>
           {processingImage && (
             <motion.div
@@ -173,7 +153,6 @@ const AttendanceCamera = ({ onStudentDetected, isCameraActive = false }: Attenda
         </AnimatePresence>
       </div>
       
-      {/* Camera controls */}
       <div className="mt-4 flex justify-center">
         <button
           onClick={captureImage}

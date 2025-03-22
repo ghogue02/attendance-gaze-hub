@@ -1,8 +1,5 @@
 
-// This file would integrate with your cloud face recognition service 
-// Below is a placeholder implementation
-
-import { Student } from '@/components/StudentCard';
+import { Student, StudentStatus } from '@/components/StudentCard';
 
 // Mock database for demo purposes
 const mockStudentDatabase: Student[] = [
@@ -75,7 +72,7 @@ export const recognizeFace = async (imageData: string): Promise<RecognitionResul
         const randomIndex = Math.floor(Math.random() * mockStudentDatabase.length);
         const student = { 
           ...mockStudentDatabase[randomIndex],
-          status: 'present',
+          status: 'present' as StudentStatus,
           timeRecorded: new Date().toLocaleTimeString()
         };
         
@@ -107,7 +104,7 @@ export const getAllStudents = async (): Promise<Student[]> => {
 };
 
 // Function to mark attendance manually
-export const markAttendance = async (studentId: string, status: 'present' | 'absent'): Promise<boolean> => {
+export const markAttendance = async (studentId: string, status: StudentStatus): Promise<boolean> => {
   // In a real implementation, this would update your database
   
   return new Promise((resolve) => {

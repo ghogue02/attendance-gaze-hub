@@ -1,3 +1,4 @@
+
 import { useMemo } from 'react';
 import { 
   BarChart, 
@@ -45,9 +46,9 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         const startDateStr = startDate.toISOString().split('T')[0];
         const endDateStr = today.toISOString().split('T')[0];
         
-        console.log(`Fetching attendance from ${startDateStr} to ${endDateStr}`);
+        console.log(`Fetching attendance chart data from ${startDateStr} to ${endDateStr}`);
         
-        // Fetch attendance data for the date range
+        // Fetch all attendance data for the date range without filtering by student_id
         const { data: attendanceData, error } = await supabase
           .from('attendance')
           .select('*')
@@ -95,27 +96,30 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
               : new Date(record.date).toISOString().split('T')[0];
             
             if (dateMap[dateStr]) {
-              let status = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+              let status = 'Absent'; // Default status
               
-              // Map excused absence to the Excused category for the chart
-              if (record.excuse_reason && status === 'Absent') {
-                status = 'Excused';
-              } else if (status === 'Present' || status === 'Absent' || status === 'Excused' || status === 'Late') {
-                // Keep status as is
-              } else {
-                // Default to Absent for any other status
-                status = 'Absent';
+              // Handle different status formats
+              if (record.status) {
+                if (record.status === 'present') {
+                  status = 'Present';
+                } else if (record.status === 'absent' && record.excuse_reason) {
+                  status = 'Excused';
+                } else if (record.status === 'absent') {
+                  status = 'Absent';
+                } else if (record.status === 'excused') {
+                  status = 'Excused';
+                } else if (record.status === 'late') {
+                  status = 'Late';
+                }
               }
               
               // Increment the counter for this status
-              if (status === 'Present' || status === 'Absent' || status === 'Excused' || status === 'Late') {
-                dateMap[dateStr][status as keyof Omit<DailyAttendance, 'name' | 'date'>] += 1;
-              }
+              dateMap[dateStr][status as keyof Omit<DailyAttendance, 'name' | 'date'>] += 1;
             }
           });
         }
         
-        // Convert the map to an array
+        // Convert the map to an array for the chart
         const resultData = Object.values(dateMap);
         console.log('Prepared chart data:', resultData);
         setChartData(resultData);

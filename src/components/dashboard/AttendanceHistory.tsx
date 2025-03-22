@@ -50,6 +50,8 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
         
         const startDateStr = startDate.toISOString().split('T')[0];
         
+        console.log(`Fetching attendance from ${startDateStr} to ${today.toISOString().split('T')[0]}`);
+        
         // Build a map of student IDs to names
         const builderMap = new Map(
           builders.map(builder => [builder.id, {
@@ -58,7 +60,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           }])
         );
         
-        // Fetch attendance data
+        // Fetch attendance data without filtering by student_id
         const { data, error } = await supabase
           .from('attendance')
           .select('*')
@@ -70,6 +72,8 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           toast.error('Failed to load attendance history');
           return;
         }
+        
+        console.log('Attendance history data:', data?.length || 0, 'records');
         
         if (!data || data.length === 0) {
           setAttendanceHistory([]);
@@ -95,6 +99,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           };
         });
         
+        console.log('Processed attendance history:', history.length);
         setAttendanceHistory(history);
       } catch (error) {
         console.error('Error in fetchAttendanceHistory:', error);

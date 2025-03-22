@@ -15,11 +15,8 @@ export const processRecognition = async (
 ) => {
   const { isPassive, onSuccess, onError, onComplete } = options;
   
-  console.log(`Processing ${isPassive ? 'passive' : 'active'} face recognition`);
-  
   try {
     const result = await recognizeFace(imageData, isPassive);
-    console.log("Recognition result:", result);
     
     if (result.success && result.builder) {
       onSuccess?.(result.builder);
@@ -28,7 +25,8 @@ export const processRecognition = async (
       onError?.(result.message);
     } else {
       // For passive mode, silently continue
-      console.log("Passive recognition failed:", result.message);
+      onError?.(result.message);
+      console.log("Passive recognition result:", result.message);
     }
   } catch (error) {
     console.error('Face recognition error:', error);

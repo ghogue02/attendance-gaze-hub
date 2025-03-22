@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -175,7 +174,7 @@ const Index = () => {
                 onBuilderDetected={handleBuilderDetected}
                 isCameraActive={isCameraActive}
                 passive={passiveMode}
-                passiveInterval={3000}
+                passiveInterval={2000}
               />
             ) : detectedBuilder ? (
               <div className="flex flex-col items-center justify-center h-full py-10">

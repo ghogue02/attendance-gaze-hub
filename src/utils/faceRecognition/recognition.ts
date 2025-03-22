@@ -37,11 +37,6 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           return;
         }
 
-        // For a production system, we would:
-        // 1. Extract face embeddings from the current image
-        // 2. Compare against stored embeddings for all builders using cosine similarity
-        // 3. Select the match with highest similarity above a confidence threshold
-        
         // Group face registrations by student ID
         const studentRegistrations: {[key: string]: string[]} = {};
         registeredStudents.forEach(reg => {
@@ -69,60 +64,34 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         const testUser = searchParams.get('test_user');
         const forceUser = searchParams.get('force_user');
         
-        // Only allow a single recognition within a 30-second window to prevent duplicate detections
-        // Increased from 10 to 30 seconds for more stable behavior
+        // Only allow a single recognition per person within a window to prevent duplicate detections
+        // For production, use a Map to track all recognized users by their IDs
         const now = new Date();
         const currentTime = now.getTime();
-        const lastRecognitionTime = window.sessionStorage.getItem('lastRecognitionTime');
-        const lastRecognizedUser = window.sessionStorage.getItem('lastRecognizedUser');
         
-        if (lastRecognitionTime && lastRecognizedUser) {
-          const timeSinceLastRecognition = currentTime - parseInt(lastRecognitionTime, 10);
-          
-          // If it's been less than 30 seconds since the last recognition, return the same user
-          if (timeSinceLastRecognition < 30000) {
-            console.log(`Using cached recognition result from ${timeSinceLastRecognition}ms ago`);
+        // Get the recognition history from sessionStorage
+        const recognitionHistoryStr = window.sessionStorage.getItem('recognitionHistory');
+        let recognitionHistory: {[id: string]: number} = {};
+        
+        if (recognitionHistoryStr) {
+          try {
+            recognitionHistory = JSON.parse(recognitionHistoryStr);
             
-            // Get student details from database using the cached ID
-            const { data: cachedStudent, error: cachedError } = await supabase
-              .from('students')
-              .select('*')
-              .eq('id', lastRecognizedUser)
-              .single();
-              
-            if (!cachedError && cachedStudent) {
-              // Format time for display
-              const timeRecorded = new Date().toLocaleTimeString();
-              
-              // Convert database student to application Builder format
-              const builder: Builder = {
-                id: cachedStudent.id,
-                name: `${cachedStudent.first_name} ${cachedStudent.last_name}`,
-                builderId: cachedStudent.student_id || '',
-                status: 'present' as BuilderStatus,
-                timeRecorded,
-                image: cachedStudent.image_url || `https://ui-avatars.com/api/?name=${cachedStudent.first_name}+${cachedStudent.last_name}&background=random`
-              };
-              
-              resolve({
-                success: true,
-                builder,
-                message: 'Using recent recognition result'
-              });
-              return;
+            // Clean up old entries (older than 2 minutes)
+            const twoMinutesAgo = currentTime - 120000;
+            for (const id in recognitionHistory) {
+              if (recognitionHistory[id] < twoMinutesAgo) {
+                delete recognitionHistory[id];
+              }
             }
-          } else {
-            // Clear cached recognition after timeout
-            window.sessionStorage.removeItem('lastRecognitionTime');
-            window.sessionStorage.removeItem('lastRecognizedUser');
+          } catch (e) {
+            console.error('Error parsing recognition history:', e);
+            recognitionHistory = {};
           }
         }
         
-        // For production-quality recognition:
-        // For testing, we allow two ways to force a specific user:
-        // 1. 'test_user' - if the ID exists in the system
-        // 2. 'force_user' - by name (Greg/Stefano) for easier testing
-        let studentId;
+        // For demo/testing with forced user
+        let studentId: string | null = null;
         
         // If forceUser is specified, map to the corresponding ID
         if (forceUser) {
@@ -144,26 +113,44 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           console.log(`Test mode: Selected student ID ${studentId}`);
         }
         
-        // If no forced selection, use a time-based selection algorithm
+        /**
+         * PRODUCTION FACE RECOGNITION ALGORITHM
+         * In a real production system, this would:
+         * 1. Use an AI model to extract facial embeddings from the captured image
+         * 2. Compare embeddings against stored face data for all registered users
+         * 3. Use a similarity metric (e.g., cosine similarity) to find the closest match
+         * 4. Apply a confidence threshold to prevent false positives
+         * 5. Return the best match above the threshold
+         * 
+         * For optimal performance with large numbers of users:
+         * - Face embedding vectors would be stored in a vector database or optimized for fast similarity search
+         * - Batch processing could handle multiple faces in a single frame
+         * - The system would use indexes and spatial data structures for faster matching
+         */
+         
+        // FOR DEMO: If no forced selection, this would be where real face recognition happens
         if (!studentId) {
-          // In a real production system, this would be the result of the face recognition algorithm
-          // For now, we'll use a more advanced timestamp-based rotation than the demo version
+          // In production, studentId would be determined by facial recognition algorithm
+          // but for demo, we'll use a simple time-based selection
           
-          // Use current date as entropy source but with higher resolution
-          const secondsToday = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-          const millisToday = secondsToday * 1000 + now.getMilliseconds();
-          
-          // Use a different rotation based on the current 5-minute interval
-          // This makes the selection more stable and predictable for testing
-          const fiveMinInterval = Math.floor(now.getMinutes() / 5);
-          
-          // Use fiveMinInterval to determine which user to select
-          // This will give each user a 5-minute window where they're consistently selected
-          // For a 2-user system, we use modulo 2 to rotate between the two users
-          const userIndex = fiveMinInterval % uniqueStudentIds.length;
-          
+          // Rotation through users based on current second
+          const userIndex = now.getSeconds() % uniqueStudentIds.length;
           studentId = uniqueStudentIds[userIndex];
-          console.log(`Production algorithm selected student ID: ${studentId} (based on 5-min interval: ${fiveMinInterval})`);
+        }
+        
+        // Check if this user was recently recognized (within 10 seconds) to prevent duplicates
+        if (studentId && recognitionHistory[studentId]) {
+          const lastRecognitionTime = recognitionHistory[studentId];
+          const timeSinceLastRecognition = currentTime - lastRecognitionTime;
+          
+          if (timeSinceLastRecognition < 10000) { // 10 seconds
+            console.log(`User ${studentId} was recently recognized ${timeSinceLastRecognition}ms ago. Skipping.`);
+            resolve({
+              success: false,
+              message: 'Recently recognized'
+            });
+            return;
+          }
         }
         
         // Get student details from database
@@ -187,11 +174,11 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         // Format time for display
         const timeRecorded = new Date().toLocaleTimeString();
         
-        // Store this recognition to prevent duplicates
-        window.sessionStorage.setItem('lastRecognitionTime', currentTime.toString());
-        window.sessionStorage.setItem('lastRecognizedUser', studentData.id);
+        // Update recognition history for this student
+        recognitionHistory[studentData.id] = currentTime;
+        window.sessionStorage.setItem('recognitionHistory', JSON.stringify(recognitionHistory));
         
-        // Record attendance in database without confidence_score field
+        // Record attendance in database
         const { error: attendanceError } = await supabase
           .from('attendance')
           .upsert({
@@ -230,6 +217,6 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           message: 'An error occurred during recognition'
         });
       }
-    }, passive ? 500 : 1000); // Faster recognition times for production
+    }, passive ? 200 : 500); // Even faster recognition for production scenarios
   });
 };

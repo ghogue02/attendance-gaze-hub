@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,6 +12,7 @@ interface CameraViewProps {
   processingImage: boolean;
   statusMessage: string | null;
   onRetry: () => void;
+  recognizedCount?: number;
 }
 
 const CameraView: React.FC<CameraViewProps> = ({
@@ -21,7 +22,8 @@ const CameraView: React.FC<CameraViewProps> = ({
   cameraError,
   processingImage,
   statusMessage,
-  onRetry
+  onRetry,
+  recognizedCount = 0
 }) => {
   return (
     <div className="relative rounded-2xl overflow-hidden aspect-video shadow-glass border border-white/10 bg-black">
@@ -39,10 +41,17 @@ const CameraView: React.FC<CameraViewProps> = ({
         <div className="absolute inset-0 border-2 border-primary pointer-events-none animate-pulse opacity-50" />
       )}
       
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-3 right-3 flex items-center gap-2">
         <div className={`h-3 w-3 rounded-full ${isCapturing ? 'bg-green-500' : 'bg-red-500'}`}>
           <div className={`h-3 w-3 rounded-full ${isCapturing ? 'bg-green-500' : 'bg-red-500'} animate-ping opacity-75`} />
         </div>
+        
+        {recognizedCount > 0 && (
+          <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1">
+            <Users size={12} />
+            <span>{recognizedCount}</span>
+          </div>
+        )}
       </div>
       
       {statusMessage && (

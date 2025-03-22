@@ -1,16 +1,26 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+interface CameraConstraints {
+  facingMode?: 'user' | 'environment';
+  width?: { min?: number; ideal?: number; max?: number };
+  height?: { min?: number; ideal?: number; max?: number };
+  frameRate?: { min?: number; ideal?: number; max?: number };
+  aspectRatio?: number;
+}
+
 interface UseCameraProps {
   onCameraStart?: () => void;
   onCameraStop?: () => void;
   isCameraActive?: boolean;
+  videoConstraints?: CameraConstraints;
 }
 
 export function useCamera({ 
   onCameraStart, 
   onCameraStop, 
-  isCameraActive = false 
+  isCameraActive = false,
+  videoConstraints = {}
 }: UseCameraProps = {}) {
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -35,22 +45,39 @@ export function useCamera({
       setCameraError('');
       setIsCapturing(true);
       
+      // Default constraints
+      const defaultConstraints: CameraConstraints = {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30 }
+      };
+      
+      // Merge default with provided constraints
+      const constraints = {
+        ...defaultConstraints,
+        ...videoConstraints
+      };
+      
+      console.log("Starting camera with constraints:", constraints);
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
+        video: constraints,
+        audio: false
       });
       
       streamRef.current = stream;
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        
+        // Wait for video to be ready before notifying
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Camera ready with resolution:", 
+            videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
+          onCameraStart?.();
+        };
       }
-      
-      console.log("Camera started successfully");
-      onCameraStart?.();
     } catch (err) {
       console.error('Error accessing camera:', err);
       setCameraError('Unable to access camera. Please check permissions.');
@@ -79,12 +106,17 @@ export function useCamera({
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     
+    if (!context) return null;
+    
+    // Set canvas to match video dimensions
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
-    context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Draw the current video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    return canvas.toDataURL('image/jpeg');
+    // For optimal performance, use a lower quality JPEG
+    return canvas.toDataURL('image/jpeg', 0.8);
   };
 
   return {

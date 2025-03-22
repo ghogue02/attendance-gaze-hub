@@ -18,12 +18,14 @@ const AttendanceCamera = ({
   onBuilderDetected, 
   isCameraActive = false,
   passive = false,
-  passiveInterval = 5000
+  passiveInterval = 2000 // Default to faster 2-second interval for better responsiveness
 }: AttendanceCameraProps) => {
   const [processingImage, setProcessingImage] = useState(false);
   const [lastDetectionTime, setLastDetectionTime] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const passiveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recognizedBuildersRef = useRef<Set<string>>(new Set());
+  const [scanCount, setScanCount] = useState(0);
 
   const { 
     videoRef, 
@@ -35,8 +37,17 @@ const AttendanceCamera = ({
     captureImageData 
   } = useCamera({
     isCameraActive,
+    videoConstraints: {
+      facingMode: 'user',
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      // Request higher frame rate for better face detection
+      frameRate: { ideal: 30 }
+    },
     onCameraStart: () => {
-      setStatusMessage(passive ? "Scanning for faces..." : "Camera active, ready to capture");
+      setStatusMessage(passive ? "Scanning for builders..." : "Camera active, ready to capture");
+      recognizedBuildersRef.current.clear();
+      setScanCount(0);
       
       // Initial passive capture if in passive mode
       if (passive) {
@@ -44,7 +55,7 @@ const AttendanceCamera = ({
         setTimeout(() => {
           console.log("Starting initial passive scan");
           captureImagePassive();
-        }, 1000);
+        }, 500);
       }
     },
     onCameraStop: () => {
@@ -89,6 +100,7 @@ const AttendanceCamera = ({
       onSuccess: (builder) => {
         onBuilderDetected?.(builder);
         toast.success(`Builder successfully recognized: ${builder.name}`);
+        recognizedBuildersRef.current.add(builder.id);
         setLastDetectionTime(Date.now());
       },
       onError: (message) => {
@@ -99,7 +111,7 @@ const AttendanceCamera = ({
         setTimeout(() => {
           setProcessingImage(false);
           setStatusMessage("Ready to try again");
-        }, 2000);
+        }, 1500);
       },
       onComplete: () => {
         setProcessingImage(false);
@@ -110,7 +122,7 @@ const AttendanceCamera = ({
   const captureImagePassive = () => {
     if (!isCapturing || processingImage) return;
     
-    console.log("Passive capture triggered");
+    setScanCount(prev => prev + 1);
     
     const imageData = captureImageData();
     if (!imageData) return;
@@ -118,9 +130,26 @@ const AttendanceCamera = ({
     processRecognition(imageData, {
       isPassive: true,
       onSuccess: (builder) => {
-        onBuilderDetected?.(builder);
-        toast.success(`Attendance recorded: ${builder.name}`);
+        // Only notify if this is a new recognition
+        if (!recognizedBuildersRef.current.has(builder.id)) {
+          onBuilderDetected?.(builder);
+          toast.success(`Attendance recorded: ${builder.name}`);
+          recognizedBuildersRef.current.add(builder.id);
+          
+          // Update status with count of recognized builders
+          setStatusMessage(`Recognized ${recognizedBuildersRef.current.size} ${
+            recognizedBuildersRef.current.size === 1 ? 'builder' : 'builders'
+          } (Scan #${scanCount})`);
+        } else {
+          console.log(`Builder ${builder.name} already recognized recently`);
+        }
         setLastDetectionTime(Date.now());
+      },
+      onError: (message) => {
+        // Don't show errors in passive mode, but we can update the status message
+        if (message !== 'Recently recognized') {
+          setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
+        }
       },
       onComplete: () => {
         // Set up next passive scan
@@ -141,6 +170,7 @@ const AttendanceCamera = ({
         processingImage={processingImage}
         statusMessage={statusMessage}
         onRetry={startCamera}
+        recognizedCount={recognizedBuildersRef.current.size}
       />
       
       <CameraControls

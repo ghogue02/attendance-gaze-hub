@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, ListCheck, Check, AlertCircle } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -7,10 +7,7 @@ import Header from '@/components/Header';
 import FaceRegistration from '@/components/FaceRegistration';
 import BuilderCard, { Builder } from '@/components/BuilderCard';
 import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 interface RegisterProps {
   faceRegistration?: boolean;

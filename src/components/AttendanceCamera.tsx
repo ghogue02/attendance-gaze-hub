@@ -3,19 +3,19 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Student, StudentStatus } from './StudentCard';
+import { Builder, BuilderStatus } from './BuilderCard';
 import { recognizeFace } from '@/utils/faceRecognition';
 import { Button } from './ui/button';
 
 interface AttendanceCameraProps {
-  onStudentDetected?: (student: Student) => void;
+  onBuilderDetected?: (builder: Builder) => void;
   isCameraActive?: boolean;
   passive?: boolean; // New passive mode prop
   passiveInterval?: number; // How often to scan in passive mode (ms)
 }
 
 const AttendanceCamera = ({ 
-  onStudentDetected, 
+  onBuilderDetected, 
   isCameraActive = false,
   passive = false,
   passiveInterval = 5000 // 5 second default interval
@@ -139,12 +139,12 @@ const AttendanceCamera = ({
     }
     
     recognizeFace(imageData, isPassive).then(result => {
-      if (result.success && result.student) {
-        onStudentDetected?.(result.student);
+      if (result.success && result.builder) {
+        onBuilderDetected?.(result.builder);
         
         if (isPassive) {
           // Only show toast in passive mode on success
-          toast.success(`Attendance recorded: ${result.student.name}`);
+          toast.success(`Attendance recorded: ${result.builder.name}`);
         } else {
           toast.success(result.message);
         }

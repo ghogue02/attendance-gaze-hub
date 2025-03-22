@@ -1,21 +1,21 @@
 
-import { Student, StudentStatus } from '@/components/StudentCard';
+import { Builder, BuilderStatus } from '@/components/BuilderCard';
 import { supabase } from '@/integrations/supabase/client';
 
-// Function to get all students (for dashboard)
-export const getAllStudents = async (): Promise<Student[]> => {
+// Function to get all builders (for dashboard)
+export const getAllBuilders = async (): Promise<Builder[]> => {
   try {
-    // Get all students from database
-    const { data: studentsData, error } = await supabase
+    // Get all builders from database
+    const { data: buildersData, error } = await supabase
       .from('students')
       .select('*');
       
     if (error) {
-      console.error('Error fetching students:', error);
+      console.error('Error fetching builders:', error);
       return [];
     }
     
-    if (!studentsData || studentsData.length === 0) {
+    if (!buildersData || buildersData.length === 0) {
       return [];
     }
     
@@ -30,38 +30,38 @@ export const getAllStudents = async (): Promise<Student[]> => {
       console.error('Error fetching attendance:', attendanceError);
     }
     
-    // Map the DB students to our application's Student format
-    const students: Student[] = studentsData.map(dbStudent => {
+    // Map the DB builders to our application's Builder format
+    const builders: Builder[] = buildersData.map(dbBuilder => {
       // Find matching attendance record for today if it exists
-      const attendance = attendanceData?.find(a => a.student_id === dbStudent.id);
+      const attendance = attendanceData?.find(a => a.student_id === dbBuilder.id);
       
       return {
-        id: dbStudent.id,
-        name: `${dbStudent.first_name} ${dbStudent.last_name}`,
-        studentId: dbStudent.student_id || '',
-        status: (attendance?.status || 'pending') as StudentStatus,
+        id: dbBuilder.id,
+        name: `${dbBuilder.first_name} ${dbBuilder.last_name}`,
+        builderId: dbBuilder.student_id || '',
+        status: (attendance?.status || 'pending') as BuilderStatus,
         timeRecorded: attendance?.time_recorded 
           ? new Date(attendance.time_recorded).toLocaleTimeString() 
           : undefined,
-        image: dbStudent.image_url || `https://ui-avatars.com/api/?name=${dbStudent.first_name}+${dbStudent.last_name}&background=random`
+        image: dbBuilder.image_url || `https://ui-avatars.com/api/?name=${dbBuilder.first_name}+${dbBuilder.last_name}&background=random`
       };
     });
     
-    return students;
+    return builders;
   } catch (error) {
-    console.error('Error in getAllStudents:', error);
+    console.error('Error in getAllBuilders:', error);
     return [];
   }
 };
 
 // Function to mark attendance manually
-export const markAttendance = async (studentId: string, status: StudentStatus): Promise<boolean> => {
+export const markAttendance = async (builderId: string, status: BuilderStatus): Promise<boolean> => {
   try {
     // Update attendance in database
     const { error } = await supabase
       .from('attendance')
       .upsert({
-        student_id: studentId,
+        student_id: builderId,
         status,
         time_recorded: new Date().toISOString(),
       }, {

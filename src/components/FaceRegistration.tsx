@@ -3,19 +3,19 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, Check, RefreshCw, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Student } from './StudentCard';
+import { Builder } from './BuilderCard';
 import { registerFaceImage, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 
 interface FaceRegistrationProps {
-  student: Student;
+  builder: Builder;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete?: () => void;
 }
 
-const FaceRegistration = ({ student, open, onOpenChange, onComplete }: FaceRegistrationProps) => {
+const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegistrationProps) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [currentAngle, setCurrentAngle] = useState(0);
@@ -30,21 +30,21 @@ const FaceRegistration = ({ student, open, onOpenChange, onComplete }: FaceRegis
 
   // Get current registration status on load
   useEffect(() => {
-    if (open && student) {
+    if (open && builder) {
       checkRegistrationStatus();
     }
     
     return () => {
       stopCamera();
     };
-  }, [open, student]);
+  }, [open, builder]);
   
-  // Check if student has already registered face angles
+  // Check if builder has already registered face angles
   const checkRegistrationStatus = async () => {
-    if (!student) return;
+    if (!builder) return;
     
     try {
-      const status = await checkFaceRegistrationStatus(student.id);
+      const status = await checkFaceRegistrationStatus(builder.id);
       if (status.completed) {
         setRegistrationComplete(true);
         setProgress(100);
@@ -112,7 +112,7 @@ const FaceRegistration = ({ student, open, onOpenChange, onComplete }: FaceRegis
     const imageData = canvas.toDataURL('image/jpeg');
     
     // Register the face image for this angle
-    const result = await registerFaceImage(student.id, imageData, currentAngle);
+    const result = await registerFaceImage(builder.id, imageData, currentAngle);
     
     if (result.success) {
       toast.success(result.message);

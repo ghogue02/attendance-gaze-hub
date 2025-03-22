@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { 
   BarChart, 
@@ -13,6 +12,8 @@ import {
 import { Builder } from '@/components/BuilderCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
+import { format, parseISO } from 'date-fns';
+import { toast } from 'sonner';
 
 interface AttendanceChartProps {
   builders: Builder[];
@@ -44,6 +45,8 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         const startDateStr = startDate.toISOString().split('T')[0];
         const endDateStr = today.toISOString().split('T')[0];
         
+        console.log(`Fetching attendance from ${startDateStr} to ${endDateStr}`);
+        
         // Fetch attendance data for the date range
         const { data: attendanceData, error } = await supabase
           .from('attendance')
@@ -54,9 +57,12 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
           
         if (error) {
           console.error('Error fetching historical attendance:', error);
+          toast.error('Failed to load attendance history');
           setIsLoading(false);
           return;
         }
+        
+        console.log('Attendance data fetched:', attendanceData?.length || 0, 'records');
         
         // Create a map of dates in the range
         const dateMap: Record<string, DailyAttendance> = {};
@@ -67,11 +73,8 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
           date.setDate(date.getDate() + i);
           const dateStr = date.toISOString().split('T')[0];
           
-          // Format date as "Mon 01" for x-axis
-          const dayStr = date.toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            day: '2-digit'
-          });
+          // Format date as "DD Day" for x-axis
+          const dayStr = format(date, 'dd EEE');
           
           dateMap[dateStr] = {
             name: dayStr,
@@ -84,11 +87,27 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         }
         
         // Fill in the actual attendance data
-        if (attendanceData) {
+        if (attendanceData && attendanceData.length > 0) {
           attendanceData.forEach(record => {
-            const dateStr = record.date;
+            // Make sure we handle all date formats
+            const dateStr = typeof record.date === 'string' 
+              ? record.date.split('T')[0] 
+              : new Date(record.date).toISOString().split('T')[0];
+            
             if (dateMap[dateStr]) {
-              const status = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+              let status = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+              
+              // Map excused absence to the Excused category for the chart
+              if (record.excuse_reason && status === 'Absent') {
+                status = 'Excused';
+              } else if (status === 'Present' || status === 'Absent' || status === 'Excused' || status === 'Late') {
+                // Keep status as is
+              } else {
+                // Default to Absent for any other status
+                status = 'Absent';
+              }
+              
+              // Increment the counter for this status
               if (status === 'Present' || status === 'Absent' || status === 'Excused' || status === 'Late') {
                 dateMap[dateStr][status as keyof Omit<DailyAttendance, 'name' | 'date'>] += 1;
               }
@@ -98,9 +117,11 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         
         // Convert the map to an array
         const resultData = Object.values(dateMap);
+        console.log('Prepared chart data:', resultData);
         setChartData(resultData);
       } catch (error) {
         console.error('Error preparing chart data:', error);
+        toast.error('Error loading attendance chart');
       } finally {
         setIsLoading(false);
       }
@@ -116,6 +137,10 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">Loading chart data...</p>
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">No attendance data available</p>
           </div>
         ) : (
           <BarChart

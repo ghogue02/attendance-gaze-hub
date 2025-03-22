@@ -17,7 +17,7 @@ export const RegistrationCapture = ({
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [updateMode, setUpdateMode] = useState(isUpdateMode);
   const [statusMessage, setStatusMessage] = useState<string | null>("Initializing camera...");
   const [autoCapture, setAutoCapture] = useState(true);
 
@@ -26,6 +26,10 @@ export const RegistrationCapture = ({
   const consecutiveFailsRef = useRef(0);
   const lastCaptureAttemptRef = useRef<number>(0);
   const faceDetectionSuccessRef = useRef(false);
+  
+  useEffect(() => {
+    setUpdateMode(isUpdateMode);
+  }, [isUpdateMode]);
   
   const {
     videoRef,
@@ -187,7 +191,7 @@ export const RegistrationCapture = ({
     console.log(`Capturing image for angle ${currentAngle}`);
     
     try {
-      const result = await registerFaceImage(builder.id, imageData, currentAngle, isUpdateMode);
+      const result = await registerFaceImage(builder.id, imageData, currentAngle, updateMode);
       console.log("Registration result:", result);
       
       if (result.success) {

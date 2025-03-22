@@ -54,11 +54,13 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
       className="glass-card p-5 transition-all duration-300 hover:shadow-glass-lg"
     >
       <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-        <UserProfileImage
-          userName={builder.name}
-          userId={builder.id}
-          className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 shadow-sm border-2 border-white/20"
-        />
+        <div className="relative w-20 h-20 rounded-full overflow-hidden flex-shrink-0 shadow-sm border-2 border-white/20">
+          <UserProfileImage
+            userName={builder.name}
+            userId={builder.id}
+            className="w-full h-full"
+          />
+        </div>
         
         <div className="flex-1 text-center sm:text-left">
           <h3 className="font-semibold text-lg">{builder.name}</h3>

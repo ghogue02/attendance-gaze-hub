@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -103,16 +104,19 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
   }, [userName, userId, imageUrl]);
 
   return (
-    <Avatar className={`border-2 border-white/20 ${className}`}>
+    <Avatar className={`relative overflow-hidden ${className}`}>
       {!imageError && imageUrl && (
-        <AvatarImage 
-          src={imageUrl}
-          alt={userName}
-          onError={() => {
-            console.error('Error loading image from URL:', imageUrl?.substring(0, 50) + '...');
-            setImageError(true);
-          }}
-        />
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+          <AvatarImage 
+            src={imageUrl}
+            alt={userName}
+            className="object-cover w-full h-full"
+            onError={() => {
+              console.error('Error loading image from URL:', imageUrl?.substring(0, 50) + '...');
+              setImageError(true);
+            }}
+          />
+        </div>
       )}
       
       <AvatarFallback className="bg-primary/10 text-primary">

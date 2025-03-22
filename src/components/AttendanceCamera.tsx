@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Builder } from './BuilderCard';
@@ -12,13 +11,15 @@ interface AttendanceCameraProps {
   isCameraActive?: boolean;
   passive?: boolean;
   passiveInterval?: number;
+  debugMode?: boolean;
 }
 
 const AttendanceCamera = ({ 
   onBuilderDetected, 
   isCameraActive = false,
   passive = false,
-  passiveInterval = 1000 // Default to 1-second interval for better responsiveness
+  passiveInterval = 1000,
+  debugMode = false
 }: AttendanceCameraProps) => {
   const [processingImage, setProcessingImage] = useState(false);
   const [lastDetectionTime, setLastDetectionTime] = useState(0);
@@ -29,7 +30,6 @@ const AttendanceCamera = ({
   const consecutiveFailsRef = useRef(0);
   const initialDelayCompleteRef = useRef(false);
   
-  // More aggressive scanning for passive mode - try every 700ms
   const effectivePassiveInterval = passive ? (passiveInterval < 700 ? passiveInterval : 700) : passiveInterval;
 
   const { 
@@ -46,11 +46,9 @@ const AttendanceCamera = ({
       facingMode: 'user',
       width: { ideal: 1280 },
       height: { ideal: 720 },
-      // Request higher frame rate for better face detection
       frameRate: { ideal: 30 }
     },
     onCameraStart: () => {
-      // Clear session storage camera start time to reset detection behavior
       window.sessionStorage.removeItem('cameraStartTime');
       
       setStatusMessage("Camera initializing, please wait...");
@@ -59,17 +57,13 @@ const AttendanceCamera = ({
       consecutiveFailsRef.current = 0;
       initialDelayCompleteRef.current = false;
       
-      // Add a shorter initial delay before starting passive detection
-      // but still enough to let camera properly initialize
       if (passive) {
         setTimeout(() => {
           initialDelayCompleteRef.current = true;
           setStatusMessage("Camera ready - scanning for faces...");
-          // Start passive scanning after initialization delay
           captureImagePassive();
         }, 1000);
       } else {
-        // In active mode, ready immediately
         setStatusMessage("Camera active, position your face in the frame");
       }
     },
@@ -82,7 +76,6 @@ const AttendanceCamera = ({
   });
 
   useEffect(() => {
-    // Clean up on unmount
     return () => {
       if (passiveTimeoutRef.current) {
         clearTimeout(passiveTimeoutRef.current);
@@ -103,8 +96,13 @@ const AttendanceCamera = ({
       return;
     }
     
+    if (debugMode) {
+      console.log("Capturing image in active mode");
+    }
+    
     processRecognition(imageData, {
       isPassive: false,
+      debugMode: debugMode,
       onSuccess: (builder) => {
         onBuilderDetected?.(builder);
         toast.success(`Builder successfully recognized: ${builder.name}`);
@@ -116,7 +114,6 @@ const AttendanceCamera = ({
         toast.error(message);
         setStatusMessage("No match found. Try again.");
         
-        // Reset processing state in active mode
         setTimeout(() => {
           setProcessingImage(false);
           setStatusMessage("Ready to try again");
@@ -131,19 +128,15 @@ const AttendanceCamera = ({
   const captureImagePassive = () => {
     if (!isCapturing || !initialDelayCompleteRef.current) return;
     
-    // Only check for processingImage if we've been processing for more than 3 seconds
-    // This prevents the system from getting stuck if a process hangs
     const isHung = processingImage && (Date.now() - lastDetectionTime > 3000);
     
     if (processingImage && !isHung) {
-      // Still processing previous image, try again later
       passiveTimeoutRef.current = setTimeout(() => {
         captureImagePassive();
-      }, 500); // Try again sooner
+      }, 500);
       return;
     }
     
-    // If we were hung, log it and continue
     if (isHung) {
       console.warn("Processing took too long, continuing with next scan");
       setProcessingImage(false);
@@ -157,7 +150,6 @@ const AttendanceCamera = ({
     if (!imageData) {
       setProcessingImage(false);
       
-      // Set up next passive scan
       passiveTimeoutRef.current = setTimeout(() => {
         captureImagePassive();
       }, effectivePassiveInterval);
@@ -165,48 +157,51 @@ const AttendanceCamera = ({
       return;
     }
     
-    console.log(`Passive scan #${scanCount + 1} - processing image`);
+    if (debugMode) {
+      console.log(`Passive scan #${scanCount + 1} - processing image`);
+    }
     
     processRecognition(imageData, {
       isPassive: true,
+      debugMode: debugMode,
       onSuccess: (builder) => {
-        // Only notify if this is a new recognition
         if (!recognizedBuildersRef.current.has(builder.id)) {
           onBuilderDetected?.(builder);
           toast.success(`Attendance recorded: ${builder.name}`);
           recognizedBuildersRef.current.add(builder.id);
           
-          // Update status with count of recognized builders
           setStatusMessage(`Recognized ${recognizedBuildersRef.current.size} ${
             recognizedBuildersRef.current.size === 1 ? 'builder' : 'builders'
           } (Scan #${scanCount})`);
         } else {
-          console.log(`Builder ${builder.name} already recognized recently`);
+          if (debugMode) {
+            console.log(`Builder ${builder.name} already recognized recently`);
+          }
         }
         setLastDetectionTime(Date.now());
         consecutiveFailsRef.current = 0;
       },
       onError: (message) => {
-        // Only count consecutive failures for "No face detected"
         if (message === 'No face detected in frame') {
           consecutiveFailsRef.current++;
           
           if (consecutiveFailsRef.current > 5) {
-            // After several consecutive failures, update the status message
             setStatusMessage(`Waiting for builders... (Scan #${scanCount})`);
           } else {
             setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
           }
         } else if (message !== 'Recently recognized') {
-          // For other messages, reset consecutive fails counter
           consecutiveFailsRef.current = 0;
           setStatusMessage(`Scanning for builders... (Scan #${scanCount}): ${message}`);
+        }
+        
+        if (debugMode && message !== 'Recently recognized') {
+          console.log(`Recognition error: ${message} (Scan #${scanCount})`);
         }
       },
       onComplete: () => {
         setProcessingImage(false);
         
-        // Set up next passive scan - use a shorter interval for more aggressive scanning
         passiveTimeoutRef.current = setTimeout(() => {
           captureImagePassive();
         }, effectivePassiveInterval);

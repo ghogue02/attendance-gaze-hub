@@ -14,3 +14,11 @@ export interface FaceRegistrationResult {
   completed?: boolean;
   nextAngleIndex?: number;
 }
+
+export interface RecognitionOptions {
+  isPassive: boolean;
+  debugMode?: boolean;
+  onSuccess: (builder: Builder) => void;
+  onError: (message: string) => void;
+  onComplete: () => void;
+}

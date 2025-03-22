@@ -36,6 +36,10 @@ export class RunwareService {
     this.connectionPromise = this.connect();
   }
 
+  public getApiKey(): string | null {
+    return this.apiKey;
+  }
+
   private connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
@@ -195,7 +199,7 @@ export class RunwareService {
 let runwareService: RunwareService | null = null;
 
 export const initRunwareService = (apiKey: string): RunwareService => {
-  if (!runwareService || apiKey !== runwareService.apiKey) {
+  if (!runwareService || runwareService.getApiKey() !== apiKey) {
     console.log("Initializing Runware service with API key");
     runwareService = new RunwareService(apiKey);
   }

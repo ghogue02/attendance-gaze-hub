@@ -94,9 +94,9 @@ export const registerFaceImage = async (
     }
     
     // Count registrations for this student
-    const { count, error: countError } = await supabase
+    const { data, error: countError } = await supabase
       .from('face_registrations')
-      .select('*', { count: 'exact', head: true })
+      .select('angle_index')
       .eq('student_id', studentId);
       
     if (countError) {
@@ -107,9 +107,28 @@ export const registerFaceImage = async (
       };
     }
     
-    const registeredCount = count || 0;
+    const registeredAngles = data || [];
+    const registeredCount = registeredAngles.length;
     const requiredAngles = 5; // We require 5 different angle captures
-    const nextAngleIndex = angleIndex + 1 >= requiredAngles ? 0 : angleIndex + 1;
+    
+    // Determine the next angle index
+    // Find the next available angle index that hasn't been registered yet
+    let nextAngleIndex = 0;
+    const registeredAngleIndices = registeredAngles.map(reg => reg.angle_index);
+    
+    for (let i = 0; i < requiredAngles; i++) {
+      if (!registeredAngleIndices.includes(i)) {
+        nextAngleIndex = i;
+        break;
+      }
+    }
+    
+    // If all angles are registered, cycle back to 0
+    if (registeredCount >= requiredAngles) {
+      nextAngleIndex = (angleIndex + 1) % requiredAngles;
+    }
+    
+    console.log(`Current angle: ${angleIndex}, Next angle: ${nextAngleIndex}, Total registered: ${registeredCount}`);
     
     return {
       success: true,
@@ -158,9 +177,9 @@ export const updateBuilderAvatar = async (builderId: string, imageData: string):
 export const checkFaceRegistrationStatus = async (studentId: string): Promise<{completed: boolean, count: number}> => {
   try {
     // Query face registrations directly
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from('face_registrations')
-      .select('*', { count: 'exact', head: true })
+      .select('angle_index')
       .eq('student_id', studentId);
       
     if (error) {
@@ -168,7 +187,8 @@ export const checkFaceRegistrationStatus = async (studentId: string): Promise<{c
       return { completed: false, count: 0 };
     }
     
-    const registeredCount = count || 0;
+    const registeredAngles = data || [];
+    const registeredCount = registeredAngles.length;
     const requiredAngles = 5; // We require 5 different angle captures
     
     return {

@@ -28,6 +28,9 @@ const AttendanceCamera = ({
   const [scanCount, setScanCount] = useState(0);
   const consecutiveFailsRef = useRef(0);
   const initialDelayCompleteRef = useRef(false);
+  
+  // More aggressive scanning for passive mode - try every 700ms
+  const effectivePassiveInterval = passive ? (passiveInterval < 700 ? passiveInterval : 700) : passiveInterval;
 
   const { 
     videoRef, 
@@ -56,15 +59,15 @@ const AttendanceCamera = ({
       consecutiveFailsRef.current = 0;
       initialDelayCompleteRef.current = false;
       
-      // Add an initial delay before starting passive detection
-      // This helps prevent false detections when camera first opens
+      // Add a shorter initial delay before starting passive detection
+      // but still enough to let camera properly initialize
       if (passive) {
         setTimeout(() => {
           initialDelayCompleteRef.current = true;
-          setStatusMessage("Camera ready - scanning for builders...");
+          setStatusMessage("Camera ready - scanning for faces...");
           // Start passive scanning after initialization delay
           captureImagePassive();
-        }, 1500);
+        }, 1000);
       } else {
         // In active mode, ready immediately
         setStatusMessage("Camera active, position your face in the frame");
@@ -78,24 +81,14 @@ const AttendanceCamera = ({
     }
   });
 
-  // Set up passive mode interval
   useEffect(() => {
-    if (passive && isCapturing && !processingImage && initialDelayCompleteRef.current) {
-      // No need to set up interval here - it's handled by the captureImagePassive function
-      // We only need to ensure any existing timeouts are cleared when dependencies change
-      return () => {
-        if (passiveTimeoutRef.current) {
-          clearTimeout(passiveTimeoutRef.current);
-        }
-      };
-    }
-    
+    // Clean up on unmount
     return () => {
       if (passiveTimeoutRef.current) {
         clearTimeout(passiveTimeoutRef.current);
       }
     };
-  }, [passive, isCapturing, processingImage, lastDetectionTime, passiveInterval]);
+  }, []);
 
   const captureImage = () => {
     if (!isCapturing) return;
@@ -136,10 +129,29 @@ const AttendanceCamera = ({
   };
   
   const captureImagePassive = () => {
-    if (!isCapturing || processingImage || !initialDelayCompleteRef.current) return;
+    if (!isCapturing || !initialDelayCompleteRef.current) return;
+    
+    // Only check for processingImage if we've been processing for more than 3 seconds
+    // This prevents the system from getting stuck if a process hangs
+    const isHung = processingImage && (Date.now() - lastDetectionTime > 3000);
+    
+    if (processingImage && !isHung) {
+      // Still processing previous image, try again later
+      passiveTimeoutRef.current = setTimeout(() => {
+        captureImagePassive();
+      }, 500); // Try again sooner
+      return;
+    }
+    
+    // If we were hung, log it and continue
+    if (isHung) {
+      console.warn("Processing took too long, continuing with next scan");
+      setProcessingImage(false);
+    }
     
     setScanCount(prev => prev + 1);
     setProcessingImage(true);
+    setLastDetectionTime(Date.now());
     
     const imageData = captureImageData();
     if (!imageData) {
@@ -148,10 +160,12 @@ const AttendanceCamera = ({
       // Set up next passive scan
       passiveTimeoutRef.current = setTimeout(() => {
         captureImagePassive();
-      }, passiveInterval);
+      }, effectivePassiveInterval);
       
       return;
     }
+    
+    console.log(`Passive scan #${scanCount + 1} - processing image`);
     
     processRecognition(imageData, {
       isPassive: true,
@@ -186,16 +200,16 @@ const AttendanceCamera = ({
         } else if (message !== 'Recently recognized') {
           // For other messages, reset consecutive fails counter
           consecutiveFailsRef.current = 0;
-          setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
+          setStatusMessage(`Scanning for builders... (Scan #${scanCount}): ${message}`);
         }
       },
       onComplete: () => {
         setProcessingImage(false);
         
-        // Set up next passive scan
+        // Set up next passive scan - use a shorter interval for more aggressive scanning
         passiveTimeoutRef.current = setTimeout(() => {
           captureImagePassive();
-        }, passiveInterval);
+        }, effectivePassiveInterval);
       }
     });
   };

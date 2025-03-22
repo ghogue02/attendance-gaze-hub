@@ -18,36 +18,48 @@ export const processRecognition = async (
   
   try {
     // First, check if there are actually faces in the image using Google Cloud Vision
+    console.log('Sending image to Vision API for face detection...');
     const faceDetectionResult = await detectFacesWithVision(imageData, isPassive);
     
     if (!faceDetectionResult.success) {
       // If there was an error with the Vision API, fall back to the simulated recognition
       console.warn('Vision API error, falling back to simulated recognition:', faceDetectionResult.message);
-    } else if (!faceDetectionResult.hasFaces) {
-      // If Vision API confirms there are no faces, don't proceed with recognition
-      onError?.('No face detected in frame');
+      
+      // Proceed with recognition anyway - our fallback will handle cases where Vision fails
+      const result = await recognizeFace(imageData, isPassive);
+      
+      if (result.success && result.builder) {
+        onSuccess?.(result.builder);
+      } else if (!isPassive) {
+        // Only show errors in active mode when using fallback
+        onError?.(result.message);
+      }
+      
       onComplete?.();
       return;
     }
     
-    // If we have faces or had an API error, proceed with recognition
-    const result = await recognizeFace(imageData, isPassive);
-    
-    if (result.success && result.builder) {
-      onSuccess?.(result.builder);
-    } else {
-      // In passive mode, ALWAYS pass the "No face detected" message to onError
-      // This is critical for proper UI feedback and prevents false detections
-      if (isPassive && result.message === 'No face detected in frame') {
-        onError?.(result.message);
+    // Vision API was successful, now check if it detected faces
+    if (faceDetectionResult.hasFaces) {
+      console.log(`Vision API confirms ${faceDetectionResult.faceCount} face(s) detected with confidence ${faceDetectionResult.confidence}`);
+      
+      // If faces were detected, proceed with recognition
+      const result = await recognizeFace(imageData, isPassive);
+      
+      if (result.success && result.builder) {
+        onSuccess?.(result.builder);
       } else if (!isPassive) {
-        // For other errors in active mode, show the error
-        onError?.(result.message);
-      } else if (result.message !== 'Recently recognized') {
-        // For other passive mode errors (except "Recently recognized"), log and notify
-        console.log("Passive recognition result:", result.message);
+        // In active mode, always show errors
+        onError?.(result.message || 'Recognition failed');
+      } else if (result.message && result.message !== 'Recently recognized') {
+        // In passive mode, show errors except "Recently recognized"
+        console.log("Recognition result:", result.message);
         onError?.(result.message);
       }
+    } else {
+      // Vision API confirms no faces in the image
+      console.log('Vision API confirms no faces in the frame');
+      onError?.('No face detected in frame');
     }
   } catch (error) {
     console.error('Face recognition error:', error);
@@ -63,6 +75,7 @@ export const processRecognition = async (
 // Function to detect faces using Google Cloud Vision API
 async function detectFacesWithVision(imageData: string, isPassive: boolean) {
   try {
+    console.log('Calling detect-faces edge function...');
     // Call the Supabase Edge Function
     const { data, error } = await supabase.functions.invoke('detect-faces', {
       body: { imageData, isPassive }
@@ -77,13 +90,22 @@ async function detectFacesWithVision(imageData: string, isPassive: boolean) {
       };
     }
     
+    if (!data.success) {
+      console.error('Face detection was not successful:', data.error || 'Unknown error');
+      return {
+        success: false,
+        message: data.error || 'Face detection failed',
+        hasFaces: false
+      };
+    }
+    
     // Process the response
     return { 
       success: true,
       hasFaces: data.hasFaces,
       faceCount: data.faceCount,
       confidence: data.confidence,
-      message: data.hasFaces ? `Detected ${data.faceCount} faces` : 'No face detected in frame'
+      message: data.message || (data.hasFaces ? `Detected ${data.faceCount} faces` : 'No face detected in frame')
     };
   } catch (error) {
     console.error('Face detection error:', error);

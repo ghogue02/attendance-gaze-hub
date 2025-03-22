@@ -73,15 +73,16 @@ serve(async (req) => {
     
     if (!tokenResponse.ok) {
       console.error('Failed to get access token:', tokenData)
-      return new Response(JSON.stringify({ error: 'Authentication failed' }), {
+      return new Response(JSON.stringify({ error: 'Authentication failed', details: tokenData }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
     const accessToken = tokenData.access_token
+    console.log('Successfully obtained access token');
 
-    // Prepare Vision API request
+    // Prepare Vision API request - we'll use a lower quality setting to improve performance
     const requestBody = {
       requests: [
         {
@@ -93,12 +94,21 @@ serve(async (req) => {
               type: 'FACE_DETECTION',
               maxResults: 10
             }
-          ]
+          ],
+          imageContext: {
+            // Increase likelihood of detecting faces by optimizing for face photos
+            faceRecognitionParams: {
+              // Use a slightly higher confidence threshold to reduce false positives
+              // but not so high that we miss actual faces
+              confidenceThreshold: 0.6
+            }
+          }
         }
       ]
     }
 
     // Call Vision API
+    console.log('Calling Vision API...');
     const apiResponse = await fetch(visionApiEndpoint, {
       method: 'POST',
       headers: {
@@ -110,25 +120,48 @@ serve(async (req) => {
 
     const apiData = await apiResponse.json()
     
+    if (!apiResponse.ok) {
+      console.error('Vision API error:', apiData);
+      return new Response(JSON.stringify({ 
+        error: 'Vision API error', 
+        details: apiData,
+        success: false,
+        hasFaces: false
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
     // Process the response
     const hasFaces = apiData?.responses?.[0]?.faceAnnotations?.length > 0
+    const faceCount = hasFaces ? apiData.responses[0].faceAnnotations.length : 0
+    const confidence = hasFaces ? 
+      apiData.responses[0].faceAnnotations[0].detectionConfidence : 0
 
-    console.log(`Vision API detected ${hasFaces ? apiData.responses[0].faceAnnotations.length : 0} faces`)
+    console.log(`Vision API detected ${faceCount} faces with confidence: ${confidence}`);
 
-    // Simple initial response
+    // Enhanced response
     return new Response(JSON.stringify({ 
+      success: true,
       hasFaces,
-      faceCount: hasFaces ? apiData.responses[0].faceAnnotations.length : 0,
-      confidence: hasFaces ? 
-        apiData.responses[0].faceAnnotations[0].detectionConfidence : 0,
-      detailsRaw: isPassive ? null : apiData // Only include raw details in active mode to reduce payload size
+      faceCount,
+      confidence,
+      detailsRaw: isPassive ? null : apiData, // Only include raw details in active mode to reduce payload size
+      message: hasFaces 
+        ? `Detected ${faceCount} face(s) with confidence ${confidence.toFixed(2)}`
+        : 'No face detected in frame'
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (error) {
     console.error('Error processing request:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message, 
+      success: false,
+      hasFaces: false
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
@@ -179,7 +212,7 @@ function generateJWT(credentials: any) {
   const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0))
   
   // Create a CryptoKey object from the PEM data
-  const importedKey = await crypto.subtle.importKey(
+  const importedKey = crypto.subtle.importKey(
     'pkcs8',
     binaryKey,
     {
@@ -190,22 +223,24 @@ function generateJWT(credentials: any) {
     ['sign']
   )
   
-  const signature = await crypto.subtle.sign(
-    { name: 'RSASSA-PKCS1-v1_5' },
-    importedKey,
-    signatureInput
-  )
-  
-  // Convert signature to base64
-  const signatureBytes = new Uint8Array(signature)
-  let base64Signature = ''
-  
-  for (let i = 0; i < signatureBytes.length; i++) {
-    base64Signature += String.fromCharCode(signatureBytes[i])
-  }
-  
-  const encodedSignature = btoa(base64Signature).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  
-  // Return complete JWT
-  return `${payload}.${encodedSignature}`
+  return importedKey.then(key => {
+    return crypto.subtle.sign(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      key,
+      signatureInput
+    ).then(signature => {
+      // Convert signature to base64
+      const signatureBytes = new Uint8Array(signature)
+      let base64Signature = ''
+      
+      for (let i = 0; i < signatureBytes.length; i++) {
+        base64Signature += String.fromCharCode(signatureBytes[i])
+      }
+      
+      const encodedSignature = btoa(base64Signature).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+      
+      // Return complete JWT
+      return `${payload}.${encodedSignature}`
+    })
+  })
 }

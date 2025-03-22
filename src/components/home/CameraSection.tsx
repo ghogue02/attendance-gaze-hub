@@ -30,7 +30,7 @@ const CameraSection = ({
           onBuilderDetected={onBuilderDetected}
           isCameraActive={isCameraActive}
           passive={passiveMode}
-          passiveInterval={2000}
+          passiveInterval={500} // Much more aggressive scanning (every 500ms)
         />
       ) : detectedBuilder ? (
         <BuilderResult detectedBuilder={detectedBuilder} />

@@ -1,82 +1,82 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
-import { Student, StudentStatus } from '@/components/StudentCard';
-import { getAllStudents, markAttendance } from '@/utils/faceRecognition';
+import { Builder, BuilderStatus } from '@/components/BuilderCard';
+import { getAllBuilders, markAttendance } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
 
 // Import new components
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatisticsCards from '@/components/dashboard/StatisticsCards';
-import StudentFilters from '@/components/dashboard/StudentFilters';
-import StudentsList from '@/components/dashboard/StudentsList';
+import BuilderFilters from '@/components/dashboard/BuilderFilters';
+import BuildersList from '@/components/dashboard/BuildersList';
 
 const Dashboard = () => {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [builders, setBuilders] = useState<Builder[]>([]);
+  const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StudentStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString());
 
   useEffect(() => {
-    loadStudents();
+    loadBuilders();
   }, []);
 
   useEffect(() => {
-    // Apply filters when students, search query, or status filter changes
-    let results = [...students];
+    // Apply filters when builders, search query, or status filter changes
+    let results = [...builders];
     
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      results = results.filter(student => 
-        student.name.toLowerCase().includes(query) || 
-        student.studentId.toLowerCase().includes(query)
+      results = results.filter(builder => 
+        builder.name.toLowerCase().includes(query) || 
+        builder.builderId.toLowerCase().includes(query)
       );
     }
     
     if (statusFilter !== 'all') {
-      results = results.filter(student => student.status === statusFilter);
+      results = results.filter(builder => builder.status === statusFilter);
     }
     
-    setFilteredStudents(results);
-  }, [students, searchQuery, statusFilter]);
+    setFilteredBuilders(results);
+  }, [builders, searchQuery, statusFilter]);
 
-  const loadStudents = async () => {
+  const loadBuilders = async () => {
     setIsLoading(true);
     try {
-      const data = await getAllStudents();
-      console.log('Loaded students:', data);
-      setStudents(data);
-      setFilteredStudents(data);
+      const data = await getAllBuilders();
+      console.log('Loaded builders:', data);
+      setBuilders(data);
+      setFilteredBuilders(data);
     } catch (error) {
-      console.error('Error loading students:', error);
-      toast.error('Failed to load student data');
+      console.error('Error loading builders:', error);
+      toast.error('Failed to load builder data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleMarkAttendance = async (studentId: string) => {
+  const handleMarkAttendance = async (builderId: string) => {
     try {
-      // Find the current student's status to toggle it
-      const student = students.find(s => s.id === studentId);
-      if (!student) return;
+      // Find the current builder's status to toggle it
+      const builder = builders.find(s => s.id === builderId);
+      if (!builder) return;
       
-      const newStatus: 'present' | 'absent' = student.status === 'present' ? 'absent' : 'present';
-      const success = await markAttendance(studentId, newStatus);
+      const newStatus: 'present' | 'absent' = builder.status === 'present' ? 'absent' : 'present';
+      const success = await markAttendance(builderId, newStatus);
       
       if (success) {
         // Update local state
-        setStudents(prevStudents => 
-          prevStudents.map(student => 
-            student.id === studentId
+        setBuilders(prevBuilders => 
+          prevBuilders.map(builder => 
+            builder.id === builderId
               ? { 
-                  ...student, 
+                  ...builder, 
                   status: newStatus,
                   timeRecorded: new Date().toLocaleTimeString() 
                 }
-              : student
+              : builder
           )
         );
         
@@ -102,21 +102,21 @@ const Dashboard = () => {
       <main className="pt-24 pb-16 px-4 container max-w-6xl mx-auto">
         <DashboardHeader 
           selectedDate={selectedDate} 
-          onRefresh={loadStudents} 
+          onRefresh={loadBuilders} 
         />
         
-        <StatisticsCards students={students} />
+        <StatisticsCards builders={builders} />
         
-        <StudentFilters 
+        <BuilderFilters 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
         />
         
-        <StudentsList 
+        <BuildersList 
           isLoading={isLoading}
-          filteredStudents={filteredStudents}
+          filteredBuilders={filteredBuilders}
           searchQuery={searchQuery}
           onClearFilters={handleClearFilters}
           onVerify={handleMarkAttendance}

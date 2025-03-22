@@ -1,9 +1,9 @@
 
-import { Student, StudentStatus } from '@/components/StudentCard';
+import { Builder, BuilderStatus } from '@/components/BuilderCard';
 
 export interface RecognitionResult {
   success: boolean;
-  student?: Student;
+  builder?: Builder;
   message: string;
 }
 

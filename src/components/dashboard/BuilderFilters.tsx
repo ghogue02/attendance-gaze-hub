@@ -1,20 +1,20 @@
 
 import { Search, Filter } from 'lucide-react';
-import type { StudentStatus } from '@/components/StudentCard';
+import type { BuilderStatus } from '@/components/BuilderCard';
 
-interface StudentFiltersProps {
+interface BuilderFiltersProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  statusFilter: StudentStatus | 'all';
-  setStatusFilter: (status: StudentStatus | 'all') => void;
+  statusFilter: BuilderStatus | 'all';
+  setStatusFilter: (status: BuilderStatus | 'all') => void;
 }
 
-const StudentFilters = ({ 
+const BuilderFilters = ({ 
   searchQuery, 
   setSearchQuery, 
   statusFilter, 
   setStatusFilter 
-}: StudentFiltersProps) => {
+}: BuilderFiltersProps) => {
   return (
     <div className="flex flex-col sm:flex-row gap-4 mb-6">
       <div className="relative flex-1">
@@ -32,7 +32,7 @@ const StudentFilters = ({
         <Filter size={18} className="text-muted-foreground" />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StudentStatus | 'all')}
+          onChange={(e) => setStatusFilter(e.target.value as BuilderStatus | 'all')}
           className="input-field"
         >
           <option value="all">All Status</option>
@@ -45,4 +45,4 @@ const StudentFilters = ({
   );
 };
 
-export default StudentFilters;
+export default BuilderFilters;

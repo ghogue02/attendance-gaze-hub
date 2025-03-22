@@ -2,24 +2,24 @@
 import { motion } from 'framer-motion';
 import { UserCheck, UserX, Clock } from 'lucide-react';
 
-export type StudentStatus = 'present' | 'absent' | 'pending';
+export type BuilderStatus = 'present' | 'absent' | 'pending';
 
-export interface Student {
+export interface Builder {
   id: string;
   name: string;
-  studentId: string;
-  status: StudentStatus;
+  builderId: string;
+  status: BuilderStatus;
   timeRecorded?: string;
   image?: string;
 }
 
-interface StudentCardProps {
-  student: Student;
+interface BuilderCardProps {
+  builder: Builder;
   onVerify?: () => void;
 }
 
-const StudentCard = ({ student, onVerify }: StudentCardProps) => {
-  const getStatusColor = (status: StudentStatus) => {
+const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
+  const getStatusColor = (status: BuilderStatus) => {
     switch (status) {
       case 'present':
         return 'bg-green-50 text-green-600 border-green-200';
@@ -32,7 +32,7 @@ const StudentCard = ({ student, onVerify }: StudentCardProps) => {
     }
   };
 
-  const getStatusIcon = (status: StudentStatus) => {
+  const getStatusIcon = (status: BuilderStatus) => {
     switch (status) {
       case 'present':
         return <UserCheck className="w-4 h-4" />;
@@ -54,33 +54,33 @@ const StudentCard = ({ student, onVerify }: StudentCardProps) => {
     >
       <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
         <div className="w-20 h-20 rounded-full overflow-hidden bg-secondary flex-shrink-0 shadow-sm">
-          {student.image ? (
+          {builder.image ? (
             <img
-              src={student.image}
-              alt={student.name}
+              src={builder.image}
+              alt={builder.name}
               className="w-full h-full object-cover"
               loading="lazy"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-primary">
-              {student.name.substring(0, 2).toUpperCase()}
+              {builder.name.substring(0, 2).toUpperCase()}
             </div>
           )}
         </div>
         
         <div className="flex-1 text-center sm:text-left">
-          <h3 className="font-semibold text-lg">{student.name}</h3>
-          <p className="text-sm text-foreground/70 mb-2">ID: {student.studentId}</p>
+          <h3 className="font-semibold text-lg">{builder.name}</h3>
+          <p className="text-sm text-foreground/70 mb-2">ID: {builder.builderId}</p>
           
-          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(student.status)}`}>
-            {getStatusIcon(student.status)}
-            <span className="ml-1 capitalize">{student.status}</span>
+          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(builder.status)}`}>
+            {getStatusIcon(builder.status)}
+            <span className="ml-1 capitalize">{builder.status}</span>
           </div>
           
-          {student.timeRecorded && (
+          {builder.timeRecorded && (
             <p className="text-xs text-foreground/60 mt-2">
-              {student.status === 'present' ? 'Recorded at: ' : 'Last check: '}
-              {student.timeRecorded}
+              {builder.status === 'present' ? 'Recorded at: ' : 'Last check: '}
+              {builder.timeRecorded}
             </p>
           )}
         </div>
@@ -98,4 +98,4 @@ const StudentCard = ({ student, onVerify }: StudentCardProps) => {
   );
 };
 
-export default StudentCard;
+export default BuilderCard;

@@ -5,8 +5,8 @@ import { Users, ListCheck, Check, AlertCircle } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import FaceRegistration from '@/components/FaceRegistration';
-import StudentCard, { Student } from '@/components/StudentCard';
-import { getAllStudents, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
+import BuilderCard, { Builder } from '@/components/BuilderCard';
+import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -17,72 +17,72 @@ interface RegisterProps {
 }
 
 const Register = ({ faceRegistration }: RegisterProps) => {
-  const { studentId } = useParams();
+  const { builderId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [students, setStudents] = useState<Student[]>([]);
+  const [builders, setBuilders] = useState<Builder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationStatus, setRegistrationStatus] = useState<{[key: string]: {completed: boolean, count: number}}>({});
 
   useEffect(() => {
-    loadStudents();
+    loadBuilders();
   }, []);
 
   useEffect(() => {
-    // If in face registration mode and we have a studentId, find that student
-    if (faceRegistration && studentId && students.length > 0) {
-      const foundStudent = students.find(s => s.id === studentId);
-      if (foundStudent) {
-        setSelectedStudent(foundStudent);
+    // If in face registration mode and we have a builderId, find that builder
+    if (faceRegistration && builderId && builders.length > 0) {
+      const foundBuilder = builders.find(s => s.id === builderId);
+      if (foundBuilder) {
+        setSelectedBuilder(foundBuilder);
         setRegistrationOpen(true);
       } else {
         toast({
-          title: "Student Not Found",
-          description: "The student ID in the URL doesn't match any registered student.",
+          title: "Builder Not Found",
+          description: "The builder ID in the URL doesn't match any registered builder.",
           variant: "destructive"
         });
         navigate('/register');
       }
     }
-  }, [faceRegistration, studentId, students, navigate, toast]);
+  }, [faceRegistration, builderId, builders, navigate, toast]);
 
-  const loadStudents = async () => {
+  const loadBuilders = async () => {
     setLoading(true);
     try {
-      const allStudents = await getAllStudents();
-      setStudents(allStudents);
+      const allBuilders = await getAllBuilders();
+      setBuilders(allBuilders);
       
-      // Get registration status for all students
+      // Get registration status for all builders
       const statuses: {[key: string]: {completed: boolean, count: number}} = {};
       
-      for (const student of allStudents) {
-        const status = await checkFaceRegistrationStatus(student.id);
-        statuses[student.id] = status;
+      for (const builder of allBuilders) {
+        const status = await checkFaceRegistrationStatus(builder.id);
+        statuses[builder.id] = status;
       }
       
       setRegistrationStatus(statuses);
     } catch (error) {
-      console.error('Error loading students:', error);
+      console.error('Error loading builders:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStartRegistration = (student: Student) => {
-    setSelectedStudent(student);
+  const handleStartRegistration = (builder: Builder) => {
+    setSelectedBuilder(builder);
     setRegistrationOpen(true);
   };
 
   const handleRegistrationComplete = () => {
     // Refresh the list to update status
-    loadStudents();
+    loadBuilders();
     // Close the dialog
     setRegistrationOpen(false);
     
     // If in direct face registration mode, navigate back to register
-    if (faceRegistration && studentId) {
+    if (faceRegistration && builderId) {
       navigate('/register');
     }
   };
@@ -112,8 +112,8 @@ const Register = ({ faceRegistration }: RegisterProps) => {
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
               <Users size={20} />
             </div>
-            <span className="text-2xl font-bold">{students.length}</span>
-            <span className="text-xs text-muted-foreground">Total Students</span>
+            <span className="text-2xl font-bold">{builders.length}</span>
+            <span className="text-xs text-muted-foreground">Total Builders</span>
           </div>
           
           <div className="glass-card p-4 flex-1 flex flex-col items-center">
@@ -161,46 +161,46 @@ const Register = ({ faceRegistration }: RegisterProps) => {
         </div>
 
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold">Students</h2>
+          <h2 className="text-2xl font-bold">Builders</h2>
           
           {loading ? (
             <div className="text-center py-10">
               <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p>Loading students...</p>
+              <p>Loading builders...</p>
             </div>
-          ) : students.length === 0 ? (
+          ) : builders.length === 0 ? (
             <div className="text-center py-10 glass-card">
               <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-              <p className="text-lg font-medium">No students found</p>
-              <p className="text-sm text-muted-foreground">There are no students in the system yet.</p>
+              <p className="text-lg font-medium">No builders found</p>
+              <p className="text-sm text-muted-foreground">There are no builders in the system yet.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {students.map(student => (
-                <div key={student.id} className="glass-card p-4">
-                  <StudentCard student={student} />
+              {builders.map(builder => (
+                <div key={builder.id} className="glass-card p-4">
+                  <BuilderCard builder={builder} />
                   
                   <div className="mt-4 flex flex-col">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm">Registration Status:</span>
-                      {registrationStatus[student.id]?.completed ? (
+                      {registrationStatus[builder.id]?.completed ? (
                         <span className="text-sm bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center">
                           <Check size={14} className="mr-1" />
                           Complete
                         </span>
                       ) : (
                         <span className="text-sm bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
-                          {registrationStatus[student.id]?.count || 0}/5 Angles
+                          {registrationStatus[builder.id]?.count || 0}/5 Angles
                         </span>
                       )}
                     </div>
                     
                     <Button
-                      onClick={() => handleStartRegistration(student)}
-                      variant={registrationStatus[student.id]?.completed ? "outline" : "default"}
+                      onClick={() => handleStartRegistration(builder)}
+                      variant={registrationStatus[builder.id]?.completed ? "outline" : "default"}
                       className="w-full mt-2"
                     >
-                      {registrationStatus[student.id]?.completed ? "Update Registration" : "Register Face"}
+                      {registrationStatus[builder.id]?.completed ? "Update Registration" : "Register Face"}
                     </Button>
                   </div>
                 </div>
@@ -210,9 +210,9 @@ const Register = ({ faceRegistration }: RegisterProps) => {
         </div>
       </main>
       
-      {selectedStudent && (
+      {selectedBuilder && (
         <FaceRegistration
-          student={selectedStudent}
+          builder={selectedBuilder}
           open={registrationOpen}
           onOpenChange={setRegistrationOpen}
           onComplete={handleRegistrationComplete}

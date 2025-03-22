@@ -3,3 +3,4 @@
 export * from './registerFace';
 export * from './updateAvatar';
 export * from './checkStatus';
+export * from './registerFaceWithoutDetection';

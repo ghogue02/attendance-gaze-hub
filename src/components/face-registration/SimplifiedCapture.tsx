@@ -56,7 +56,9 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         toast.success('Face registered successfully!');
         onRegistrationComplete(true);
       } else {
-        toast.error(result.message || 'Registration failed');
+        // Fix: Check if result.message exists and is a string, otherwise use a default message
+        const errorMessage = typeof result === 'object' && result.message ? result.message : 'Registration failed';
+        toast.error(errorMessage);
         onRegistrationComplete(false);
       }
     } catch (error) {

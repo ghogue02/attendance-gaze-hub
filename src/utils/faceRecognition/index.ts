@@ -1,7 +1,9 @@
 
-// Export all face recognition utilities
-export * from './registration';
+// Re-export all face recognition functions
 export * from './recognition';
+export * from './recognitionService';
+export * from './recognitionUtils';
+export * from './registration';
 export * from './setup';
-export * from './attendance';
-// export * from './types';
+export * from './types';
+export * from './fallbackRecognition';

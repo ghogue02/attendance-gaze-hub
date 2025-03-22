@@ -5,6 +5,7 @@ import { Builder } from '../BuilderCard';
 import { checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { SimpleFaceCapture } from './SimpleFaceCapture';
+import { SimplifiedCapture } from './SimplifiedCapture';
 import { Button } from '../ui/button';
 
 interface FaceRegistrationProps {
@@ -17,6 +18,7 @@ interface FaceRegistrationProps {
 const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegistrationProps) => {
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [useSimplifiedCapture, setUseSimplifiedCapture] = useState(false);
   
   useEffect(() => {
     if (open && builder) {
@@ -64,6 +66,10 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     onComplete?.();
   };
 
+  const toggleCaptureMethod = () => {
+    setUseSimplifiedCapture(!useSimplifiedCapture);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -109,11 +115,30 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
             </div>
           </div>
         ) : (
-          <SimpleFaceCapture 
-            builder={builder}
-            onRegistrationComplete={handleRegistrationComplete}
-            isUpdateMode={isUpdateMode}
-          />
+          <div>
+            <div className="mb-4 flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleCaptureMethod}
+              >
+                {useSimplifiedCapture ? "Use Advanced Capture" : "Use Simple Capture"}
+              </Button>
+            </div>
+            
+            {useSimplifiedCapture ? (
+              <SimplifiedCapture 
+                builder={builder}
+                onRegistrationComplete={handleRegistrationComplete}
+              />
+            ) : (
+              <SimpleFaceCapture 
+                builder={builder}
+                onRegistrationComplete={handleRegistrationComplete}
+                isUpdateMode={isUpdateMode}
+              />
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>

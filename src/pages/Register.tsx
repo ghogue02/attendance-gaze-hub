@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, ListCheck, Check, AlertCircle, Search } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
-import FaceRegistration from '@/components/FaceRegistration';
+import FaceRegistration from '@/components/face-registration';
 import BuilderCard, { Builder } from '@/components/BuilderCard';
 import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { useToast } from '@/components/ui/use-toast';

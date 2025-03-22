@@ -9,6 +9,7 @@ import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecogni
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import ApiKeySetup, { initializeApiKey } from '@/components/ApiKeySetup';
 
 interface RegisterProps {
   faceRegistration?: boolean;
@@ -25,13 +26,18 @@ const Register = ({ faceRegistration }: RegisterProps) => {
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationStatus, setRegistrationStatus] = useState<{[key: string]: {completed: boolean, count: number}}>({});
+  const [showApiKeySetup, setShowApiKeySetup] = useState(false);
 
   useEffect(() => {
+    const apiKey = initializeApiKey();
+    if (!apiKey) {
+      setShowApiKeySetup(true);
+    }
+    
     loadBuilders();
   }, []);
 
   useEffect(() => {
-    // If in face registration mode and we have a builderId, find that builder
     if (faceRegistration && builderId && builders.length > 0) {
       const foundBuilder = builders.find(s => s.id === builderId);
       if (foundBuilder) {
@@ -48,7 +54,6 @@ const Register = ({ faceRegistration }: RegisterProps) => {
     }
   }, [faceRegistration, builderId, builders, navigate, toast]);
 
-  // Filter builders by search query
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredBuilders(builders);
@@ -70,7 +75,6 @@ const Register = ({ faceRegistration }: RegisterProps) => {
       setBuilders(allBuilders);
       setFilteredBuilders(allBuilders);
       
-      // Get registration status for all builders
       const statuses: {[key: string]: {completed: boolean, count: number}} = {};
       
       for (const builder of allBuilders) {
@@ -92,20 +96,29 @@ const Register = ({ faceRegistration }: RegisterProps) => {
   };
 
   const handleRegistrationComplete = () => {
-    // Refresh the list to update status
     loadBuilders();
-    // Close the dialog
     setRegistrationOpen(false);
     
-    // If in direct face registration mode, navigate back to register
     if (faceRegistration && builderId) {
       navigate('/register');
     }
   };
 
+  const handleApiKeySetupComplete = () => {
+    setShowApiKeySetup(false);
+    toast({
+      title: "AI Service Setup Complete",
+      description: "AI-enhanced avatar generation is now available.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/50">
       <Header />
+      
+      {showApiKeySetup && (
+        <ApiKeySetup onSetup={handleApiKeySetupComplete} />
+      )}
       
       <main className="pt-24 pb-16 px-4 container max-w-5xl mx-auto">
         <motion.div
@@ -176,7 +189,6 @@ const Register = ({ faceRegistration }: RegisterProps) => {
           </ol>
         </div>
 
-        {/* Search box */}
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />

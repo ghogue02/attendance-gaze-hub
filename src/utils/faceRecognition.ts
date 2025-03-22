@@ -69,7 +69,7 @@ export const recognizeFace = async (imageData: string): Promise<RecognitionResul
           const student: Student = {
             id: dbStudent.id,
             name: `${dbStudent.first_name} ${dbStudent.last_name}`,
-            studentId: dbStudent.student_id,
+            studentId: dbStudent.student_id || '',
             status: 'present' as StudentStatus,
             timeRecorded,
             image: dbStudent.image_url || `https://ui-avatars.com/api/?name=${dbStudent.first_name}+${dbStudent.last_name}&background=random`
@@ -114,11 +114,12 @@ export const getAllStudents = async (): Promise<Student[]> => {
       return [];
     }
     
-    // Get attendance data
+    // Get attendance data for today
+    const today = new Date().toISOString().split('T')[0];
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
       .select('*')
-      .eq('date', new Date().toISOString().split('T')[0]);
+      .eq('date', today);
       
     if (attendanceError) {
       console.error('Error fetching attendance:', attendanceError);
@@ -132,7 +133,7 @@ export const getAllStudents = async (): Promise<Student[]> => {
       return {
         id: dbStudent.id,
         name: `${dbStudent.first_name} ${dbStudent.last_name}`,
-        studentId: dbStudent.student_id,
+        studentId: dbStudent.student_id || '',
         status: (attendance?.status || 'pending') as StudentStatus,
         timeRecorded: attendance?.time_recorded 
           ? new Date(attendance.time_recorded).toLocaleTimeString() 

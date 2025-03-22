@@ -30,6 +30,9 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       console.error('Error fetching attendance:', attendanceError);
     }
     
+    console.log('Builder data from DB:', buildersData);
+    console.log('Today\'s attendance records:', attendanceData);
+    
     // Map the DB builders to our application's Builder format
     const builders: Builder[] = buildersData.map(dbBuilder => {
       // Find matching attendance record for today if it exists
@@ -71,6 +74,8 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
 export const markAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string): Promise<boolean> => {
   try {
     const today = new Date().toISOString().split('T')[0];
+    
+    console.log('Marking attendance for builder:', builderId, 'with status:', status);
     
     const attendanceData: any = {
       student_id: builderId,

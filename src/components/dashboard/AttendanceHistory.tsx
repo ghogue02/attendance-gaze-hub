@@ -52,15 +52,18 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
         
         console.log(`Fetching ALL attendance records from ${startDateStr} to ${today.toISOString().split('T')[0]}`);
         
-        // Build a map of student IDs to names
-        const builderMap = new Map(
-          builders.map(builder => [builder.id, {
+        // Create a map of student IDs to names for easier lookup
+        const builderMap = new Map();
+        
+        // Populate the map with all builders
+        builders.forEach(builder => {
+          builderMap.set(builder.id, {
             name: builder.name,
             builderId: builder.builderId
-          }])
-        );
+          });
+        });
         
-        // Fetch ALL attendance data without any student_id filter
+        // Fetch ALL attendance data without any filtering
         const { data, error } = await supabase
           .from('attendance')
           .select('*')
@@ -82,7 +85,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
           return;
         }
         
-        // Map database records to our format
+        // Map database records to our format with detailed logging
         const history: AttendanceRecord[] = data.map(record => {
           const builder = builderMap.get(record.student_id);
           
@@ -92,12 +95,12 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
             student_id: record.student_id,
             status: record.status,
             date: record.date,
-            builder: builder ? `${builder.name} (${builder.builderId})` : 'Unknown'
+            builder: builder ? `${builder.name} (${builder.builderId})` : 'Unknown student'
           });
           
           return {
             id: record.id,
-            name: builder?.name || 'Unknown',
+            name: builder?.name || `Unknown (ID: ${record.student_id.substring(0, 8)}...)`,
             builderId: builder?.builderId || '',
             status: record.status as BuilderStatus,
             date: typeof record.date === 'string' 

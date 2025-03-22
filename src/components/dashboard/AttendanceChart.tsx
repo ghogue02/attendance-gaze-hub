@@ -46,9 +46,9 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         const startDateStr = startDate.toISOString().split('T')[0];
         const endDateStr = today.toISOString().split('T')[0];
         
-        console.log(`Fetching ALL attendance chart data from ${startDateStr} to ${endDateStr}`);
+        console.log(`Fetching ALL attendance chart data without filtering from ${startDateStr} to ${endDateStr}`);
         
-        // Fetch ALL attendance data for the date range with no student_id filter
+        // Fetch attendance data directly without any filtering
         const { data: attendanceData, error } = await supabase
           .from('attendance')
           .select('*')
@@ -65,7 +65,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         
         console.log('Raw attendance data fetched for chart:', attendanceData?.length || 0, 'records', attendanceData);
         
-        // Create a map of dates in the range
+        // Initialize day-by-day data structure
         const dateMap: Record<string, DailyAttendance> = {};
         
         // Initialize the date range with zeros
@@ -102,7 +102,8 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
               console.log('Processing chart record:', {
                 date: dateStr,
                 status: record.status,
-                excuse_reason: record.excuse_reason
+                excuse_reason: record.excuse_reason,
+                student_id: record.student_id
               });
               
               // Handle different status formats

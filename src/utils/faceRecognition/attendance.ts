@@ -38,9 +38,12 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       // Properly handle the image URL
       let imageUrl = dbBuilder.image_url;
       
+      // Debug the image URL received from DB
+      console.log(`Builder ${dbBuilder.first_name} ${dbBuilder.last_name} image URL:`, imageUrl);
+      
       // If no image_url exists or it's null, generate a fallback
-      if (!imageUrl) {
-        imageUrl = `https://ui-avatars.com/api/?name=${dbBuilder.first_name}+${dbBuilder.last_name}&background=random`;
+      if (!imageUrl || imageUrl === 'null' || imageUrl === 'undefined') {
+        imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(dbBuilder.first_name)}+${encodeURIComponent(dbBuilder.last_name)}&background=random`;
       }
       
       return {

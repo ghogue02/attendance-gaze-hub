@@ -54,6 +54,25 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
       .toUpperCase();
   };
 
+  // Check if the image is a valid URL or data URL that should be displayed
+  const hasValidImage = () => {
+    if (!builder.image) return false;
+    
+    // Avoid UI Avatars fallback images
+    if (builder.image.includes('ui-avatars.com')) return false;
+    
+    // Check if it's a data URL (from face registration)
+    if (builder.image.startsWith('data:image')) return true;
+    
+    // Check if it's a valid URL
+    try {
+      new URL(builder.image);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -62,15 +81,15 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
       className="glass-card p-5 transition-all duration-300 hover:shadow-glass-lg"
     >
       <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-        <Avatar className="w-20 h-20 rounded-full overflow-hidden bg-secondary flex-shrink-0 shadow-sm">
-          {builder.image && !builder.image.includes('ui-avatars.com') ? (
+        <Avatar className="w-20 h-20 rounded-full overflow-hidden bg-secondary flex-shrink-0 shadow-sm border-2 border-white/20">
+          {hasValidImage() ? (
             <AvatarImage 
               src={builder.image} 
               alt={builder.name} 
               className="w-full h-full object-cover"
             />
           ) : null}
-          <AvatarFallback className="text-2xl font-bold text-primary">
+          <AvatarFallback className="text-2xl font-bold text-primary bg-primary/10">
             {getInitials()}
           </AvatarFallback>
         </Avatar>

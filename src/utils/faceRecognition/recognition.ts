@@ -68,6 +68,50 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         const searchParams = new URLSearchParams(window.location.search);
         const testUser = searchParams.get('test_user');
         
+        // Only allow a single recognition within a 10-second window to prevent duplicate detections
+        const now = new Date();
+        const currentTime = now.getTime();
+        const lastRecognitionTime = window.sessionStorage.getItem('lastRecognitionTime');
+        const lastRecognizedUser = window.sessionStorage.getItem('lastRecognizedUser');
+        
+        if (lastRecognitionTime && lastRecognizedUser) {
+          const timeSinceLastRecognition = currentTime - parseInt(lastRecognitionTime, 10);
+          
+          // If it's been less than 10 seconds since the last recognition, return the same user
+          if (timeSinceLastRecognition < 10000) {
+            console.log(`Using cached recognition result from ${timeSinceLastRecognition}ms ago`);
+            
+            // Get student details from database using the cached ID
+            const { data: cachedStudent, error: cachedError } = await supabase
+              .from('students')
+              .select('*')
+              .eq('id', lastRecognizedUser)
+              .single();
+              
+            if (!cachedError && cachedStudent) {
+              // Format time for display
+              const timeRecorded = new Date().toLocaleTimeString();
+              
+              // Convert database student to application Builder format
+              const builder: Builder = {
+                id: cachedStudent.id,
+                name: `${cachedStudent.first_name} ${cachedStudent.last_name}`,
+                builderId: cachedStudent.student_id || '',
+                status: 'present' as BuilderStatus,
+                timeRecorded,
+                image: cachedStudent.image_url || `https://ui-avatars.com/api/?name=${cachedStudent.first_name}+${cachedStudent.last_name}&background=random`
+              };
+              
+              resolve({
+                success: true,
+                builder,
+                message: 'Using recent recognition result'
+              });
+              return;
+            }
+          }
+        }
+        
         // For production-quality recognition:
         // 1. Instead of using timestamp, we'd use actual face comparison algorithms
         // 2. We'll use the URL parameter for testing if provided
@@ -83,7 +127,6 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           // This ensures better distribution between users
           
           // Use current date as entropy source but with higher resolution
-          const now = new Date();
           const secondsToday = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
           const millisToday = secondsToday * 1000 + now.getMilliseconds();
           
@@ -117,15 +160,17 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         // Format time for display
         const timeRecorded = new Date().toLocaleTimeString();
         
-        // Record attendance in database with additional confidence metric
-        // In a real system, this would be the actual confidence score from face recognition
+        // Store this recognition to prevent duplicates
+        window.sessionStorage.setItem('lastRecognitionTime', currentTime.toString());
+        window.sessionStorage.setItem('lastRecognizedUser', studentData.id);
+        
+        // Record attendance in database without confidence_score field
         const { error: attendanceError } = await supabase
           .from('attendance')
           .upsert({
             student_id: studentData.id,
             status: 'present',
             time_recorded: new Date().toISOString(),
-            confidence_score: 0.95, // Would be real in production
           }, {
             onConflict: 'student_id,date'
           });

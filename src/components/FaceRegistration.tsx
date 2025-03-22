@@ -7,6 +7,7 @@ import { Builder } from './BuilderCard';
 import { registerFaceImage, checkFaceRegistrationStatus, updateBuilderAvatar } from '@/utils/faceRecognition';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { useCamera } from '@/hooks/use-camera';
 
 interface FaceRegistrationProps {
   builder: Builder;
@@ -16,8 +17,6 @@ interface FaceRegistrationProps {
 }
 
 const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegistrationProps) => {
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [cameraError, setCameraError] = useState('');
   const [currentAngle, setCurrentAngle] = useState(0);
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -25,9 +24,22 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const {
+    videoRef,
+    canvasRef,
+    isCapturing,
+    cameraError,
+    startCamera,
+    stopCamera,
+    captureImageData
+  } = useCamera({
+    isCameraActive: open && !registrationComplete,
+    videoConstraints: {
+      facingMode: 'user',
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    }
+  });
 
   // Get current registration status on load
   useEffect(() => {
@@ -59,64 +71,24 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
         // Initialize the capturedImages array with empty strings
         setCapturedImages(new Array(status.count).fill(''));
         setProgress((status.count / 5) * 100);
-        startCamera();
       }
     } catch (error) {
       console.error('Error checking registration status:', error);
     }
   };
 
-  const startCamera = async () => {
-    try {
-      setCameraError('');
-      setIsCapturing(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
-      
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error('Error accessing camera:', err);
-      setCameraError('Unable to access camera. Please check permissions.');
-      setIsCapturing(false);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    
-    setIsCapturing(false);
-  };
-
   const captureImage = async () => {
     if (!videoRef.current || !canvasRef.current) return;
     
     setProcessing(true);
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
+    const imageData = captureImageData();
     
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    if (!imageData) {
+      toast.error('Failed to capture image');
+      setProcessing(false);
+      return;
+    }
     
-    context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const imageData = canvas.toDataURL('image/jpeg');
     console.log(`Capturing image for angle ${currentAngle}`);
     
     // Register the face image for this angle
@@ -143,11 +115,13 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
         setRegistrationComplete(true);
         setProgress(100);
         stopCamera();
-        
-        // Don't call onComplete yet - let the user dismiss the dialog
       } else if (result.imageCount) {
-        // Move to the next angle
-        setCurrentAngle(result.imageCount);
+        // Move to the next angle if provided, otherwise increment
+        if (result.nextAngleIndex !== undefined) {
+          setCurrentAngle(result.nextAngleIndex);
+        } else {
+          setCurrentAngle(prev => (prev + 1) % 5);
+        }
         setProgress((result.imageCount / 5) * 100);
       }
     } else {
@@ -281,7 +255,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
                   ></div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {currentAngle} of 5 angles completed
+                  {Math.min(capturedImages.filter(Boolean).length, 5)} of 5 angles completed
                 </p>
               </div>
               
@@ -301,14 +275,14 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
                   <div 
                     key={index}
                     className={`aspect-square rounded-md border-2 ${
-                      index < capturedImages.length && capturedImages[index] 
+                      capturedImages[index] 
                         ? 'border-green-500 bg-green-50' 
                         : index === currentAngle 
                           ? 'border-primary animate-pulse' 
                           : 'border-muted bg-muted/50'
                     }`}
                   >
-                    {index < capturedImages.length && capturedImages[index] && (
+                    {capturedImages[index] && (
                       <div className="h-full w-full flex items-center justify-center">
                         <Check className="h-4 w-4 text-green-500" />
                       </div>

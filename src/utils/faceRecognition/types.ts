@@ -12,4 +12,5 @@ export interface FaceRegistrationResult {
   message: string;
   imageCount?: number;
   completed?: boolean;
+  nextAngleIndex?: number;
 }

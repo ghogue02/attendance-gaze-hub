@@ -1,11 +1,13 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, RefreshCw, AlertCircle, Check } from 'lucide-react';
+import { RefreshCw, AlertCircle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCamera } from '@/hooks/use-camera';
 import { registerFaceImage } from '@/utils/faceRecognition';
 import { Builder } from '@/components/BuilderCard';
+import { detectFaces } from '@/utils/faceRecognition/recognitionUtils';
 
 interface SimpleFaceCaptureProps {
   builder: Builder;
@@ -23,8 +25,13 @@ export const SimpleFaceCapture = ({
   const [captureAttempts, setCaptureAttempts] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>("Position your face in the frame");
   const [captureFailed, setCaptureFailed] = useState(false);
+  const [isFaceDetected, setIsFaceDetected] = useState(false);
+  const [detectionActive, setDetectionActive] = useState(false);
   
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const faceDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const detectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const facePresentDurationRef = useRef(0);
   
   const {
     videoRef,
@@ -41,21 +48,75 @@ export const SimpleFaceCapture = ({
       height: { ideal: 720 }
     },
     onCameraStart: () => {
-      setStatusMessage("Camera active. Position yourself for a clear face capture.");
+      setStatusMessage("Positioning face detection...");
+      startFaceDetection();
     }
   });
 
+  // Clean up all timers and intervals when component unmounts
   useEffect(() => {
     return () => {
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
       }
+      if (faceDetectionIntervalRef.current) {
+        clearInterval(faceDetectionIntervalRef.current);
+      }
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Start face detection when camera is ready
+  const startFaceDetection = () => {
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
+    }
+    
+    setDetectionActive(true);
+    setStatusMessage("Looking for your face...");
+    
+    // Check for faces every 1 second
+    faceDetectionIntervalRef.current = setInterval(async () => {
+      if (!isCapturing || processing || countdown !== null) return;
+      
+      const imageData = captureImageData();
+      if (!imageData) return;
+      
+      try {
+        const result = await detectFaces(imageData, true);
+        
+        if (result.success && result.hasFaces) {
+          facePresentDurationRef.current += 1;
+          
+          if (!isFaceDetected) {
+            setIsFaceDetected(true);
+            setStatusMessage("Face detected! Hold still...");
+          }
+          
+          // If face has been present consistently for 2 seconds, start countdown
+          if (facePresentDurationRef.current >= 2 && countdown === null && !processing) {
+            startCountdown();
+          }
+        } else {
+          facePresentDurationRef.current = 0;
+          
+          if (isFaceDetected) {
+            setIsFaceDetected(false);
+            setStatusMessage("Face lost. Please position your face in the frame.");
+          }
+        }
+      } catch (error) {
+        console.error("Face detection error:", error);
+      }
+    }, 1000);
+  };
 
   const startCountdown = () => {
     if (processing || !isCapturing || countdownTimerRef.current) return;
     
+    setStatusMessage("Hold still for capture!");
     setCountdown(3);
     
     countdownTimerRef.current = setInterval(() => {
@@ -75,6 +136,12 @@ export const SimpleFaceCapture = ({
     if (!videoRef.current || !canvasRef.current) {
       toast.error('Camera not initialized properly');
       return;
+    }
+    
+    // Stop face detection during processing
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
+      setDetectionActive(false);
     }
     
     setProcessing(true);
@@ -120,9 +187,14 @@ export const SimpleFaceCapture = ({
 
   const handleRetry = () => {
     setCaptureFailed(false);
-    setStatusMessage("Position your face in the frame");
+    setIsFaceDetected(false);
+    facePresentDurationRef.current = 0;
+    setStatusMessage("Looking for your face...");
+    
     if (captureAttempts > 2) {
       startCamera();
+    } else {
+      startFaceDetection();
     }
   };
 
@@ -140,7 +212,7 @@ export const SimpleFaceCapture = ({
         <canvas ref={canvasRef} className="hidden" />
         
         {isCapturing && !cameraError && !processing && (
-          <div className="absolute inset-0 border-2 border-primary pointer-events-none opacity-50" />
+          <div className={`absolute inset-0 border-2 ${isFaceDetected ? 'border-green-500 opacity-70' : 'border-primary opacity-50'} pointer-events-none ${isFaceDetected ? '' : 'animate-pulse'}`} />
         )}
         
         {countdown !== null && (
@@ -151,7 +223,7 @@ export const SimpleFaceCapture = ({
         
         {statusMessage && !cameraError && !processing && (
           <div className="absolute bottom-3 left-0 right-0 flex justify-center">
-            <div className="bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+            <div className={`${isFaceDetected ? 'bg-green-900/70 text-white' : 'bg-black/70 text-white'} px-3 py-1 rounded-full text-sm`}>
               {statusMessage}
             </div>
           </div>
@@ -194,22 +266,12 @@ export const SimpleFaceCapture = ({
             <Button onClick={handleRetry}>Try Again</Button>
           </div>
         ) : (
-          <Button 
-            size="lg" 
-            onClick={startCountdown} 
-            disabled={processing || !isCapturing || countdown !== null}
-            className="flex items-center gap-2"
-          >
-            <Camera size={18} />
-            Capture Face
-          </Button>
+          <div className="text-sm text-muted-foreground text-center max-w-md">
+            <p>Look directly at the camera with your face centered in the frame. Good lighting will improve recognition.</p>
+            {isFaceDetected && <p className="text-green-500 mt-2">Face detected! Hold still for automatic capture.</p>}
+          </div>
         )}
-        
-        <div className="text-sm text-muted-foreground text-center max-w-md">
-          <p>Look directly at the camera with your face centered in the frame. Good lighting will improve recognition.</p>
-        </div>
       </div>
     </div>
   );
 };
-

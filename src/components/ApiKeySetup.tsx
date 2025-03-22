@@ -1,6 +1,5 @@
 
 import { useState } from 'react';
-import { setupAIService } from '@/utils/faceRecognition/registration';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -25,8 +24,7 @@ const ApiKeySetup = ({ onSetup }: ApiKeySetupProps) => {
     // Save API key to local storage (in a real app, use a more secure method)
     localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
     
-    // Initialize the AI service with the API key
-    setupAIService(apiKey);
+    // Since AI enhancement is removed, we don't need to initialize any service
     
     toast.success('API key saved successfully');
     setOpen(false);
@@ -80,13 +78,8 @@ export const initializeApiKey = (): string | null => {
   // Check if API key exists in local storage
   const storedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
   
-  // If API key exists, initialize the AI service
-  if (storedApiKey) {
-    setupAIService(storedApiKey);
-    return storedApiKey;
-  }
-  
-  return null;
+  // Since we've removed the AI service initialization, we'll just return the API key
+  return storedApiKey;
 };
 
 export default ApiKeySetup;

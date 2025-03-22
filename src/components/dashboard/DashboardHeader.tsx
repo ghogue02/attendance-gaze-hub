@@ -26,7 +26,12 @@ const DashboardHeader = ({ selectedDate, onRefresh }: DashboardHeaderProps) => {
   return (
     <div className="flex flex-col md:flex-row items-center justify-between mb-8 mt-2">
       <div className="flex items-center mb-4 md:mb-0">
-        <UserProfileImage className="w-12 h-12 mr-4" />
+        <UserProfileImage 
+          userName="Greg Hogue" 
+          className="w-12 h-12 mr-4" 
+          // Add a hardcoded ID for Greg Hogue to test with
+          // In a real app, this would come from authentication context
+        />
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <div className="flex items-center text-muted-foreground text-sm mt-1">

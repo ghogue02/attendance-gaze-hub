@@ -7,7 +7,7 @@ interface StatisticsCardsProps {
 }
 
 const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
-  // Calculate attendance statistics
+  // Calculate attendance statistics based on actual data
   const totalBuilders = builders.length;
   const presentCount = builders.filter(s => s.status === 'present').length;
   const absentCount = builders.filter(s => s.status === 'absent').length;
@@ -51,7 +51,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
         <span className="text-sm text-muted-foreground">Absent</span>
         <div className="text-2xl font-bold mt-1 text-red-600">{absentCount}</div>
         <div className="h-1 w-full bg-secondary/50 rounded-full mt-2">
-          <div className="h-1 bg-red-500 rounded-full" style={{ width: `${absentCount / totalBuilders * 100}%` }}></div>
+          <div className="h-1 bg-red-500 rounded-full" style={{ width: `${totalBuilders > 0 ? (absentCount / totalBuilders * 100) : 0}%` }}></div>
         </div>
       </motion.div>
       
@@ -64,7 +64,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
         <span className="text-sm text-muted-foreground">Pending</span>
         <div className="text-2xl font-bold mt-1 text-yellow-600">{pendingCount}</div>
         <div className="h-1 w-full bg-secondary/50 rounded-full mt-2">
-          <div className="h-1 bg-yellow-500 rounded-full" style={{ width: `${pendingCount / totalBuilders * 100}%` }}></div>
+          <div className="h-1 bg-yellow-500 rounded-full" style={{ width: `${totalBuilders > 0 ? (pendingCount / totalBuilders * 100) : 0}%` }}></div>
         </div>
       </motion.div>
     </div>

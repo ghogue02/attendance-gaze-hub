@@ -35,6 +35,14 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       // Find matching attendance record for today if it exists
       const attendance = attendanceData?.find(a => a.student_id === dbBuilder.id);
       
+      // Properly handle the image URL
+      let imageUrl = dbBuilder.image_url;
+      
+      // If no image_url exists or it's null, generate a fallback
+      if (!imageUrl) {
+        imageUrl = `https://ui-avatars.com/api/?name=${dbBuilder.first_name}+${dbBuilder.last_name}&background=random`;
+      }
+      
       return {
         id: dbBuilder.id,
         name: `${dbBuilder.first_name} ${dbBuilder.last_name}`,
@@ -43,10 +51,11 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         timeRecorded: attendance?.time_recorded 
           ? new Date(attendance.time_recorded).toLocaleTimeString() 
           : undefined,
-        image: dbBuilder.image_url || `https://ui-avatars.com/api/?name=${dbBuilder.first_name}+${dbBuilder.last_name}&background=random`
+        image: imageUrl
       };
     });
     
+    console.log('Processed builder data:', builders);
     return builders;
   } catch (error) {
     console.error('Error in getAllBuilders:', error);

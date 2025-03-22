@@ -46,6 +46,14 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
     }
   };
 
+  // Get the initials from the builder's name
+  const getInitials = () => {
+    return builder.name.split(' ')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -54,24 +62,18 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
       className="glass-card p-5 transition-all duration-300 hover:shadow-glass-lg"
     >
       <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-        <div className="w-20 h-20 rounded-full overflow-hidden bg-secondary flex-shrink-0 shadow-sm">
-          {builder.image ? (
-            <Avatar className="w-full h-full">
-              <AvatarImage 
-                src={builder.image} 
-                alt={builder.name} 
-                className="w-full h-full object-cover"
-              />
-              <AvatarFallback className="text-2xl font-bold text-primary">
-                {builder.name.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-primary">
-              {builder.name.substring(0, 2).toUpperCase()}
-            </div>
-          )}
-        </div>
+        <Avatar className="w-20 h-20 rounded-full overflow-hidden bg-secondary flex-shrink-0 shadow-sm">
+          {builder.image && !builder.image.includes('ui-avatars.com') ? (
+            <AvatarImage 
+              src={builder.image} 
+              alt={builder.name} 
+              className="w-full h-full object-cover"
+            />
+          ) : null}
+          <AvatarFallback className="text-2xl font-bold text-primary">
+            {getInitials()}
+          </AvatarFallback>
+        </Avatar>
         
         <div className="flex-1 text-center sm:text-left">
           <h3 className="font-semibold text-lg">{builder.name}</h3>

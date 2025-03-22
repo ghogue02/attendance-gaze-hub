@@ -1,15 +1,16 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ListCheck, Check, AlertCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import FaceRegistration from '@/components/face-registration';
-import BuilderCard, { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/BuilderCard';
 import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { RegisterInstructions } from '@/components/register/RegisterInstructions';
+import { BuildersList } from '@/components/register/BuildersList';
 
 interface RegisterProps {
   faceRegistration?: boolean;
@@ -95,12 +96,14 @@ const Register = ({ faceRegistration }: RegisterProps) => {
   const handleRegistrationComplete = () => {
     console.log("Registration completed, refreshing builder data");
     loadBuilders();
-    // We won't close the registration dialog here - let the user close it manually
-    // so they can see the "complete" screen
     
     if (faceRegistration && builderId) {
       navigate('/register');
     }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
   };
 
   return (
@@ -123,58 +126,10 @@ const Register = ({ faceRegistration }: RegisterProps) => {
           </p>
         </motion.div>
 
-        <div className="mb-8 grid grid-cols-2 gap-4 md:flex md:gap-8 max-w-md mx-auto">
-          <div className="glass-card p-4 flex-1 flex flex-col items-center">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
-              <Users size={20} />
-            </div>
-            <span className="text-2xl font-bold">{builders.length}</span>
-            <span className="text-xs text-muted-foreground">Total Builders</span>
-          </div>
-          
-          <div className="glass-card p-4 flex-1 flex flex-col items-center">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
-              <ListCheck size={20} />
-            </div>
-            <span className="text-2xl font-bold">
-              {Object.values(registrationStatus).filter(s => s.completed).length}
-            </span>
-            <span className="text-xs text-muted-foreground">Registered Faces</span>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 mb-10">
-          <h2 className="text-xl font-semibold mb-3">How It Works</h2>
-          <ol className="space-y-4 text-sm">
-            <li className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs flex-shrink-0">
-                1
-              </div>
-              <div>
-                <span className="font-medium">Select your profile</span>
-                <p className="text-muted-foreground mt-1">Find your name in the list below and click "Register Face"</p>
-              </div>
-            </li>
-            <li className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs flex-shrink-0">
-                2
-              </div>
-              <div>
-                <span className="font-medium">Capture from multiple angles</span>
-                <p className="text-muted-foreground mt-1">Follow the instructions to capture your face from different angles</p>
-              </div>
-            </li>
-            <li className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs flex-shrink-0">
-                3
-              </div>
-              <div>
-                <span className="font-medium">Registration complete</span>
-                <p className="text-muted-foreground mt-1">The system can now recognize you automatically for attendance</p>
-              </div>
-            </li>
-          </ol>
-        </div>
+        <RegisterInstructions 
+          buildersCount={builders.length}
+          registeredCount={Object.values(registrationStatus).filter(s => s.completed).length}
+        />
 
         <div className="mb-6">
           <div className="relative">
@@ -191,59 +146,15 @@ const Register = ({ faceRegistration }: RegisterProps) => {
         <div className="space-y-6">
           <h2 className="text-2xl font-bold">Builders</h2>
           
-          {loading ? (
-            <div className="text-center py-10">
-              <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p>Loading builders...</p>
-            </div>
-          ) : filteredBuilders.length === 0 ? (
-            <div className="text-center py-10 glass-card">
-              <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-              <p className="text-lg font-medium">No builders found</p>
-              <p className="text-sm text-muted-foreground">No results match your search criteria.</p>
-              {searchQuery && (
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={() => setSearchQuery('')}
-                >
-                  Clear Search
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {filteredBuilders.map(builder => (
-                <div key={builder.id} className="glass-card p-4">
-                  <BuilderCard builder={builder} />
-                  
-                  <div className="mt-4 flex flex-col">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">Registration Status:</span>
-                      {registrationStatus[builder.id]?.completed ? (
-                        <span className="text-sm bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center">
-                          <Check size={14} className="mr-1" />
-                          Complete
-                        </span>
-                      ) : (
-                        <span className="text-sm bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
-                          {registrationStatus[builder.id]?.count || 0}/5 Angles
-                        </span>
-                      )}
-                    </div>
-                    
-                    <Button
-                      onClick={() => handleStartRegistration(builder)}
-                      variant={registrationStatus[builder.id]?.completed ? "outline" : "default"}
-                      className="w-full mt-2"
-                    >
-                      {registrationStatus[builder.id]?.completed ? "Update Face Data" : "Register Face"}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <BuildersList 
+            builders={builders}
+            filteredBuilders={filteredBuilders}
+            searchQuery={searchQuery}
+            loading={loading}
+            registrationStatus={registrationStatus}
+            onStartRegistration={handleStartRegistration}
+            onClearSearch={handleClearSearch}
+          />
         </div>
       </main>
       

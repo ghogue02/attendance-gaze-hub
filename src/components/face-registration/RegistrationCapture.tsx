@@ -1,19 +1,14 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { Builder } from '../BuilderCard';
 import { registerFaceImage, updateBuilderAvatar } from '@/utils/faceRecognition';
-import { Button } from '../ui/button';
-import { RegistrationProgress } from './RegistrationProgress';
 import { CameraView } from './CameraView';
+import { RegistrationProgress } from './RegistrationProgress';
+import { CaptureControls } from './CaptureControls';
 import { useCamera } from '@/hooks/use-camera';
 import { detectFaces } from '@/utils/faceRecognition/recognitionUtils';
-
-interface RegistrationCaptureProps {
-  builder: Builder;
-  onRegistrationUpdate: (completed: boolean, progress: number, currentAngle: number) => void;
-}
+import { RegistrationCaptureProps } from './types';
 
 export const RegistrationCapture = ({ 
   builder, 
@@ -212,6 +207,16 @@ export const RegistrationCapture = ({
     }
   };
 
+  const handleToggleAutoCapture = () => {
+    const newAutoCapture = !autoCapture;
+    setAutoCapture(newAutoCapture);
+    if (newAutoCapture) {
+      startAutoCapture();
+    } else if (autoCaptureTimeoutRef.current) {
+      clearTimeout(autoCaptureTimeoutRef.current);
+    }
+  };
+
   const angleInstructions = [
     "Look directly at the camera",
     "Turn your head slightly to the left",
@@ -240,38 +245,14 @@ export const RegistrationCapture = ({
           angleInstructions={angleInstructions}
         />
         
-        <div className="flex flex-col space-y-4 mt-auto">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Auto-capture: </span>
-            <div className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                value="" 
-                className="sr-only peer" 
-                checked={autoCapture}
-                onChange={() => {
-                  const newAutoCapture = !autoCapture;
-                  setAutoCapture(newAutoCapture);
-                  if (newAutoCapture) {
-                    startAutoCapture();
-                  } else if (autoCaptureTimeoutRef.current) {
-                    clearTimeout(autoCaptureTimeoutRef.current);
-                  }
-                }}
-              />
-              <div className="w-11 h-6 bg-muted-foreground/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </div>
-          </div>
-          
-          <Button
-            onClick={() => captureImage()}
-            disabled={!isCapturing || processing}
-            className="flex items-center gap-2"
-          >
-            <Camera size={18} />
-            {autoCapture ? "Manual Capture" : "Capture Angle"} {currentAngle + 1}
-          </Button>
-        </div>
+        <CaptureControls
+          autoCapture={autoCapture}
+          onToggleAutoCapture={handleToggleAutoCapture}
+          onManualCapture={() => captureImage()}
+          isCapturing={isCapturing}
+          processing={processing}
+          currentAngle={currentAngle}
+        />
       </div>
     </div>
   );

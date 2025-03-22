@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, ListCheck, Check, AlertCircle, Search } from 'lucide-react';
@@ -10,7 +9,6 @@ import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecogni
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ApiKeySetup, { initializeApiKey } from '@/components/ApiKeySetup';
 
 interface RegisterProps {
   faceRegistration?: boolean;
@@ -27,14 +25,8 @@ const Register = ({ faceRegistration }: RegisterProps) => {
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationStatus, setRegistrationStatus] = useState<{[key: string]: {completed: boolean, count: number}}>({});
-  const [showApiKeySetup, setShowApiKeySetup] = useState(false);
 
   useEffect(() => {
-    const apiKey = initializeApiKey();
-    if (!apiKey) {
-      setShowApiKeySetup(true);
-    }
-    
     loadBuilders();
   }, []);
 
@@ -110,21 +102,9 @@ const Register = ({ faceRegistration }: RegisterProps) => {
     }
   };
 
-  const handleApiKeySetupComplete = () => {
-    setShowApiKeySetup(false);
-    toast({
-      title: "AI Service Setup Complete",
-      description: "AI-enhanced avatar generation is now available.",
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/50">
       <Header />
-      
-      {showApiKeySetup && (
-        <ApiKeySetup onSetup={handleApiKeySetupComplete} />
-      )}
       
       <main className="pt-24 pb-16 px-4 container max-w-5xl mx-auto">
         <motion.div

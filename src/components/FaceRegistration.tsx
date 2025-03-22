@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Camera, Check, RefreshCw, ChevronRight, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,7 +40,6 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     }
   });
 
-  // Get current registration status on load
   useEffect(() => {
     if (open && builder) {
       checkRegistrationStatus();
@@ -52,7 +50,6 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     };
   }, [open, builder]);
   
-  // Check if builder has already registered face angles
   const checkRegistrationStatus = async () => {
     if (!builder) return;
     
@@ -63,12 +60,9 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
       if (status.completed) {
         setRegistrationComplete(true);
         setProgress(100);
-        // Determine if this was opened in update mode
         setIsUpdateMode(status.count >= 5);
       } else {
-        // If there are existing captures, start from the next angle
         setCurrentAngle(status.count);
-        // Initialize the capturedImages array with empty strings
         setCapturedImages(new Array(status.count).fill(''));
         setProgress((status.count / 5) * 100);
       }
@@ -91,23 +85,20 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     
     console.log(`Capturing image for angle ${currentAngle}`);
     
-    // Register the face image for this angle
     const result = await registerFaceImage(builder.id, imageData, currentAngle);
     console.log("Registration result:", result);
     
     if (result.success) {
       toast.success(result.message);
       
-      // Update captured images and progress
       const newCapturedImages = [...capturedImages];
       newCapturedImages[currentAngle] = imageData;
       setCapturedImages(newCapturedImages);
       
-      // If this is the front-facing image (angle 0), update the builder's avatar
       if (currentAngle === 0) {
         console.log("Updating builder avatar with angle 0 image");
         await updateBuilderAvatar(builder.id, imageData);
-        toast.success("Profile image updated with AI enhancement!");
+        toast.success("Profile image updated!");
       }
       
       if (result.completed) {
@@ -116,7 +107,6 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
         setProgress(100);
         stopCamera();
       } else if (result.imageCount) {
-        // Move to the next angle if provided, otherwise increment
         if (result.nextAngleIndex !== undefined) {
           setCurrentAngle(result.nextAngleIndex);
         } else {
@@ -132,7 +122,6 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
   };
 
   const handleStartOver = () => {
-    // Reset current angle to 0 and start camera again
     setCurrentAngle(0);
     setRegistrationComplete(false);
     setCapturedImages([]);

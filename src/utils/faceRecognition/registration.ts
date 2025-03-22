@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { FaceRegistrationResult } from './types';
-import { enhanceFaceImage, initRunwareService } from './aiEnhancement';
 
 // Function to register a face image for a student
 export const registerFaceImage = async (
@@ -10,12 +9,7 @@ export const registerFaceImage = async (
   angleIndex: number
 ): Promise<FaceRegistrationResult> => {
   try {
-    // In a real implementation, this would:
-    // 1. Extract face embeddings from the image
-    // 2. Store them in a database linked to the student
-    
-    // For this demo, we'll simply update the student record
-    // In a real implementation, we'd store multiple face embeddings
+    // Fetch the student record
     const { data: student, error: fetchError } = await supabase
       .from('students')
       .select('*')
@@ -41,16 +35,12 @@ export const registerFaceImage = async (
     if (isFirstImage) {
       console.log("Processing first angle image as profile picture");
       
-      // Call the AI enhancement function
-      const enhancedImage = await enhanceFaceImage(imageData);
-      console.log("Enhanced image received:", enhancedImage ? "Success" : "Failed");
-      
-      // Update the student's profile image
+      // Update the student's profile image without AI enhancement
       const { error: updateError } = await supabase
         .from('students')
         .update({ 
-          image_url: enhancedImage || imageData,
-          last_face_update: new Date().toISOString() // Now this column exists in the database
+          image_url: imageData,
+          last_face_update: new Date().toISOString()
         })
         .eq('id', studentId);
         
@@ -62,7 +52,7 @@ export const registerFaceImage = async (
         };
       }
       
-      console.log('Successfully updated profile image with enhanced version');
+      console.log('Successfully updated profile image');
     }
     
     // Store the face data directly in the database
@@ -142,20 +132,12 @@ export const updateBuilderAvatar = async (builderId: string, imageData: string):
   try {
     console.log("Starting builder avatar update process");
     
-    // Apply AI enhancement to the image
-    const enhancedImage = await enhanceFaceImage(imageData);
-    console.log("Enhanced avatar image received:", enhancedImage ? "Success" : "Failed");
-    
-    if (!enhancedImage) {
-      console.log("No enhanced image returned, using original");
-    }
-    
-    // Update the builder's avatar in the database
+    // Update the builder's avatar in the database without AI enhancement
     const { error } = await supabase
       .from('students')
       .update({ 
-        image_url: enhancedImage || imageData,
-        last_face_update: new Date().toISOString() // Now this column exists in the database
+        image_url: imageData,
+        last_face_update: new Date().toISOString()
       })
       .eq('id', builderId);
     
@@ -164,7 +146,7 @@ export const updateBuilderAvatar = async (builderId: string, imageData: string):
       return false;
     }
     
-    console.log('Successfully updated avatar with enhanced image');
+    console.log('Successfully updated avatar');
     return true;
   } catch (error) {
     console.error('Error updating avatar:', error);
@@ -197,16 +179,4 @@ export const checkFaceRegistrationStatus = async (studentId: string): Promise<{c
     console.error('Error in checkFaceRegistrationStatus:', error);
     return { completed: false, count: 0 };
   }
-};
-
-// Initialize Runware service if API key is available
-// For production, this would be retrieved from environment variables or secure storage
-export const setupAIService = (apiKey: string): void => {
-  if (!apiKey) {
-    console.warn('No API key provided for AI service. Enhanced avatar generation will not be available.');
-    return;
-  }
-  
-  initRunwareService(apiKey);
-  console.log('AI service initialized for enhanced avatar generation');
 };

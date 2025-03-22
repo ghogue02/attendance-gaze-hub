@@ -64,7 +64,7 @@ export const CameraView = ({
           <h3 className="text-xl font-semibold mb-2">Face Recognition</h3>
           <p className="text-muted-foreground max-w-xs mb-6">
             {passiveMode 
-              ? "Activate camera to begin passive scanning for faces" 
+              ? "Toggle passive mode to start camera automatically" 
               : "Click the button to activate the camera and start the attendance process"}
           </p>
           <motion.div 

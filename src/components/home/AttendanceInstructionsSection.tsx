@@ -38,7 +38,7 @@ export const AttendanceInstructionsSection = ({
         variant="secondary"
         className="py-3 flex items-center justify-center gap-2"
       >
-        Cancel
+        {passiveMode ? "Disable Passive Mode" : "Cancel"}
       </Button>
     </div>
   );

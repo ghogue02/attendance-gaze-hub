@@ -30,7 +30,7 @@ export const AttendanceSection = ({
       
       <p className="text-sm text-muted-foreground text-center">
         {passiveMode 
-          ? "Passive mode will automatically recognize builders without clicks" 
+          ? "Passive mode is active. Camera will automatically start scanning for faces." 
           : "Enable passive mode for automatic face recognition"}
       </p>
       
@@ -38,9 +38,10 @@ export const AttendanceSection = ({
         <Button
           onClick={startAttendance}
           className="flex-1 flex items-center justify-center gap-2"
+          disabled={passiveMode}
         >
           <Camera size={20} />
-          Start Face Recognition
+          {passiveMode ? "Camera Already Active" : "Start Face Recognition"}
         </Button>
         
         <Button

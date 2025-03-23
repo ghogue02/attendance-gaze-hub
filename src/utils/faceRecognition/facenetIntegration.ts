@@ -92,7 +92,7 @@ export const registerFace = async (
       return { success: false, message: 'Failed to store face embedding' };
     }
     
-    return { success: true };
+    return { success: true, message: 'Face registered successfully' };
   } catch (error) {
     console.error('Error registering face:', error);
     return { success: false, message: 'Error during face registration' };
@@ -105,7 +105,7 @@ export const registerFace = async (
 export const recognizeFace = async (
   imageData: string,
   threshold = 0.75
-): Promise<{ success: boolean; builder?: Builder; message?: string }> => {
+): Promise<{ success: boolean; builder?: Builder; message: string }> => {
   try {
     // Process the image to get face embedding
     const result = await processFaceForRegistration(imageData);
@@ -121,7 +121,7 @@ export const recognizeFace = async (
       return { success: false, message: 'No matching face found' };
     }
     
-    return { success: true, builder: match };
+    return { success: true, builder: match, message: 'Face successfully recognized' };
   } catch (error) {
     console.error('Error recognizing face:', error);
     return { success: false, message: 'Error during face recognition' };

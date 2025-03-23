@@ -1,30 +1,46 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-// Function to check if a student has completed face registration
-export const checkFaceRegistrationStatus = async (studentId: string): Promise<{completed: boolean, count: number}> => {
+/**
+ * Check the face registration status for a specific student
+ */
+export const checkFaceRegistrationStatus = async (studentId: string): Promise<{
+  completed: boolean;
+  count: number;
+  message?: string;
+}> => {
   try {
-    // Query face registrations directly
-    const { data, error } = await supabase
+    // Query to count the number of face registrations for this student
+    const { count, error } = await supabase
       .from('face_registrations')
-      .select('angle_index')
+      .select('*', { count: 'exact', head: true })
       .eq('student_id', studentId);
       
     if (error) {
-      console.error('Error counting registrations:', error);
-      return { completed: false, count: 0 };
+      console.error('Error checking face registration status:', error);
+      return {
+        completed: false,
+        count: 0,
+        message: 'Failed to check registration status'
+      };
     }
     
-    const registeredAngles = data || [];
-    const registeredCount = registeredAngles.length;
-    const requiredAngles = 5; // We require 5 different angle captures
+    const registrationCount = count || 0;
+    const isComplete = registrationCount >= 5; // We consider 5+ registrations as complete
     
     return {
-      completed: registeredCount >= requiredAngles,
-      count: registeredCount
+      completed: isComplete,
+      count: registrationCount,
+      message: isComplete 
+        ? 'Face registration complete' 
+        : `${registrationCount}/5 face images registered`
     };
   } catch (error) {
-    console.error('Error in checkFaceRegistrationStatus:', error);
-    return { completed: false, count: 0 };
+    console.error('Exception checking registration status:', error);
+    return {
+      completed: false,
+      count: 0,
+      message: 'An error occurred'
+    };
   }
 };

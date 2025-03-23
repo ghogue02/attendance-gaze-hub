@@ -64,14 +64,21 @@ export const processRecognition = async (
       
       // First, try to detect if there's a face in the image at all
       const faceDetectionResult = await detectFaces(imageData, false, 0);
-      if (!faceDetectionResult || faceDetectionResult.length === 0) {
+      
+      // Check if faces were detected using the hasFaces property instead of length
+      if (!faceDetectionResult || !faceDetectionResult.hasFaces || (faceDetectionResult.faceCount && faceDetectionResult.faceCount === 0)) {
         console.log('No face detected in the image');
         onError?.('No face detected in frame');
         onComplete?.();
         return;
       }
       
-      console.log(`Detected ${faceDetectionResult.length} faces in the image`);
+      // Log detected faces using faceCount property instead of length
+      if (faceDetectionResult.faceCount) {
+        console.log(`Detected ${faceDetectionResult.faceCount} faces in the image`);
+      } else {
+        console.log('Face detected in the image');
+      }
       
       // Attempt to recognize with FaceNet
       const facenetResult: RecognitionResult = await Promise.race([

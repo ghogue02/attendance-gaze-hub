@@ -1,3 +1,4 @@
+
 /**
  * Browser-compatible FaceNet implementation using TensorFlow.js
  * This provides similar functionality to node-facenet but works in browser environments
@@ -7,8 +8,8 @@ import { Builder } from '@/components/BuilderCard';
 import { supabase } from '@/integrations/supabase/client';
 
 // We'll load models lazily when needed
-let faceDetectionModel: tf.GraphModel | null = null;
-let facenetModel: tf.GraphModel | null = null;
+let faceDetectionModel: tf.GraphModel | tf.LayersModel | null = null;
+let facenetModel: tf.GraphModel | tf.LayersModel | null = null;
 let isModelLoading = false;
 
 // Constants
@@ -37,11 +38,12 @@ export const initModels = async (): Promise<boolean> => {
     await tf.ready();
     
     // Load the face detection model - using a more reliable model source
-    // We'll use the BlazeFace model which is lightweight and works well in browsers
     try {
       console.log('Loading BlazeFace detection model...');
-      faceDetectionModel = await tf.loadLayersModel(
-        'https://storage.googleapis.com/tfjs-models/tfjs/blazeface_v1/model.json'
+      // Use loadGraphModel instead of loadLayersModel for GraphModel compatibility
+      faceDetectionModel = await tf.loadGraphModel(
+        'https://tfhub.dev/tensorflow/tfjs-model/blazeface/1/default/1',
+        { fromTFHub: true }
       );
       console.log('BlazeFace model loaded successfully');
     } catch (error) {
@@ -61,16 +63,29 @@ export const initModels = async (): Promise<boolean> => {
       }
     }
     
-    // For facenet, we'll use MobileNet as a feature extractor
+    // For facenet, use MobileNet as a feature extractor but with GraphModel
     try {
       console.log('Loading feature extraction model...');
-      facenetModel = await tf.loadLayersModel(
-        'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json'
+      facenetModel = await tf.loadGraphModel(
+        'https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v3_small_100_224/feature_vector/5/default/1',
+        { fromTFHub: true }
       );
       console.log('Feature extraction model loaded successfully');
     } catch (error) {
       console.error('Error loading feature extraction model:', error);
-      return false;
+      
+      // Try alternative MobileNet model
+      try {
+        console.log('Trying alternative feature extraction model...');
+        facenetModel = await tf.loadGraphModel(
+          'https://tfhub.dev/tensorflow/tfjs-model/mobilenet_v2_100_224/feature_vector/2/default/1',
+          { fromTFHub: true }
+        );
+        console.log('Alternative feature extraction model loaded successfully');
+      } catch (fallbackError) {
+        console.error('Error loading alternative feature extraction model:', fallbackError);
+        return false;
+      }
     }
     
     console.log('Face models loaded successfully');

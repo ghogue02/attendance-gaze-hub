@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
 import { registerFaceWithFacenet, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
-import { useCamera } from '@/hooks/use-camera';
+import { useCamera } from '@/hooks/camera';
 import { CameraView } from './CameraView';
 
 interface SimpleFaceCaptureProps {

@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Builder } from './BuilderCard';
-import { useCamera } from '@/hooks/use-camera';
+import { useCamera } from '@/hooks/camera';
 import { processRecognition } from '@/utils/faceRecognition/recognitionService';
 import { processSimplifiedRecognition } from '@/utils/faceRecognition/simplifiedRecognitionService';
 import CameraView from './attendance/CameraView';

@@ -1,11 +1,10 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Camera, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
 import { registerFaceWithFacenet, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
-import { useCamera } from '@/hooks/use-camera';
+import { useCamera } from '@/hooks/camera';
 
 interface SimplifiedCaptureProps {
   builder: Builder;

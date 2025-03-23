@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface UserProfileImageProps {
   userName?: string;
@@ -40,6 +41,8 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
             .eq('id', userId)
             .maybeSingle();
             
+          console.log("Student data from database:", studentData);
+            
           if (!studentError && studentData?.image_url) {
             console.log(`Found image in students table for ID ${userId}`);
             setImageUrl(studentData.image_url);
@@ -57,6 +60,8 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+            
+          console.log("Face registration data:", data);
             
           if (!error && data?.face_data) {
             console.log(`Found face data by ID ${userId}`);
@@ -134,6 +139,11 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
             onError={() => {
               console.error('Error loading image from URL:', imageUrl?.substring(0, 50) + '...');
               setImageError(true);
+              toast({
+                title: "Image Error",
+                description: "Could not load profile image",
+                variant: "destructive"
+              });
             }}
           />
         </div>

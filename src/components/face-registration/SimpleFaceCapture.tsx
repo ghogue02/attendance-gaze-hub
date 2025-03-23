@@ -92,6 +92,9 @@ export const SimpleFaceCapture = ({
         return;
       }
       
+      console.log("Image captured successfully, dimensions:", 
+        videoRef.current.videoWidth, "x", videoRef.current.videoHeight);
+      
       // Call the registerFace function
       const result = await registerFaceWithFacenet(builder.id, imageData);
       
@@ -99,6 +102,10 @@ export const SimpleFaceCapture = ({
         toast.success('Face registered successfully!');
         setStatusMessage("Registration successful!");
         setRegistrationProgress(100);
+        
+        // Force refresh by calling loadRegistrationStatus
+        await loadRegistrationStatus();
+        
         onRegistrationComplete(true);
       } else {
         setError('Registration failed');
@@ -147,7 +154,7 @@ export const SimpleFaceCapture = ({
         clearTimeout(retryTimeoutRef.current);
       }
     };
-  }, [cameraError, startCamera]);
+  }, [cameraError]);
 
   return (
     <div className="space-y-4">

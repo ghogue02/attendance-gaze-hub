@@ -30,7 +30,8 @@ export {
   generateEmbedding,
   storeFaceEmbedding,
   findClosestMatch,
-  calculateEuclideanDistance
+  calculateEuclideanDistance,
+  testRegistrationFlow
 } from './facenetIntegration';
 
 // Export functions used in Dashboard and Register

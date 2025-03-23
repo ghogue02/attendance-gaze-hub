@@ -3,7 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
-import { registerFace, testRegistrationFlow } from '@/utils/faceRecognition';
+import { registerFace } from '@/utils/faceRecognition';
+import { testRegistrationFlow } from '@/utils/faceRecognition/facenetIntegration';
 import { toast } from 'sonner';
 import { useCamera } from '@/hooks/use-camera';
 

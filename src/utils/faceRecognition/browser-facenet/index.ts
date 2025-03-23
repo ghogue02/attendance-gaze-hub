@@ -86,17 +86,28 @@ const warmupModels = async (): Promise<void> => {
     
     // Run inference through both models
     if (faceDetectionModel) {
-      const result = await faceDetectionModel.predict(dummyTensor);
+      const result = faceDetectionModel.predict(dummyTensor);
+      
+      // Handle different types of outputs
       if (Array.isArray(result)) {
-        result.forEach(tensor => tensor.dispose());
-      } else {
+        // Dispose each tensor in the array
+        result.forEach(tensor => {
+          if (tensor && typeof tensor.dispose === 'function') {
+            tensor.dispose();
+          }
+        });
+      } else if (result && typeof result.dispose === 'function') {
+        // Dispose single tensor result
         result.dispose();
       }
     }
     
     if (facenetModel) {
-      const result = await facenetModel.predict(dummyTensor);
-      result.dispose();
+      const result = facenetModel.predict(dummyTensor);
+      
+      if (result && typeof result.dispose === 'function') {
+        result.dispose();
+      }
     }
     
     // Clean up

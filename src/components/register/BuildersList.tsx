@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { Check, AlertCircle, Clock } from 'lucide-react';
 import { Builder } from '@/components/BuilderCard';
-import BuilderCard from '@/components/BuilderCard';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,10 +38,25 @@ export const BuildersList = ({
             .from('students')
             .select('image_url')
             .eq('id', builder.id)
-            .single();
+            .maybeSingle();
             
-          if (data?.image_url) {
+          if (!error && data?.image_url) {
             images[builder.id] = data.image_url;
+          } else if (error) {
+            console.error('Error fetching student image:', error);
+            
+            // Fallback: try to get image from face_registrations if not in students table
+            const { data: faceData, error: faceError } = await supabase
+              .from('face_registrations')
+              .select('face_data')
+              .eq('student_id', builder.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+              
+            if (!faceError && faceData?.face_data) {
+              images[builder.id] = faceData.face_data;
+            }
           }
         } catch (error) {
           console.error('Error fetching builder image:', error);
@@ -89,7 +103,14 @@ export const BuildersList = ({
           <div className="flex items-center gap-4 mb-4">
             <Avatar className="h-16 w-16 border-2 border-white/20">
               {builderImages[builder.id] ? (
-                <AvatarImage src={builderImages[builder.id]} alt={builder.name} />
+                <AvatarImage 
+                  src={builderImages[builder.id]} 
+                  alt={builder.name} 
+                  className="object-cover"
+                  onError={() => {
+                    console.error('Failed to load image for builder:', builder.id);
+                  }}
+                />
               ) : (
                 <AvatarFallback className="text-lg">
                   {builder.name.split(' ').map(n => n[0]).join('')}

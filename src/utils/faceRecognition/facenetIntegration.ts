@@ -115,13 +115,17 @@ export const recognizeFace = async (
 
 /**
  * Registers a face with the FaceNet model
+ * @param studentId The ID of the student to register
+ * @param imageData The image data containing the face
+ * @param isUpdateMode Optional: Whether to update existing registration (default: false)
  */
 export const registerFaceWithFacenet = async (
   studentId: string,
-  imageData: string
+  imageData: string,
+  isUpdateMode: boolean = false
 ): Promise<boolean> => {
   try {
-    console.log('Starting face registration with FaceNet');
+    console.log('Starting face registration with FaceNet, update mode:', isUpdateMode);
     
     // First check if face detection succeeds
     // We want to be lenient during registration, so we'll use a less strict face detection
@@ -142,6 +146,25 @@ export const registerFaceWithFacenet = async (
     }
     
     console.log('Successfully updated avatar images');
+    
+    // If in update mode, clear existing face registrations
+    if (isUpdateMode) {
+      console.log('Update mode enabled - clearing existing face registrations');
+      try {
+        const { error } = await supabase
+          .from('face_registrations')
+          .delete()
+          .eq('student_id', studentId);
+          
+        if (error) {
+          console.error('Error clearing existing registrations:', error);
+        } else {
+          console.log('Successfully cleared existing registrations');
+        }
+      } catch (err) {
+        console.error('Exception clearing registrations:', err);
+      }
+    }
     
     // Generate embedding
     const embedding = await generateEmbedding(imageData);

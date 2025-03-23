@@ -119,9 +119,9 @@ export const SimpleFaceCapture = ({
       console.log("Image captured successfully, dimensions:", 
         videoRef.current.videoWidth, "x", videoRef.current.videoHeight);
       
-      // Call the registerFace function with the update mode flag
+      // Call the registerFace function with the update mode flag - FIX: Pass only two arguments
       console.log("Registering face with update mode:", isUpdateMode);
-      const result = await registerFaceWithFacenet(builder.id, imageData, isUpdateMode);
+      const result = await registerFaceWithFacenet(builder.id, imageData);
       
       if (result) {
         toast.success('Face registered successfully!');

@@ -36,6 +36,8 @@ export const processRecognition = async (
   } = options;
   
   const settings = getRecognitionSettings();
+  // Use a higher confidence threshold to improve accuracy
+  const confidenceThreshold = Math.max(settings.minConfidenceThreshold, 0.85);
   
   // Add timeout to prevent getting stuck
   const timeoutPromise = new Promise((_, reject) => {
@@ -58,44 +60,11 @@ export const processRecognition = async (
     
     // Use Promise.race to implement timeout
     try {
-      // Try the basic approach first (more reliable but less accurate)
-      if (debugMode) console.log('Attempting basic recognition first for reliability...');
-      
-      const basicResult = await Promise.race([
-        recognizeFaceBasic(imageData, settings.minConfidenceThreshold),
-        timeoutPromise
-      ]) as { success: boolean; builder?: Builder; message: string };
-      
-      if (basicResult.success && basicResult.builder) {
-        // Success with basic recognition
-        if (debugMode) console.log('Basic recognition successful', basicResult.builder);
-        
-        // Record this successful recognition
-        const { recognitionHistory, currentTime } = manageRecognitionHistory();
-        updateRecognitionHistory(basicResult.builder.id, recognitionHistory, currentTime);
-        
-        // Record attendance using both methods for redundancy
-        const attendanceResult1 = await recordAttendance(basicResult.builder.id, "present");
-        const attendanceResult2 = await markAttendance(basicResult.builder.id, "present");
-        
-        if (debugMode) {
-          console.log('Attendance recording results:', { 
-            recordAttendance: attendanceResult1,
-            markAttendance: attendanceResult2
-          });
-        }
-        
-        // Notify of success
-        onSuccess?.(basicResult.builder);
-        onComplete?.();
-        return;
-      }
-      
-      // If basic failed, try FaceNet
-      if (debugMode) console.log('Basic recognition found no match, trying FaceNet');
+      // Try FaceNet first for better accuracy
+      if (debugMode) console.log('Attempting FaceNet recognition for better accuracy...');
       
       const facenetResult = await Promise.race([
-        recognizeFaceWithFacenet(imageData, settings.minConfidenceThreshold),
+        recognizeFaceWithFacenet(imageData, confidenceThreshold),
         timeoutPromise
       ]) as { success: boolean; builder?: Builder; message: string };
       
@@ -107,8 +76,11 @@ export const processRecognition = async (
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
         updateRecognitionHistory(facenetResult.builder.id, recognitionHistory, currentTime);
         
-        // Record attendance using both methods for redundancy
-        const attendanceResult1 = await recordAttendance(facenetResult.builder.id, "present");
+        // Record attendance using both methods with proper timestamp format
+        const now = new Date();
+        const isoTimestamp = now.toISOString();
+        
+        const attendanceResult1 = await recordAttendance(facenetResult.builder.id, "present", isoTimestamp);
         const attendanceResult2 = await markAttendance(facenetResult.builder.id, "present");
         
         if (debugMode) {
@@ -120,6 +92,42 @@ export const processRecognition = async (
         
         // Notify of success
         onSuccess?.(facenetResult.builder);
+        onComplete?.();
+        return;
+      }
+      
+      // If FaceNet failed, try the basic approach as fallback
+      if (debugMode) console.log('FaceNet found no match, trying basic recognition');
+      
+      const basicResult = await Promise.race([
+        recognizeFaceBasic(imageData, confidenceThreshold),
+        timeoutPromise
+      ]) as { success: boolean; builder?: Builder; message: string };
+      
+      if (basicResult.success && basicResult.builder) {
+        // Success with basic recognition
+        if (debugMode) console.log('Basic recognition successful', basicResult.builder);
+        
+        // Record this successful recognition
+        const { recognitionHistory, currentTime } = manageRecognitionHistory();
+        updateRecognitionHistory(basicResult.builder.id, recognitionHistory, currentTime);
+        
+        // Record attendance using both methods with proper timestamp format
+        const now = new Date();
+        const isoTimestamp = now.toISOString();
+        
+        const attendanceResult1 = await recordAttendance(basicResult.builder.id, "present", isoTimestamp);
+        const attendanceResult2 = await markAttendance(basicResult.builder.id, "present");
+        
+        if (debugMode) {
+          console.log('Attendance recording results:', { 
+            recordAttendance: attendanceResult1,
+            markAttendance: attendanceResult2
+          });
+        }
+        
+        // Notify of success
+        onSuccess?.(basicResult.builder);
         onComplete?.();
         return;
       }

@@ -40,15 +40,17 @@ export const markAttendance = async (
     
     const now = new Date();
     const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().split(' ')[0];
+    
+    // Create a proper ISO timestamp format that Supabase can understand
+    const timestamp = now.toISOString();
     
     // Log the data we're about to insert
     console.log('Attendance data to insert:', {
       student_id: builderId,
       status: status,
       date,
-      time_recorded: time,
-      excuse_reason: excuseReason
+      time_recorded: timestamp,
+      excuse_reason: excuseReason || null
     });
     
     const { data, error } = await supabase
@@ -57,8 +59,8 @@ export const markAttendance = async (
         student_id: builderId,
         status: status,
         date: date,
-        time_recorded: time,
-        excuse_reason: excuseReason
+        time_recorded: timestamp,
+        excuse_reason: excuseReason || null
       });
     
     if (error) {

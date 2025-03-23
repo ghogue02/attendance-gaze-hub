@@ -5,6 +5,7 @@ import { getRecognitionSettings } from './setup';
 import { recognizeFace as recognizeFaceWithFacenet } from './facenetIntegration';
 import { recognizeFaceBasic } from './fallbackRecognition';
 import { Builder } from '@/components/BuilderCard';
+import { markAttendance } from './attendance';
 
 // Options for the recognition process
 interface RecognitionOptions {
@@ -67,12 +68,22 @@ export const processRecognition = async (
       
       if (basicResult.success && basicResult.builder) {
         // Success with basic recognition
-        if (debugMode) console.log('Basic recognition successful');
+        if (debugMode) console.log('Basic recognition successful', basicResult.builder);
         
         // Record this successful recognition
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
         updateRecognitionHistory(basicResult.builder.id, recognitionHistory, currentTime);
-        await recordAttendance(basicResult.builder.id, "present");
+        
+        // Record attendance using both methods for redundancy
+        const attendanceResult1 = await recordAttendance(basicResult.builder.id, "present");
+        const attendanceResult2 = await markAttendance(basicResult.builder.id, "present");
+        
+        if (debugMode) {
+          console.log('Attendance recording results:', { 
+            recordAttendance: attendanceResult1,
+            markAttendance: attendanceResult2
+          });
+        }
         
         // Notify of success
         onSuccess?.(basicResult.builder);
@@ -90,12 +101,22 @@ export const processRecognition = async (
       
       if (facenetResult.success && facenetResult.builder) {
         // Success with FaceNet
-        if (debugMode) console.log('FaceNet recognition successful');
+        if (debugMode) console.log('FaceNet recognition successful', facenetResult.builder);
         
         // Record this successful recognition
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
         updateRecognitionHistory(facenetResult.builder.id, recognitionHistory, currentTime);
-        await recordAttendance(facenetResult.builder.id, "present");
+        
+        // Record attendance using both methods for redundancy
+        const attendanceResult1 = await recordAttendance(facenetResult.builder.id, "present");
+        const attendanceResult2 = await markAttendance(facenetResult.builder.id, "present");
+        
+        if (debugMode) {
+          console.log('Attendance recording results:', { 
+            recordAttendance: attendanceResult1,
+            markAttendance: attendanceResult2
+          });
+        }
         
         // Notify of success
         onSuccess?.(facenetResult.builder);

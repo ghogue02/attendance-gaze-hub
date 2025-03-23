@@ -36,11 +36,22 @@ export const markAttendance = async (
   excuseReason?: string
 ): Promise<boolean> => {
   try {
+    console.log(`Marking attendance for builder ID: ${builderId}, status: ${status}`);
+    
     const now = new Date();
     const date = now.toISOString().split('T')[0];
     const time = now.toTimeString().split(' ')[0];
     
-    const { error } = await supabase
+    // Log the data we're about to insert
+    console.log('Attendance data to insert:', {
+      student_id: builderId,
+      status: status,
+      date,
+      time_recorded: time,
+      excuse_reason: excuseReason
+    });
+    
+    const { data, error } = await supabase
       .from('attendance')
       .insert({
         student_id: builderId,
@@ -55,6 +66,7 @@ export const markAttendance = async (
       return false;
     }
     
+    console.log('Attendance marked successfully:', data);
     return true;
   } catch (error) {
     console.error('Error in markAttendance:', error);

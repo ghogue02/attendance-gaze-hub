@@ -240,10 +240,13 @@ export const fetchStudentDetails = async (studentId: string): Promise<FetchStude
 // Function to record attendance
 export const recordAttendance = async (studentId: string, status: string = "present") => {
   try {
+    console.log(`Recording attendance for student ID: ${studentId}, status: ${status}`);
+    
     const now = new Date();
     const date = now.toISOString().split('T')[0];
     const time = now.toTimeString().split(' ')[0];
     
+    // Create the attendance record
     const { data, error } = await supabase
       .from('attendance')
       .insert({
@@ -257,9 +260,11 @@ export const recordAttendance = async (studentId: string, status: string = "pres
       console.error('Error recording attendance:', error);
       return {
         success: false,
-        message: 'Failed to record attendance'
+        message: `Failed to record attendance: ${error.message}`
       };
     }
+    
+    console.log('Attendance successfully recorded:', data);
     
     return {
       success: true,
@@ -325,3 +330,4 @@ export const checkFaceRegistrationStatus = async (studentId: string): Promise<Ch
     };
   }
 };
+

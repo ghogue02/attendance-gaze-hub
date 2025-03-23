@@ -11,6 +11,7 @@ import {
   updateRecognitionHistory,
   selectStudentForRecognition
 } from './recognitionUtils';
+import { markAttendance } from './attendance';
 
 // Function to recognize a face image against registered face data
 export const recognizeFace = async (imageData: string, passive = false): Promise<RecognitionResult> => {
@@ -48,23 +49,6 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         // Manage recognition history
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
         
-        /**
-         * IMPROVED FACE RECOGNITION SIMULATION
-         * 
-         * With Google Cloud Vision API integration, we've already confirmed
-         * there is a face in the image. Now we need to identify which person it is.
-         * 
-         * In a full production system:
-         * 1. We would extract facial embeddings from the detected face
-         * 2. Compare these embeddings against stored embeddings for all registered users
-         * 3. Return the closest match above a confidence threshold
-         * 
-         * For this demo:
-         * - We'll use a better simulation that accounts for the confirmed face detection
-         * - The Google Vision API has already confirmed a face is present
-         * - We'll select a student from registered users with better heuristics
-         */
-         
         // For demo purposes, select a user from the registered users
         // Since we've verified a face exists, we don't need to simulate "no face detected"
         const studentId = selectStudentForRecognition(uniqueStudentIds, true);
@@ -89,7 +73,7 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         }
         
         const studentData = studentResult.data;
-        console.log(`Found student: ${studentData.first_name} ${studentData.last_name}`);
+        console.log(`Found student: ${studentData.first_name} ${studentData.last_name}`, studentData);
         
         // Format time for display
         const timeRecorded = new Date().toLocaleTimeString();
@@ -97,8 +81,14 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         // Update recognition history for this student
         updateRecognitionHistory(studentData.id, recognitionHistory, currentTime);
         
-        // Record attendance in database
-        await recordAttendance(studentData.id);
+        // Record attendance in database - using both methods for redundancy
+        const attendanceResult1 = await recordAttendance(studentData.id);
+        const attendanceResult2 = await markAttendance(studentData.id, "present");
+        
+        console.log('Attendance recording results:', { 
+          recordAttendance: attendanceResult1,
+          markAttendance: attendanceResult2
+        });
         
         // Convert database student to application Builder format
         const builder: Builder = {

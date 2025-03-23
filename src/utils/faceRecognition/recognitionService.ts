@@ -6,6 +6,7 @@ import { recognizeFace as recognizeFaceWithFacenet } from './facenetIntegration'
 import { recognizeFaceBasic } from './fallbackRecognition';
 import { Builder } from '@/components/BuilderCard';
 import { markAttendance } from './attendance';
+import { RecognitionResult } from './types';
 
 // Options for the recognition process
 interface RecognitionOptions {
@@ -67,7 +68,7 @@ export const processRecognition = async (
       const { data: userProfile } = await supabase.auth.getUser();
       const isAuthenticated = !!userProfile?.user?.id;
       
-      let facenetResult = { success: false, message: 'FaceNet not attempted' };
+      let facenetResult: RecognitionResult = { success: false, message: 'FaceNet not attempted' };
       
       // Only try FaceNet if not in passive mode (it's slower)
       if (!isPassive) {
@@ -75,7 +76,7 @@ export const processRecognition = async (
           facenetResult = await Promise.race([
             recognizeFaceWithFacenet(imageData, confidenceThreshold),
             timeoutPromise
-          ]) as { success: boolean; builder?: Builder; message: string };
+          ]) as RecognitionResult;
         } catch (facenetError) {
           console.error('FaceNet recognition error:', facenetError);
           facenetResult = { 
@@ -118,10 +119,10 @@ export const processRecognition = async (
       // If FaceNet failed, try the improved basic approach
       if (debugMode) console.log('FaceNet found no match, trying improved basic recognition');
       
-      const basicResult = await Promise.race([
+      const basicResult: RecognitionResult = await Promise.race([
         recognizeFaceBasic(imageData, confidenceThreshold),
         timeoutPromise
-      ]) as { success: boolean; builder?: Builder; message: string };
+      ]) as RecognitionResult;
       
       if (basicResult.success && basicResult.builder) {
         // Success with basic recognition

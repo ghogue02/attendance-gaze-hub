@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { registerFaceWithoutDetection } from './registration';
 import { Builder } from '@/components/BuilderCard';
-import { FaceRegistrationResult } from './types';
+import { FaceRegistrationResult, RecognitionResult } from './types';
 
 /**
  * Basic face recognition function - this is a fallback approach
@@ -11,7 +11,7 @@ import { FaceRegistrationResult } from './types';
 export const recognizeFaceBasic = async (
   imageData: string,
   confidenceThreshold: number = 0.6
-): Promise<{ success: boolean; builder?: Builder; message: string }> => {
+): Promise<RecognitionResult> => {
   try {
     console.log('Attempting improved basic face recognition');
     

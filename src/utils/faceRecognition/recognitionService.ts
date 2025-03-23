@@ -2,7 +2,7 @@
 // Import existing functionalities
 import { detectFaces, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory, manageRecognitionHistory } from './recognitionUtils';
 import { getRecognitionSettings } from './setup';
-import { recognizeFace } from './facenetIntegration';
+import { recognizeFaceWithFacenet } from './facenetIntegration';
 import { recognizeFaceBasic } from './fallbackRecognition';
 import { Builder } from '@/components/BuilderCard';
 
@@ -13,6 +13,7 @@ interface RecognitionOptions {
   onSuccess?: (builder: Builder) => void;
   onError?: (message: string) => void;
   onComplete?: () => void;
+  timeout?: number; // Added timeout option
 }
 
 /**
@@ -29,10 +30,16 @@ export const processRecognition = async (
     debugMode = false,
     onSuccess, 
     onError,
-    onComplete 
+    onComplete,
+    timeout = 10000 // Default timeout of 10 seconds
   } = options;
   
   const settings = getRecognitionSettings();
+  
+  // Add timeout to prevent getting stuck
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Face recognition timed out')), timeout);
+  });
   
   try {
     // First check if we've recently recognized this person
@@ -48,58 +55,70 @@ export const processRecognition = async (
       }
     }
     
-    // Try the enhanced FaceNet approach first
+    // Use Promise.race to implement timeout
     try {
-      if (debugMode) console.log('Attempting FaceNet recognition...');
+      // Try the basic approach first (more reliable but less accurate)
+      if (debugMode) console.log('Attempting basic recognition first for reliability...');
       
-      const result = await recognizeFace(imageData, settings.minConfidenceThreshold);
+      const basicResult = await Promise.race([
+        recognizeFaceBasic(imageData, settings.minConfidenceThreshold),
+        timeoutPromise
+      ]) as { success: boolean; builder?: Builder; message: string };
       
-      if (result.success && result.builder) {
-        // Success! We found a match with FaceNet
+      if (basicResult.success && basicResult.builder) {
+        // Success with basic recognition
+        if (debugMode) console.log('Basic recognition successful');
+        
+        // Record this successful recognition
+        const { recognitionHistory, currentTime } = manageRecognitionHistory();
+        updateRecognitionHistory(basicResult.builder.id, recognitionHistory, currentTime);
+        await recordAttendance(basicResult.builder.id, "present");
+        
+        // Notify of success
+        onSuccess?.(basicResult.builder);
+        onComplete?.();
+        return;
+      }
+      
+      // If basic failed, try FaceNet
+      if (debugMode) console.log('Basic recognition found no match, trying FaceNet');
+      
+      const facenetResult = await Promise.race([
+        recognizeFaceWithFacenet(imageData, settings.minConfidenceThreshold),
+        timeoutPromise
+      ]) as { success: boolean; builder?: Builder; message: string };
+      
+      if (facenetResult.success && facenetResult.builder) {
+        // Success with FaceNet
         if (debugMode) console.log('FaceNet recognition successful');
         
         // Record this successful recognition
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
-        updateRecognitionHistory(result.builder.id, recognitionHistory, currentTime);
-        await recordAttendance(result.builder.id, "present");
+        updateRecognitionHistory(facenetResult.builder.id, recognitionHistory, currentTime);
+        await recordAttendance(facenetResult.builder.id, "present");
         
         // Notify of success
-        onSuccess?.(result.builder);
+        onSuccess?.(facenetResult.builder);
         onComplete?.();
         return;
-      } else {
-        // FaceNet didn't find a match, but didn't error
-        if (debugMode) console.log('FaceNet found no match, trying fallback', result.message);
       }
-    } catch (error) {
-      // FaceNet had an error, try fallback
-      if (debugMode) console.error('FaceNet recognition error, trying fallback:', error);
-    }
-    
-    // Fallback to basic recognition
-    if (debugMode) console.log('Using fallback recognition...');
-    
-    const fallbackResult = await recognizeFaceBasic(imageData, settings.minConfidenceThreshold);
-    
-    if (fallbackResult.success && fallbackResult.builder) {
-      // Fallback succeeded
-      if (debugMode) console.log('Fallback recognition successful');
       
-      // Record this successful recognition
-      const { recognitionHistory, currentTime } = manageRecognitionHistory();
-      updateRecognitionHistory(fallbackResult.builder.id, recognitionHistory, currentTime);
-      await recordAttendance(fallbackResult.builder.id, "present");
-      
-      // Notify of success
-      onSuccess?.(fallbackResult.builder);
+      // No method found a match
+      if (debugMode) console.log('No match found with either method');
+      onError?.(facenetResult.message || basicResult.message || 'No matching face found');
       onComplete?.();
-      return;
+      
+    } catch (innerError) {
+      // Check if this is a timeout error
+      if (innerError instanceof Error && innerError.message === 'Face recognition timed out') {
+        console.error('Face recognition timed out after', timeout, 'ms');
+        onError?.('Recognition took too long. Please try again.');
+      } else {
+        console.error('Error in recognition process:', innerError);
+        onError?.('An error occurred during recognition');
+      }
+      onComplete?.();
     }
-    
-    // If we get here, neither method found a match
-    if (debugMode) console.log('No match found with either method');
-    onError?.(fallbackResult.message || 'No matching face found');
-    onComplete?.();
     
   } catch (error) {
     console.error('Error in recognition process:', error);

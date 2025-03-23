@@ -24,7 +24,7 @@ export * from './types';
 // Explicitly export functions from fallbackRecognition to avoid conflicts
 export { 
   recognizeFaceBasic,
-  registerFaceWithoutDetection 
+  registerFaceWithoutDetection as registerFaceWithoutDetectionFallback 
 } from './fallbackRecognition';
 
 // Explicitly export functions from facenetIntegration with renamed exports to avoid conflicts
@@ -41,3 +41,6 @@ export {
 
 // Export functions used in Dashboard and Register
 export { getAllBuilders, markAttendance } from './attendance';
+
+// Export the main recognitionService functions
+export { processRecognition } from './recognitionService';

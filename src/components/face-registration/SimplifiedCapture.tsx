@@ -1,6 +1,6 @@
 
 import { useState, useRef } from 'react';
-import { Camera, ArrowRight } from 'lucide-react';
+import { Camera, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
 import { registerFaceWithoutDetection, registerFace } from '@/utils/faceRecognition';
@@ -14,7 +14,8 @@ interface SimplifiedCaptureProps {
 
 export const SimplifiedCapture = ({ builder, onRegistrationComplete }: SimplifiedCaptureProps) => {
   const [processing, setProcessing] = useState(false);
-  const [useFacenet, setUseFacenet] = useState(true);
+  const [useFacenet, setUseFacenet] = useState(false); // Default to basic mode
+  const [error, setError] = useState<string | null>(null);
   
   const {
     videoRef,
@@ -40,11 +41,14 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
     }
     
     setProcessing(true);
+    setError(null);
+    
     try {
       // Capture the image data
       const imageData = captureImageData();
       
       if (!imageData) {
+        setError('Failed to capture image');
         toast.error('Failed to capture image');
         setProcessing(false);
         return;
@@ -52,22 +56,26 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
       
       let result;
       
-      // Try to use facenet integration first (for better accuracy)
+      // Try to use facenet integration if selected (for better accuracy)
       if (useFacenet) {
+        console.log('Using FaceNet registration method');
         try {
           result = await registerFace(builder.id, imageData);
           
           if (!result.success) {
             console.warn('FaceNet registration failed, falling back to simpler method', result.message);
             // Fallback to simpler registration if facenet fails
+            console.log('Registering face for builder', builder.id, 'using fallback method');
             result = await registerFaceWithoutDetection(builder.id, imageData);
           }
         } catch (error) {
           console.error('Error during FaceNet registration, falling back:', error);
+          console.log('Registering face for builder', builder.id, 'using fallback method');
           result = await registerFaceWithoutDetection(builder.id, imageData);
         }
       } else {
         // Use the simpler registration approach
+        console.log('Using basic registration method');
         result = await registerFaceWithoutDetection(builder.id, imageData);
       }
       
@@ -79,13 +87,16 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         const errorMessage = result && typeof result === 'object' && 'message' in result 
           ? result.message 
           : 'Registration failed';
+        setError(errorMessage);
         toast.error(errorMessage);
         onRegistrationComplete(false);
       }
     } catch (error) {
       console.error('Error in simplified capture:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during registration';
+      setError(errorMessage);
       toast.error('An error occurred during registration');
-      onRegistrationComplete(false);
+      setProcessing(false);
     } finally {
       setProcessing(false);
     }
@@ -148,6 +159,13 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
           </label>
         </div>
       </div>
+      
+      {error && (
+        <div className="p-3 bg-destructive/10 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+          <p className="text-sm">{error} - Please try again with the Basic mode.</p>
+        </div>
+      )}
       
       <div className="flex flex-col space-y-2">
         <p className="text-center text-muted-foreground">

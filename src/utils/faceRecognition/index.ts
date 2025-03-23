@@ -1,6 +1,7 @@
 
 // Re-export all face recognition functions, avoiding conflicts
 export * from './recognition';
+
 // Export specific functions from recognitionUtils to avoid conflicts
 export {
   detectFaces,
@@ -12,7 +13,7 @@ export {
   recordAttendance,
   updateRecognitionHistory,
   selectStudentForRecognition,
-  // Remove checkFaceRegistrationStatus export from here
+  checkFaceRegistrationStatus,
 } from './recognitionUtils';
 
 // Export all registration-related functions
@@ -22,8 +23,8 @@ export * from './types';
 
 // Explicitly export functions from fallbackRecognition to avoid conflicts
 export { 
-  registerFaceWithoutDetection,
-  recognizeFaceBasic
+  recognizeFaceBasic,
+  registerFaceWithoutDetection 
 } from './fallbackRecognition';
 
 // Explicitly export functions from facenetIntegration with renamed exports to avoid conflicts

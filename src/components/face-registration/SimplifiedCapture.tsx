@@ -1,9 +1,9 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
-import { registerFace } from '@/utils/faceRecognition';
+import { registerFace, testRegistrationFlow } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
 import { useCamera } from '@/hooks/use-camera';
 
@@ -15,6 +15,7 @@ interface SimplifiedCaptureProps {
 export const SimplifiedCapture = ({ builder, onRegistrationComplete }: SimplifiedCaptureProps) => {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
   
   const {
     videoRef,
@@ -30,6 +31,16 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
       facingMode: 'user',
       width: { ideal: 1280 },
       height: { ideal: 720 }
+    },
+    onCameraStart: async () => {
+      console.log('Camera started, pre-loading face models...');
+      try {
+        // Preload face models while camera is warming up
+        const { initModels } = await import('@/utils/faceRecognition/browser-facenet');
+        await initModels();
+      } catch (e) {
+        console.warn('Error preloading face models:', e);
+      }
     }
   });
 
@@ -54,6 +65,22 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
       }
       
       console.log('Using FaceNet registration method');
+      
+      // In debug mode, run the test registration flow
+      if (debugMode) {
+        const testResult = await testRegistrationFlow(builder.id, imageData);
+        if (testResult) {
+          toast.success('Test registration successful!');
+          onRegistrationComplete(true);
+        } else {
+          setError('Test registration failed - see console for details');
+          toast.error('Test registration failed');
+        }
+        setProcessing(false);
+        return;
+      }
+      
+      // Normal registration
       const result = await registerFace(builder.id, imageData);
       
       if (result.success) {
@@ -130,20 +157,29 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
           Look directly at the camera for best results. Make sure your face is well-lit and centered in the frame.
         </p>
         
-        <Button
-          className="w-full"
-          size="lg"
-          disabled={!isCapturing || processing}
-          onClick={handleCaptureAndRegister}
-        >
-          {processing ? (
-            <span>Processing...</span>
-          ) : (
-            <span className="flex items-center gap-2">
-              Register Face <ArrowRight className="h-4 w-4" />
-            </span>
-          )}
-        </Button>
+        <div className="flex justify-between items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDebugMode(!debugMode)}
+          >
+            {debugMode ? 'Normal Mode' : 'Debug Mode'}
+          </Button>
+          
+          <Button
+            size="lg"
+            disabled={!isCapturing || processing}
+            onClick={handleCaptureAndRegister}
+          >
+            {processing ? (
+              <span>Processing...</span>
+            ) : (
+              <span className="flex items-center gap-2">
+                {debugMode ? 'Run Test Registration' : 'Register Face'} <ArrowRight className="h-4 w-4" />
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

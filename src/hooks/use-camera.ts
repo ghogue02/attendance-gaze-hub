@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface CameraConstraints {
   facingMode?: 'user' | 'environment';
@@ -28,19 +28,8 @@ export function useCamera({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  useEffect(() => {
-    if (isCameraActive) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-
-    return () => {
-      stopCamera();
-    };
-  }, [isCameraActive]);
-
-  const startCamera = async () => {
+  // Memoize the start camera function to avoid recreating it on each render
+  const startCamera = useCallback(async () => {
     try {
       setCameraError('');
       setIsCapturing(true);
@@ -83,9 +72,9 @@ export function useCamera({
       setCameraError('Unable to access camera. Please check permissions.');
       setIsCapturing(false);
     }
-  };
+  }, [videoConstraints, onCameraStart]);
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -97,9 +86,23 @@ export function useCamera({
     
     setIsCapturing(false);
     onCameraStop?.();
-  };
+  }, [onCameraStop]);
 
-  const captureImageData = (): string | null => {
+  // Start or stop camera based on isCameraActive prop
+  useEffect(() => {
+    if (isCameraActive) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+
+    return () => {
+      stopCamera();
+    };
+  }, [isCameraActive, startCamera, stopCamera]);
+
+  // Capture the current frame from the video stream
+  const captureImageData = useCallback((): string | null => {
     if (!videoRef.current || !canvasRef.current) return null;
     
     const video = videoRef.current;
@@ -116,8 +119,8 @@ export function useCamera({
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
     // For optimal performance, use a lower quality JPEG
-    return canvas.toDataURL('image/jpeg', 0.8);
-  };
+    return canvas.toDataURL('image/jpeg', 0.9);
+  }, []);
 
   return {
     videoRef,

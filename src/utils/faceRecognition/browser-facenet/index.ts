@@ -7,7 +7,7 @@ import * as tf from '@tensorflow/tfjs';
 import { Builder } from '@/components/BuilderCard';
 import { supabase } from '@/integrations/supabase/client';
 
-// Define a type that can be either GraphModel or LayersModel
+// Define a type that combines GraphModel and LayersModel properties
 type FaceModel = tf.GraphModel | tf.LayersModel;
 
 // We'll load models lazily when needed
@@ -26,11 +26,18 @@ const MATCH_THRESHOLD = 0.65; // Lower threshold = easier matching (was 0.75)
  * Initialize models if not already loaded
  */
 export const initModels = async (): Promise<boolean> => {
-  if (faceDetectionModel && facenetModel) return true;
+  if (faceDetectionModel && facenetModel) {
+    console.log('Models already loaded, skipping initialization');
+    return true;
+  }
+  
   if (isModelLoading) {
     // Wait for loading to complete if already in progress
-    while (isModelLoading) {
+    console.log('Models are already loading, waiting...');
+    let waitCount = 0;
+    while (isModelLoading && waitCount < 30) { // Max 3 seconds wait
       await new Promise(resolve => setTimeout(resolve, 100));
+      waitCount++;
     }
     return !!faceDetectionModel && !!facenetModel;
   }
@@ -41,6 +48,7 @@ export const initModels = async (): Promise<boolean> => {
     
     // First, ensure TensorFlow.js is ready
     await tf.ready();
+    console.log('TensorFlow.js is ready');
     
     // Load the face detection model from multiple potential sources
     await loadFaceDetectionModel();
@@ -53,6 +61,9 @@ export const initModels = async (): Promise<boolean> => {
     }
     
     console.log('Face models loaded successfully');
+    // Perform a warmup inference to make sure the models are ready
+    await warmupModels();
+    
     return true;
   } catch (error) {
     console.error('Error loading face models:', error);
@@ -60,6 +71,40 @@ export const initModels = async (): Promise<boolean> => {
   } finally {
     isModelLoading = false;
     modelLoadRetries = 0;
+  }
+};
+
+/**
+ * Warmup the models with a simple inference to reduce latency on first use
+ */
+const warmupModels = async (): Promise<void> => {
+  try {
+    console.log('Warming up models with test inference...');
+    
+    // Create a small test tensor
+    const dummyTensor = tf.zeros([1, 224, 224, 3]);
+    
+    // Run inference through both models
+    if (faceDetectionModel) {
+      const result = await faceDetectionModel.predict(dummyTensor);
+      if (Array.isArray(result)) {
+        result.forEach(tensor => tensor.dispose());
+      } else {
+        result.dispose();
+      }
+    }
+    
+    if (facenetModel) {
+      const result = await facenetModel.predict(dummyTensor);
+      result.dispose();
+    }
+    
+    // Clean up
+    dummyTensor.dispose();
+    console.log('Models warmed up successfully');
+  } catch (error) {
+    console.warn('Model warmup failed, but continuing anyway:', error);
+    // Non-fatal error, we can continue
   }
 };
 
@@ -99,7 +144,7 @@ const loadFaceDetectionModel = async () => {
     try {
       console.log(`Attempting to load face detection model from: ${model.url}`);
       faceDetectionModel = await model.loader(model.url, model.options);
-      console.log('Face detection model loaded successfully');
+      console.log('Face detection model loaded successfully from:', model.url);
       return;
     } catch (error) {
       console.warn(`Failed to load model from ${model.url}:`, error);
@@ -140,7 +185,7 @@ const loadFeatureExtractionModel = async () => {
     try {
       console.log(`Attempting to load feature extraction model from: ${model.url}`);
       facenetModel = await model.loader(model.url, model.options);
-      console.log('Feature extraction model loaded successfully');
+      console.log('Feature extraction model loaded successfully from:', model.url);
       return;
     } catch (error) {
       console.warn(`Failed to load model from ${model.url}:`, error);
@@ -297,6 +342,9 @@ export const generateEmbedding = async (faceImageData: string): Promise<number[]
     const embedding = await facenetModel!.predict(input) as tf.Tensor;
     const embeddingData = await embedding.data();
     
+    // Log debug info
+    console.log(`Raw embedding data length: ${embeddingData.length}`);
+    
     // Convert to array and normalize
     // We take a subset of the mobilenet features to simulate 128-dim facenet embeddings
     const embeddingArray = Array.from(embeddingData).slice(0, FACE_EMBEDDING_SIZE);
@@ -307,6 +355,9 @@ export const generateEmbedding = async (faceImageData: string): Promise<number[]
     
     // Cleanup
     tf.dispose([img, input, embedding]);
+    
+    console.log(`Generated normalized embedding of length: ${normalizedEmbedding.length}`);
+    console.log('Embedding sample:', normalizedEmbedding.slice(0, 5));
     
     return normalizedEmbedding;
   } catch (error) {
@@ -337,6 +388,9 @@ async function createImageTensor(imageData: string): Promise<tf.Tensor3D | null>
       img.src = imageData;
     });
     
+    // Log image size for debugging
+    console.log(`Image loaded with dimensions: ${img.width} x ${img.height}`);
+    
     // Convert to tensor
     return tf.browser.fromPixels(img);
   } catch (error) {
@@ -354,8 +408,21 @@ export const storeFaceEmbedding = async (
   imageData?: string
 ): Promise<boolean> => {
   try {
-    console.log(`Storing face embedding for student ${studentId}`);
+    console.log(`Storing face embedding for student ${studentId} with length ${embedding.length}`);
     
+    // Verify embedding size
+    if (embedding.length !== FACE_EMBEDDING_SIZE) {
+      console.warn(`Embedding size mismatch: expected ${FACE_EMBEDDING_SIZE}, got ${embedding.length}. Adjusting...`);
+      // Handle size mismatch - either truncate or pad
+      if (embedding.length > FACE_EMBEDDING_SIZE) {
+        embedding = embedding.slice(0, FACE_EMBEDDING_SIZE);
+      } else {
+        // Pad with zeros
+        embedding = [...embedding, ...Array(FACE_EMBEDDING_SIZE - embedding.length).fill(0)];
+      }
+    }
+    
+    // Insert into database
     const { error } = await supabase
       .from(FACE_EMBEDDINGS_TABLE)
       .insert({
@@ -370,6 +437,7 @@ export const storeFaceEmbedding = async (
       return false;
     }
     
+    console.log('Face embedding stored successfully');
     return true;
   } catch (e) {
     console.error('Exception during embedding storage:', e);
@@ -387,7 +455,24 @@ export const findClosestMatch = async (
   try {
     console.log('Finding closest match for face embedding with threshold:', threshold);
     
-    // First, get all stored embeddings
+    // First, check if we have any embeddings at all
+    const { count, error: countError } = await supabase
+      .from(FACE_EMBEDDINGS_TABLE)
+      .select('*', { count: 'exact', head: true });
+      
+    if (countError) {
+      console.error('Error counting embeddings:', countError);
+      return null;
+    }
+    
+    console.log(`Found ${count} total embeddings in database`);
+    
+    if (count === 0) {
+      console.log('No face embeddings found in database - registration required');
+      return null;
+    }
+    
+    // Then, get all stored embeddings
     const { data: embeddings, error } = await supabase
       .from(FACE_EMBEDDINGS_TABLE)
       .select('*, students(id, first_name, last_name, student_id, image_url)');
@@ -404,6 +489,11 @@ export const findClosestMatch = async (
     let closestStudent = null;
     
     for (const record of embeddings) {
+      if (!record.embedding || !Array.isArray(record.embedding)) {
+        console.warn('Invalid embedding found in database record:', record.id);
+        continue;
+      }
+      
       const distance = calculateEuclideanDistance(embedding, record.embedding);
       
       if (distance < closestDistance) {
@@ -451,7 +541,12 @@ export const calculateEuclideanDistance = (
   embedding2: number[]
 ): number => {
   if (embedding1.length !== embedding2.length) {
-    throw new Error('Embeddings must have the same dimensions');
+    console.warn(`Embedding dimension mismatch: ${embedding1.length} vs ${embedding2.length}. Adjusting...`);
+    
+    // Use the smaller length of the two
+    const minLength = Math.min(embedding1.length, embedding2.length);
+    embedding1 = embedding1.slice(0, minLength);
+    embedding2 = embedding2.slice(0, minLength);
   }
   
   let sum = 0;

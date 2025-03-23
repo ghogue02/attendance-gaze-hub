@@ -96,17 +96,36 @@ const warmupModels = async (): Promise<void> => {
             tensor.dispose();
           }
         });
-      } else if (result && typeof result.dispose === 'function') {
-        // Dispose single tensor result
-        result.dispose();
+      } else {
+        // For single tensor result, check if it has dispose method
+        if (result && typeof (result as tf.Tensor).dispose === 'function') {
+          (result as tf.Tensor).dispose();
+        } else if (result && typeof (result as { dispose?: () => void }).dispose === 'function') {
+          // Alternative approach if the first cast doesn't work
+          (result as { dispose: () => void }).dispose();
+        }
       }
     }
     
     if (facenetModel) {
       const result = facenetModel.predict(dummyTensor);
       
-      if (result && typeof result.dispose === 'function') {
-        result.dispose();
+      // Handle different result types
+      if (Array.isArray(result)) {
+        // Dispose each tensor in the array
+        result.forEach(tensor => {
+          if (tensor && typeof tensor.dispose === 'function') {
+            tensor.dispose();
+          }
+        });
+      } else {
+        // For single tensor result, check if it has dispose method
+        if (result && typeof (result as tf.Tensor).dispose === 'function') {
+          (result as tf.Tensor).dispose();
+        } else if (result && typeof (result as { dispose?: () => void }).dispose === 'function') {
+          // Alternative approach if the first cast doesn't work
+          (result as { dispose: () => void }).dispose();
+        }
       }
     }
     

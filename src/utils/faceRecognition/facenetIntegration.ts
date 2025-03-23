@@ -1,142 +1,138 @@
 
 /**
- * This file will contain the integration with facenet for improved face recognition
+ * This file contains the integration with facenet for improved face recognition
  * 
  * Facenet uses embeddings (128-dimensional vectors) to represent faces.
  * Similar faces have embeddings that are close to each other in vector space.
  * 
- * This approach will provide more accurate recognition than our current implementation.
+ * This approach provides more accurate recognition than our current implementation.
  */
 
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/BuilderCard';
 import { FaceRegistrationResult } from './types';
+import { 
+  detectFaces, 
+  generateEmbedding, 
+  storeFaceEmbedding, 
+  findClosestMatch, 
+  calculateEuclideanDistance 
+} from './browser-facenet';
 
 // Database table to store face embeddings
 const FACE_EMBEDDINGS_TABLE = 'face_embeddings';
 
 /**
- * Store a face embedding in the database
- * This will be called during face registration
+ * Process an image for face registration
+ * This handles face detection, alignment, and embedding generation
  */
-export const storeFaceEmbedding = async (
-  studentId: string,
-  embedding: number[],
-  imageData?: string
-): Promise<boolean> => {
+export const processFaceForRegistration = async (
+  imageData: string
+): Promise<{ 
+  success: boolean; 
+  embedding?: number[]; 
+  error?: string;
+  faceImageData?: string;
+}> => {
   try {
-    console.log(`Storing face embedding for student ${studentId}`);
+    // Step 1: Detect faces in the image
+    const faces = await detectFaces(imageData);
     
-    const { error } = await supabase
-      .from(FACE_EMBEDDINGS_TABLE)
-      .insert({
-        student_id: studentId,
-        embedding,
-        image_data: imageData,
-        created_at: new Date().toISOString()
-      });
-      
-    if (error) {
-      console.error('Error storing face embedding:', error);
-      return false;
+    if (!faces || faces.length === 0) {
+      return { success: false, error: 'No faces detected in the image' };
     }
     
-    return true;
-  } catch (e) {
-    console.error('Exception during embedding storage:', e);
-    return false;
+    if (faces.length > 1) {
+      return { success: false, error: 'Multiple faces detected. Please capture only one face.' };
+    }
+    
+    // Step 2: Extract face and generate embedding
+    // For simplicity, we're using the whole image here
+    // In a production system, you'd crop the face based on detection box
+    const embedding = await generateEmbedding(imageData);
+    
+    if (!embedding) {
+      return { success: false, error: 'Failed to generate face embedding' };
+    }
+    
+    return { 
+      success: true, 
+      embedding,
+      faceImageData: imageData 
+    };
+  } catch (error) {
+    console.error('Error processing face for registration:', error);
+    return { success: false, error: 'Error processing face' };
   }
 };
 
 /**
- * Find the closest matching face from stored embeddings
- * This will be used during face recognition
+ * Register a face with the system
  */
-export const findClosestMatch = async (
-  embedding: number[],
-  threshold = 0.75
-): Promise<Builder | null> => {
+export const registerFace = async (
+  studentId: string,
+  imageData: string
+): Promise<FaceRegistrationResult> => {
   try {
-    console.log('Finding closest match for face embedding');
+    // Process the face image and get embedding
+    const result = await processFaceForRegistration(imageData);
     
-    // First, get all stored embeddings
-    const { data: embeddings, error } = await supabase
-      .from(FACE_EMBEDDINGS_TABLE)
-      .select('*, students(id, first_name, last_name, student_id, image_url)');
-      
-    if (error || !embeddings || embeddings.length === 0) {
-      console.error('Error fetching embeddings:', error);
-      return null;
+    if (!result.success || !result.embedding) {
+      return { success: false, message: result.error || 'Face processing failed' };
+    }
+    
+    // Store the embedding in the database
+    const stored = await storeFaceEmbedding(
+      studentId, 
+      result.embedding,
+      result.faceImageData
+    );
+    
+    if (!stored) {
+      return { success: false, message: 'Failed to store face embedding' };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error registering face:', error);
+    return { success: false, message: 'Error during face registration' };
+  }
+};
+
+/**
+ * Recognize a face from an image
+ */
+export const recognizeFace = async (
+  imageData: string,
+  threshold = 0.75
+): Promise<{ success: boolean; builder?: Builder; message?: string }> => {
+  try {
+    // Process the image to get face embedding
+    const result = await processFaceForRegistration(imageData);
+    
+    if (!result.success || !result.embedding) {
+      return { success: false, message: result.error || 'Face processing failed' };
     }
     
     // Find the closest match
-    let closestDistance = Infinity;
-    let closestStudent = null;
+    const match = await findClosestMatch(result.embedding, threshold);
     
-    for (const record of embeddings) {
-      const distance = calculateEuclideanDistance(embedding, record.embedding);
-      
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestStudent = record.students;
-      }
+    if (!match) {
+      return { success: false, message: 'No matching face found' };
     }
     
-    // If the closest distance is below threshold, we have a match
-    if (closestDistance <= threshold && closestStudent) {
-      console.log(`Found match with distance ${closestDistance} for student ${closestStudent.id}`);
-      
-      // Format time for display
-      const timeRecorded = new Date().toLocaleTimeString();
-      
-      // Record attendance (would implement this function)
-      // await recordAttendance(closestStudent.id);
-      
-      // Convert to Builder format
-      const builder: Builder = {
-        id: closestStudent.id,
-        name: `${closestStudent.first_name} ${closestStudent.last_name}`,
-        builderId: closestStudent.student_id || '',
-        status: 'present',
-        timeRecorded,
-        image: closestStudent.image_url || `https://ui-avatars.com/api/?name=${closestStudent.first_name}+${closestStudent.last_name}&background=random`
-      };
-      
-      return builder;
-    }
-    
-    console.log(`No match found (closest distance: ${closestDistance})`);
-    return null;
-  } catch (e) {
-    console.error('Exception during match finding:', e);
-    return null;
+    return { success: true, builder: match };
+  } catch (error) {
+    console.error('Error recognizing face:', error);
+    return { success: false, message: 'Error during face recognition' };
   }
 };
 
-/**
- * Calculate Euclidean distance between two embeddings
- */
-export const calculateEuclideanDistance = (
-  embedding1: number[],
-  embedding2: number[]
-): number => {
-  if (embedding1.length !== embedding2.length) {
-    throw new Error('Embeddings must have the same dimensions');
-  }
-  
-  let sum = 0;
-  for (let i = 0; i < embedding1.length; i++) {
-    const diff = embedding1[i] - embedding2[i];
-    sum += diff * diff;
-  }
-  
-  return Math.sqrt(sum);
+// Re-export functions from browser-facenet
+export { 
+  detectFaces,
+  generateEmbedding,
+  storeFaceEmbedding,
+  findClosestMatch,
+  calculateEuclideanDistance 
 };
-
-/**
- * In the future, we will need to:
- * 1. Install a facenet implementation like '@facenet/facenet-node' or similar
- * 2. Implement face alignment and cropping (crucial for good results)
- * 3. Generate embeddings for captured faces
- * 4. Store and compare embeddings for recognition
- */

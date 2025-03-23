@@ -1,127 +1,100 @@
 
-import { recognizeFace } from './recognition';
+// Import existing functionalities
+import { selectStudentForRecognition, checkRecentlyRecognized } from './recognitionUtils';
+import { getRecognitionSettings } from './setup';
+import { recognizeFace } from './facenetIntegration';
+import { recognizeFaceBasic } from './fallbackRecognition';
 import { Builder } from '@/components/BuilderCard';
-import { supabase } from '@/integrations/supabase/client';
 
+// Options for the recognition process
 interface RecognitionOptions {
-  isPassive: boolean;
+  isPassive?: boolean;
+  debugMode?: boolean;
   onSuccess?: (builder: Builder) => void;
   onError?: (message: string) => void;
   onComplete?: () => void;
-  debugMode?: boolean;
 }
 
+/**
+ * Process an image for face recognition
+ * This is the main function used for recognizing faces,
+ * with a fallback to simpler methods if facenet fails
+ */
 export const processRecognition = async (
   imageData: string,
-  options: RecognitionOptions
+  options: RecognitionOptions = {}
 ) => {
-  const { isPassive, onSuccess, onError, onComplete, debugMode } = options;
+  const { 
+    isPassive = false, 
+    debugMode = false,
+    onSuccess, 
+    onError,
+    onComplete 
+  } = options;
+  
+  const settings = getRecognitionSettings();
   
   try {
-    // First, check if there are actually faces in the image using Google Cloud Vision
-    console.log('Sending image to Vision API for face detection...');
-    const faceDetectionResult = await detectFacesWithVision(imageData, isPassive);
-    
-    if (debugMode) {
-      console.log('Vision API result:', faceDetectionResult);
-    }
-    
-    if (!faceDetectionResult.success) {
-      // If there was an error with the Vision API, fall back to the simulated recognition
-      console.warn('Vision API error, falling back to simulated recognition:', faceDetectionResult.message);
-      
-      // Proceed with recognition anyway - our fallback will handle cases where Vision fails
-      const result = await recognizeFace(imageData, isPassive);
-      
-      if (result.success && result.builder) {
-        onSuccess?.(result.builder);
-      } else if (!isPassive) {
-        // Only show errors in active mode when using fallback
-        onError?.(result.message);
-      }
-      
+    // First check if we've recently recognized this person
+    if (isPassive && await checkRecentlyRecognized()) {
+      if (debugMode) console.log('Recently recognized, skipping');
+      onError?.('Recently recognized');
       onComplete?.();
       return;
     }
     
-    // Vision API was successful, now check if it detected faces
-    if (faceDetectionResult.hasFaces) {
-      console.log(`Vision API confirms ${faceDetectionResult.faceCount} face(s) detected with confidence ${faceDetectionResult.confidence}`);
+    // Try the enhanced FaceNet approach first
+    try {
+      if (debugMode) console.log('Attempting FaceNet recognition...');
       
-      // If faces were detected, proceed with recognition
-      const result = await recognizeFace(imageData, isPassive);
+      const result = await recognizeFace(imageData, settings.minConfidenceThreshold);
       
       if (result.success && result.builder) {
+        // Success! We found a match with FaceNet
+        if (debugMode) console.log('FaceNet recognition successful');
+        
+        // Record this successful recognition
+        await selectStudentForRecognition(result.builder.id);
+        
+        // Notify of success
         onSuccess?.(result.builder);
-      } else if (!isPassive) {
-        // In active mode, always show errors
-        onError?.(result.message || 'Recognition failed');
-      } else if (result.message && result.message !== 'Recently recognized') {
-        // In passive mode, show errors except "Recently recognized"
-        console.log("Recognition result:", result.message);
-        onError?.(result.message);
+        onComplete?.();
+        return;
+      } else {
+        // FaceNet didn't find a match, but didn't error
+        if (debugMode) console.log('FaceNet found no match, trying fallback', result.message);
       }
-    } else {
-      // Vision API confirms no faces in the image
-      console.log('Vision API confirms no faces in the frame');
-      onError?.('No face detected in frame');
+    } catch (error) {
+      // FaceNet had an error, try fallback
+      if (debugMode) console.error('FaceNet recognition error, trying fallback:', error);
     }
-  } catch (error) {
-    console.error('Face recognition error:', error);
     
-    if (!isPassive) {
-      onError?.('An error occurred during face recognition');
+    // Fallback to basic recognition
+    if (debugMode) console.log('Using fallback recognition...');
+    
+    const fallbackResult = await recognizeFaceBasic(imageData);
+    
+    if (fallbackResult.success && fallbackResult.builder) {
+      // Fallback succeeded
+      if (debugMode) console.log('Fallback recognition successful');
+      
+      // Record this successful recognition
+      await selectStudentForRecognition(fallbackResult.builder.id);
+      
+      // Notify of success
+      onSuccess?.(fallbackResult.builder);
+      onComplete?.();
+      return;
     }
-  } finally {
+    
+    // If we get here, neither method found a match
+    if (debugMode) console.log('No match found with either method');
+    onError?.(fallbackResult.message || 'No matching face found');
+    onComplete?.();
+    
+  } catch (error) {
+    console.error('Error in recognition process:', error);
+    onError?.('An error occurred during recognition');
     onComplete?.();
   }
 };
-
-// Function to detect faces using Google Cloud Vision API
-async function detectFacesWithVision(imageData: string, isPassive: boolean) {
-  try {
-    console.log('Calling detect-faces edge function...');
-    // Call the Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('detect-faces', {
-      body: { 
-        imageData, 
-        isPassive,
-        timestamp: new Date().toISOString() // Add timestamp to help debug
-      }
-    });
-    
-    if (error) {
-      console.error('Error calling face detection function:', error);
-      return { 
-        success: false, 
-        message: 'Error calling face detection service',
-        hasFaces: false 
-      };
-    }
-    
-    if (!data.success) {
-      console.error('Face detection was not successful:', data.error || 'Unknown error');
-      return {
-        success: false,
-        message: data.error || 'Face detection failed',
-        hasFaces: false
-      };
-    }
-    
-    // Process the response
-    return { 
-      success: true,
-      hasFaces: data.hasFaces,
-      faceCount: data.faceCount,
-      confidence: data.confidence,
-      message: data.message || (data.hasFaces ? `Detected ${data.faceCount} faces` : 'No face detected in frame')
-    };
-  } catch (error) {
-    console.error('Face detection error:', error);
-    return { 
-      success: false, 
-      message: 'Face detection service error',
-      hasFaces: false 
-    };
-  }
-}

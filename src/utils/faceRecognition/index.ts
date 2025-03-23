@@ -20,6 +20,7 @@ export * from './registration';
 export * from './setup';
 export * from './types';
 export * from './fallbackRecognition';
+export * from './facenetIntegration';
 
 // Export functions used in Dashboard and Register
 export { getAllBuilders, markAttendance } from './attendance';

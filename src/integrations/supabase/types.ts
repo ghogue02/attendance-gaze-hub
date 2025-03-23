@@ -50,6 +50,38 @@ export type Database = {
           },
         ]
       }
+      face_embeddings: {
+        Row: {
+          created_at: string
+          embedding: number[]
+          id: string
+          image_data: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: number[]
+          id?: string
+          image_data?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: number[]
+          id?: string
+          image_data?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "face_embeddings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       face_registrations: {
         Row: {
           angle_index: number

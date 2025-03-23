@@ -29,7 +29,7 @@ export {
 
 // Explicitly export functions from facenetIntegration with renamed exports to avoid conflicts
 export { 
-  recognizeFace as recognizeFaceWithFacenet,
+  recognizeFace,
   registerFace,
   processFaceForRegistration,
   detectFaces as detectFacesWithFacenet,

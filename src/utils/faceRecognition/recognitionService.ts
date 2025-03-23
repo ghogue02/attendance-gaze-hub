@@ -2,7 +2,7 @@
 // Import existing functionalities
 import { detectFaces, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory, manageRecognitionHistory } from './recognitionUtils';
 import { getRecognitionSettings } from './setup';
-import { recognizeFaceWithFacenet } from './facenetIntegration';
+import { recognizeFace as recognizeFaceWithFacenet } from './facenetIntegration';
 import { recognizeFaceBasic } from './fallbackRecognition';
 import { Builder } from '@/components/BuilderCard';
 

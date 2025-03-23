@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Builder } from './BuilderCard';
@@ -30,6 +31,7 @@ const AttendanceCamera = ({
   const consecutiveFailsRef = useRef(0);
   const initialDelayCompleteRef = useRef(false);
   const [initializingModels, setInitializingModels] = useState(false);
+  const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const effectivePassiveInterval = passive ? (passiveInterval < 700 ? passiveInterval : 700) : passiveInterval;
 
@@ -40,7 +42,8 @@ const AttendanceCamera = ({
     cameraError, 
     startCamera, 
     stopCamera, 
-    captureImageData 
+    captureImageData,
+    checkCameraHealth
   } = useCamera({
     isCameraActive,
     videoConstraints: {
@@ -75,8 +78,33 @@ const AttendanceCamera = ({
       if (passiveTimeoutRef.current) {
         clearTimeout(passiveTimeoutRef.current);
       }
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
     }
   });
+  
+  // Regular health checks
+  useEffect(() => {
+    if (isCameraActive && isCapturing) {
+      // Set up health check interval
+      healthCheckIntervalRef.current = setInterval(() => {
+        const isHealthy = checkCameraHealth();
+        if (!isHealthy) {
+          console.warn('Camera health check failed, will auto-restart');
+          setStatusMessage("Camera reconnecting...");
+        } else {
+          console.log('Camera health check passed');
+        }
+      }, 3000);
+    }
+    
+    return () => {
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
+    };
+  }, [isCameraActive, isCapturing, checkCameraHealth]);
   
   const preloadRecognitionModels = async () => {
     try {
@@ -102,11 +130,17 @@ const AttendanceCamera = ({
       if (passiveTimeoutRef.current) {
         clearTimeout(passiveTimeoutRef.current);
       }
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
     };
   }, []);
 
   const captureImage = () => {
-    if (!isCapturing) return;
+    if (!isCapturing) {
+      toast.error("Camera is not active. Try restarting the camera.");
+      return;
+    }
     
     if (initializingModels) {
       toast.error("Face recognition models are still loading, please wait");
@@ -119,7 +153,7 @@ const AttendanceCamera = ({
     const imageData = captureImageData();
     if (!imageData) {
       setProcessingImage(false);
-      toast.error("Failed to capture image");
+      toast.error("Failed to capture image. Please check that your camera is working properly.");
       return;
     }
     

@@ -29,30 +29,72 @@ export const updateBuilderAvatar = async (builderId: string, imageData: string):
     
     // Also attempt to update any existing face_registrations to ensure consistency
     try {
+      // First check if there are any face registrations for this student
       const { data: registrations, error: fetchError } = await supabase
         .from('face_registrations')
         .select('id')
-        .eq('student_id', builderId)
-        .limit(1);
+        .eq('student_id', builderId);
       
-      // If there are existing registrations, update the most recent one with the new image
+      // If there are existing registrations, update all of them with the new image
       if (!fetchError && registrations && registrations.length > 0) {
+        console.log(`Found ${registrations.length} face registrations to update`);
+        
+        // Update all registrations with the new image
         const { error: updateError } = await supabase
           .from('face_registrations')
           .update({ face_data: imageData })
-          .eq('student_id', builderId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .eq('student_id', builderId);
         
         if (updateError) {
-          console.warn('Note: Could not update face_registrations table:', updateError);
+          console.warn('Could not update face_registrations table:', updateError);
           // Continue anyway, as we've already updated the students table
         } else {
-          console.log('Also updated face_registrations table with new image');
+          console.log(`Updated ${registrations.length} face registrations with new image`);
+        }
+      } else {
+        // If no registrations found, create a new one
+        console.log('No existing face registrations found, creating new registration');
+        
+        const { error: insertError } = await supabase
+          .from('face_registrations')
+          .insert({
+            student_id: builderId,
+            face_data: imageData,
+            angle_index: 0, // Default angle index
+          });
+          
+        if (insertError) {
+          console.warn('Could not create new face registration:', insertError);
+        } else {
+          console.log('Created new face registration with image');
         }
       }
+      
+      // Also ensure the face_embeddings table has this image
+      try {
+        const { error: embedError } = await supabase
+          .from('face_embeddings')
+          .upsert({
+            student_id: builderId,
+            image_data: imageData,
+            // We're not updating the embedding itself since that requires running the model
+            // This just ensures the latest image is stored with existing embeddings
+            created_at: new Date().toISOString()
+          }, { 
+            onConflict: 'student_id',
+            ignoreDuplicates: false
+          });
+          
+        if (embedError) {
+          console.warn('Could not update face_embeddings table:', embedError);
+        } else {
+          console.log('Updated face_embeddings with new image');
+        }
+      } catch (embedErr) {
+        console.warn('Error updating face embeddings:', embedErr);
+      }
     } catch (e) {
-      console.warn('Error checking face registrations:', e);
+      console.warn('Error updating face registrations:', e);
       // Continue anyway as the main update succeeded
     }
     

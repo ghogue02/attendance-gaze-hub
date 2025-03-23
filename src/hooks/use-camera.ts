@@ -27,6 +27,8 @@ export function useCamera({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const retryCountRef = useRef(0);
+  const maxRetries = 3;
 
   // Memoize the start camera function to avoid recreating it on each render
   const startCamera = useCallback(async () => {
@@ -75,6 +77,9 @@ export function useCamera({
           console.log("Camera ready with resolution:", 
             videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
             
+          // Reset retry counter on success
+          retryCountRef.current = 0;
+            
           // Make sure video plays
           videoRef.current?.play()
             .then(() => {
@@ -105,12 +110,27 @@ export function useCamera({
       
       setCameraError(errorMessage);
       setIsCapturing(false);
+      
+      // Auto-retry logic with backoff
+      if (retryCountRef.current < maxRetries) {
+        retryCountRef.current++;
+        const delay = 1000 * retryCountRef.current; // Increasing delay for each retry
+        console.log(`Retrying camera initialization in ${delay/1000} seconds (attempt ${retryCountRef.current} of ${maxRetries})...`);
+        
+        setTimeout(() => {
+          console.log("Auto-retrying camera initialization...");
+          startCamera();
+        }, delay);
+      }
     }
   }, [videoConstraints, onCameraStart]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        console.log(`Stopping track: ${track.kind}, enabled: ${track.enabled}, state: ${track.readyState}`);
+        track.stop();
+      });
       streamRef.current = null;
     }
     
@@ -160,17 +180,55 @@ export function useCamera({
       return null;
     }
     
-    // Draw the current video frame to canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Check if video is playing and ready
+    if (video.readyState !== 4) {
+      console.error('Video is not ready for capture, readyState:', video.readyState);
+      return null;
+    }
     
-    // For optimal performance, use a lower quality JPEG
     try {
+      // Draw the current video frame to canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // For optimal performance, use a lower quality JPEG
       return canvas.toDataURL('image/jpeg', 0.9);
     } catch (err) {
       console.error('Error converting canvas to data URL:', err);
       return null;
     }
   }, []);
+
+  // Add function to check if camera is healthy
+  const checkCameraHealth = useCallback(() => {
+    if (!streamRef.current) return false;
+    
+    const videoTracks = streamRef.current.getVideoTracks();
+    
+    if (!videoTracks || videoTracks.length === 0) return false;
+    
+    const isActive = videoTracks.some(track => track.readyState === 'live' && track.enabled);
+    
+    if (!isActive && isCapturing) {
+      // Camera appears unhealthy, restart it
+      console.warn('Camera appears unhealthy, attempting to restart...');
+      stopCamera();
+      setTimeout(() => startCamera(), 500);
+      return false;
+    }
+    
+    return isActive;
+  }, [isCapturing, startCamera, stopCamera]);
+
+  // Periodically check camera health
+  useEffect(() => {
+    if (!isCameraActive) return;
+    
+    const intervalId = setInterval(() => {
+      checkCameraHealth();
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(intervalId);
+  }, [isCameraActive, checkCameraHealth]);
 
   return {
     videoRef,
@@ -179,6 +237,7 @@ export function useCamera({
     cameraError,
     startCamera,
     stopCamera,
-    captureImageData
+    captureImageData,
+    checkCameraHealth
   };
 }

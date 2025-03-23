@@ -1,4 +1,3 @@
-
 // Import TensorFlow.js
 import * as tf from "@tensorflow/tfjs";
 import { supabase } from '@/integrations/supabase/client';
@@ -418,7 +417,22 @@ export const detectFaces = async (
     const { initModels, detectFaces: detect } = await import("./browser-facenet");
     
     await initModels();
-    return await detect(imageData);
+    const detectionResults = await detect(imageData);
+    
+    if (!detectionResults || detectionResults.length === 0) {
+      return null;
+    }
+    
+    // Convert from box format [x1, y1, x2, y2] to {x, y, width, height}
+    return detectionResults.map(face => {
+      const [x1, y1, x2, y2] = face.box;
+      return {
+        x: x1,
+        y: y1,
+        width: x2 - x1,
+        height: y2 - y1
+      };
+    });
   } catch (error) {
     console.error("Error detecting faces:", error);
     return null;

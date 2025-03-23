@@ -1,4 +1,3 @@
-
 // Import existing functionalities
 import { detectFaces, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory, manageRecognitionHistory } from './recognitionUtils';
 import { getRecognitionSettings } from './setup';
@@ -83,7 +82,7 @@ export const processRecognition = async (
       let serverDetectionResult = null;
       if (!faceDetectedLocally) {
         try {
-          serverDetectionResult = await detectFaces(imageData, false, 0);
+          serverDetectionResult = await detectFaces(imageData);
           if (debugMode) {
             console.log('Server detection result:', serverDetectionResult);
           }
@@ -94,7 +93,7 @@ export const processRecognition = async (
       
       // Combine results - use local detection as priority, fallback to server
       const faceDetected = faceDetectedLocally || 
-        (serverDetectionResult && serverDetectionResult.hasFaces);
+        (serverDetectionResult && serverDetectionResult.length > 0);
       
       if (!faceDetected) {
         console.log('No face detected in the image by any method');

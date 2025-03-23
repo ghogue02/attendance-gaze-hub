@@ -35,16 +35,22 @@ export const processFaceForRegistration = async (
   faceImageData?: string;
 }> => {
   try {
+    console.log('Processing face for registration...');
+    
     // Step 1: Detect faces in the image
     const faces = await detectFaces(imageData);
     
     if (!faces || faces.length === 0) {
+      console.error('No faces detected during registration');
       return { success: false, error: 'No faces detected in the image' };
     }
     
     if (faces.length > 1) {
+      console.error('Multiple faces detected during registration');
       return { success: false, error: 'Multiple faces detected. Please capture only one face.' };
     }
+    
+    console.log('Face detected, generating embedding...');
     
     // Step 2: Extract face and generate embedding
     // For simplicity, we're using the whole image here
@@ -52,8 +58,11 @@ export const processFaceForRegistration = async (
     const embedding = await generateEmbedding(imageData);
     
     if (!embedding) {
+      console.error('Failed to generate embedding');
       return { success: false, error: 'Failed to generate face embedding' };
     }
+    
+    console.log('Embedding generated successfully');
     
     return { 
       success: true, 
@@ -74,10 +83,13 @@ export const registerFace = async (
   imageData: string
 ): Promise<FaceRegistrationResult> => {
   try {
+    console.log(`Registering face for student ${studentId}...`);
+    
     // Process the face image and get embedding
     const result = await processFaceForRegistration(imageData);
     
     if (!result.success || !result.embedding) {
+      console.error('Face processing failed:', result.error);
       return { success: false, message: result.error || 'Face processing failed' };
     }
     
@@ -89,8 +101,11 @@ export const registerFace = async (
     );
     
     if (!stored) {
+      console.error('Failed to store face embedding');
       return { success: false, message: 'Failed to store face embedding' };
     }
+    
+    console.log('Face registered successfully');
     
     return { 
       success: true, 
@@ -112,20 +127,29 @@ export const recognizeFace = async (
   threshold = 0.75
 ): Promise<{ success: boolean; builder?: Builder; message: string }> => {
   try {
+    console.log('Starting face recognition with threshold:', threshold);
+    
     // Process the image to get face embedding
     const result = await processFaceForRegistration(imageData);
     
     if (!result.success || !result.embedding) {
+      console.error('Face processing failed during recognition:', result.error);
       return { success: false, message: result.error || 'Face processing failed' };
     }
     
-    // Find the closest match
-    const match = await findClosestMatch(result.embedding, threshold);
+    console.log('Face embedding generated, finding closest match...');
+    
+    // Find the closest match with a more lenient threshold for matching
+    // Lower threshold = more likely to find a match (0.65 is more permissive than 0.75)
+    const actualThreshold = Math.min(threshold, 0.65); 
+    const match = await findClosestMatch(result.embedding, actualThreshold);
     
     if (!match) {
-      return { success: false, message: 'No matching face found' };
+      console.warn('No matching face found with threshold:', actualThreshold);
+      return { success: false, message: 'No matching face found. Please try again or register your face.' };
     }
     
+    console.log('Face successfully matched to:', match.name);
     return { success: true, builder: match, message: 'Face successfully recognized' };
   } catch (error) {
     console.error('Error recognizing face:', error);

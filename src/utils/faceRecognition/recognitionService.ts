@@ -6,6 +6,7 @@ import { recognizeFace as recognizeFaceWithFacenet } from './facenetIntegration'
 import { Builder } from '@/components/BuilderCard';
 import { markAttendance } from './attendance';
 import { RecognitionResult } from './types';
+import { toast } from '@/hooks/use-toast';
 
 // Options for the recognition process
 interface RecognitionOptions {
@@ -32,12 +33,14 @@ export const processRecognition = async (
     onSuccess, 
     onError,
     onComplete,
-    timeout = 10000 // Default timeout of 10 seconds
+    timeout = 15000 // Increased timeout to 15 seconds for more thorough recognition
   } = options;
   
   const settings = getRecognitionSettings();
-  // Use a higher confidence threshold to improve accuracy
-  const confidenceThreshold = Math.max(settings.minConfidenceThreshold, 0.7);
+  // Use a LOWER confidence threshold to improve matching (make it easier to match faces)
+  const confidenceThreshold = Math.max(settings.minConfidenceThreshold, 0.6);
+  
+  if (debugMode) console.log('Recognition started with threshold:', confidenceThreshold);
   
   // Add timeout to prevent getting stuck
   const timeoutPromise = new Promise((_, reject) => {
@@ -103,7 +106,7 @@ export const processRecognition = async (
       // Log detected faces
       console.log('Face detected in the image, proceeding with recognition');
       
-      // Attempt to recognize with FaceNet
+      // Attempt to recognize with FaceNet - with reduced threshold for easier matching
       const facenetResult: RecognitionResult = await Promise.race([
         recognizeFaceWithFacenet(imageData, confidenceThreshold),
         timeoutPromise
@@ -134,8 +137,15 @@ export const processRecognition = async (
       }
       
       // No match found
-      if (debugMode) console.log('No match found');
-      onError?.(facenetResult.message || 'No matching face found');
+      if (debugMode) console.log('No match found:', facenetResult.message);
+      
+      // Check if we are actually in the registration process - common on register page
+      if (window.location.pathname.includes('/register')) {
+        onError?.('No matching face found. Please complete face registration first.');
+      } else {
+        onError?.(facenetResult.message || 'No matching face found');
+      }
+      
       onComplete?.();
       
     } catch (innerError) {

@@ -1,3 +1,4 @@
+
 /**
  * Browser-compatible FaceNet implementation using TensorFlow.js
  * This provides similar functionality to node-facenet but works in browser environments
@@ -6,9 +7,12 @@ import * as tf from '@tensorflow/tfjs';
 import { Builder } from '@/components/BuilderCard';
 import { supabase } from '@/integrations/supabase/client';
 
+// Define a type that can be either GraphModel or LayersModel
+type FaceModel = tf.GraphModel | tf.LayersModel;
+
 // We'll load models lazily when needed
-let faceDetectionModel: tf.GraphModel | tf.LayersModel | null = null;
-let facenetModel: tf.GraphModel | tf.LayersModel | null = null;
+let faceDetectionModel: FaceModel | null = null;
+let facenetModel: FaceModel | null = null;
 let isModelLoading = false;
 let modelLoadRetries = 0;
 const MAX_RETRIES = 3;
@@ -16,7 +20,7 @@ const MAX_RETRIES = 3;
 // Constants
 const FACE_EMBEDDING_SIZE = 128;
 const FACE_EMBEDDINGS_TABLE = 'face_embeddings';
-const MATCH_THRESHOLD = 0.75; // Lower distance means better match
+const MATCH_THRESHOLD = 0.65; // Lower threshold = easier matching (was 0.75)
 
 /**
  * Initialize models if not already loaded
@@ -381,7 +385,7 @@ export const findClosestMatch = async (
   threshold = MATCH_THRESHOLD
 ): Promise<Builder | null> => {
   try {
-    console.log('Finding closest match for face embedding');
+    console.log('Finding closest match for face embedding with threshold:', threshold);
     
     // First, get all stored embeddings
     const { data: embeddings, error } = await supabase
@@ -389,9 +393,11 @@ export const findClosestMatch = async (
       .select('*, students(id, first_name, last_name, student_id, image_url)');
       
     if (error || !embeddings || embeddings.length === 0) {
-      console.error('Error fetching embeddings:', error);
+      console.error('Error fetching embeddings or no embeddings found:', error);
       return null;
     }
+    
+    console.log(`Comparing against ${embeddings.length} stored face embeddings`);
     
     // Find the closest match
     let closestDistance = Infinity;
@@ -405,6 +411,9 @@ export const findClosestMatch = async (
         closestStudent = record.students;
       }
     }
+    
+    // Log all distances for debugging
+    console.log(`Closest distance: ${closestDistance}, threshold: ${threshold}`);
     
     // If the closest distance is below threshold, we have a match
     if (closestDistance <= threshold && closestStudent) {
@@ -426,7 +435,7 @@ export const findClosestMatch = async (
       return builder;
     }
     
-    console.log(`No match found (closest distance: ${closestDistance})`);
+    console.log(`No match found (closest distance: ${closestDistance}, needed <= ${threshold})`);
     return null;
   } catch (e) {
     console.error('Exception during match finding:', e);

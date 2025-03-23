@@ -21,21 +21,18 @@ export * from './registration';
 export * from './setup';
 export * from './types';
 
-// Export TensorFlow-based face recognition functions (not fallback)
-export { 
-  recognizeFace,
-  registerFace,
-  processFaceForRegistration,
-  detectFaces as detectFacesWithFacenet,
-  generateEmbedding,
-  storeFaceEmbedding,
-  findClosestMatch,
-  calculateEuclideanDistance,
-  testRegistrationFlow
-} from './facenetIntegration';
+// Export the recognizeFace function from facenetIntegration
+export { recognizeFace } from './facenetIntegration';
+
+// Export testing functionality
+export { testRegistrationFlow } from './facenetIntegration';
+
+// Export the main recognitionService functions
+export { processRecognition } from './recognitionService';
 
 // Export functions used in Dashboard and Register
 export { getAllBuilders, markAttendance } from './attendance';
 
-// Export the main recognitionService functions
-export { processRecognition } from './recognitionService';
+// Add the simplified recognition utilities
+export { simplifiedRecognize, recordAttendance as recordSimplifiedAttendance } from './simplifiedRecognition';
+export { processSimplifiedRecognition } from './simplifiedRecognitionService';

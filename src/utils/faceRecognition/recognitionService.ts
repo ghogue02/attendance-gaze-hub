@@ -37,7 +37,7 @@ export const processRecognition = async (
   
   const settings = getRecognitionSettings();
   // Use a higher confidence threshold to improve accuracy
-  const confidenceThreshold = Math.max(settings.minConfidenceThreshold, 0.85);
+  const confidenceThreshold = Math.max(settings.minConfidenceThreshold, 0.9); // Increased threshold
   
   // Add timeout to prevent getting stuck
   const timeoutPromise = new Promise((_, reject) => {
@@ -63,10 +63,29 @@ export const processRecognition = async (
       // Try FaceNet first for better accuracy
       if (debugMode) console.log('Attempting FaceNet recognition for better accuracy...');
       
-      const facenetResult = await Promise.race([
-        recognizeFaceWithFacenet(imageData, confidenceThreshold),
-        timeoutPromise
-      ]) as { success: boolean; builder?: Builder; message: string };
+      // Check if the current user is authenticated first
+      const { data: userProfile } = await supabase.auth.getUser();
+      const isAuthenticated = !!userProfile?.user?.id;
+      
+      let facenetResult = { success: false, message: 'FaceNet not attempted' };
+      
+      // Only try FaceNet if not in passive mode (it's slower)
+      if (!isPassive) {
+        try {
+          facenetResult = await Promise.race([
+            recognizeFaceWithFacenet(imageData, confidenceThreshold),
+            timeoutPromise
+          ]) as { success: boolean; builder?: Builder; message: string };
+        } catch (facenetError) {
+          console.error('FaceNet recognition error:', facenetError);
+          facenetResult = { 
+            success: false, 
+            message: facenetError instanceof Error 
+              ? facenetError.message 
+              : 'FaceNet recognition failed' 
+          };
+        }
+      }
       
       if (facenetResult.success && facenetResult.builder) {
         // Success with FaceNet
@@ -96,8 +115,8 @@ export const processRecognition = async (
         return;
       }
       
-      // If FaceNet failed, try the basic approach as fallback
-      if (debugMode) console.log('FaceNet found no match, trying basic recognition');
+      // If FaceNet failed, try the improved basic approach
+      if (debugMode) console.log('FaceNet found no match, trying improved basic recognition');
       
       const basicResult = await Promise.race([
         recognizeFaceBasic(imageData, confidenceThreshold),
@@ -155,3 +174,6 @@ export const processRecognition = async (
     onComplete?.();
   }
 };
+
+// Import supabase client for user authentication
+import { supabase } from '@/integrations/supabase/client';

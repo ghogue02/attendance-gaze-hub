@@ -11,7 +11,7 @@ export const registerFaceImage = async (
   isUpdateMode: boolean = false
 ): Promise<FaceRegistrationResult> => {
   try {
-    console.log(`Starting face registration for student ${studentId}`);
+    console.log(`Starting face registration for student ${studentId}, update mode: ${isUpdateMode}`);
     
     // Validate inputs
     if (!studentId || !imageData) {
@@ -60,19 +60,6 @@ export const registerFaceImage = async (
       };
     }
     
-    // Generate a unique storage name
-    const timestamp = Date.now();
-    const storageName = `${studentId}_${timestamp}.jpg`;
-    console.log(`Processing registration image, storage name: ${storageName}`);
-    
-    // Test if the image is valid
-    if (!imageData.startsWith('data:image/')) {
-      return {
-        success: false,
-        message: 'Invalid image format'
-      };
-    }
-    
     // Always update the profile image to ensure consistency
     console.log("Updating profile image");
     const avatarUpdated = await updateBuilderAvatar(studentId, imageData);
@@ -89,6 +76,7 @@ export const registerFaceImage = async (
     
     // Clear existing registrations if in update mode
     if (isUpdateMode) {
+      console.log('Update mode enabled, clearing previous registrations');
       const { error: deleteError } = await supabase
         .from('face_registrations')
         .delete()

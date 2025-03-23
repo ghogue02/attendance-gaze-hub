@@ -31,7 +31,7 @@ export interface FaceDetectionResult {
   confidence?: number;
   message: string;
   faceVertices?: any;
-  debugAttempt?: number; // Now properly included in the type
+  debugAttempt?: number;
 }
 
 // Fallback mock face detection parameters

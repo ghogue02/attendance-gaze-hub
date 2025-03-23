@@ -25,6 +25,7 @@ export const SimpleFaceCapture = ({
   const [registrationProgress, setRegistrationProgress] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraAttemptsRef = useRef(0);
   
   const {
     videoRef,
@@ -56,9 +57,32 @@ export const SimpleFaceCapture = ({
     }
   });
   
+  // Add auto-retry for camera initialization
+  useEffect(() => {
+    // Try to start the camera when component mounts
+    if (!isCapturing && cameraAttemptsRef.current < 3) {
+      const delay = cameraAttemptsRef.current * 500; // Increasing delay for retries
+      console.log(`Attempting to start camera (attempt ${cameraAttemptsRef.current + 1})`);
+      
+      setTimeout(() => {
+        cameraAttemptsRef.current += 1;
+        startCamera();
+      }, delay);
+    }
+    
+    return () => {
+      // Clean up on unmount
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+      stopCamera();
+    };
+  }, []);
+  
   const loadRegistrationStatus = async () => {
     try {
       const status = await checkFaceRegistrationStatus(builder.id);
+      console.log("Registration status loaded:", status);
       setRegistrationProgress(status.count / 5 * 100);
     } catch (error) {
       console.error('Error loading registration status:', error);
@@ -95,8 +119,9 @@ export const SimpleFaceCapture = ({
       console.log("Image captured successfully, dimensions:", 
         videoRef.current.videoWidth, "x", videoRef.current.videoHeight);
       
-      // Call the registerFace function
-      const result = await registerFaceWithFacenet(builder.id, imageData);
+      // Call the registerFace function with the update mode flag
+      console.log("Registering face with update mode:", isUpdateMode);
+      const result = await registerFaceWithFacenet(builder.id, imageData, isUpdateMode);
       
       if (result) {
         toast.success('Face registered successfully!');
@@ -106,7 +131,10 @@ export const SimpleFaceCapture = ({
         // Force refresh by calling loadRegistrationStatus
         await loadRegistrationStatus();
         
-        onRegistrationComplete(true);
+        // Short delay before calling complete
+        setTimeout(() => {
+          onRegistrationComplete(true);
+        }, 1000);
       } else {
         setError('Registration failed');
         toast.error('Registration failed');
@@ -128,6 +156,10 @@ export const SimpleFaceCapture = ({
     setStatusMessage("Restarting camera...");
     setError(null);
     stopCamera();
+    
+    // Reset the camera attempts counter for a fresh start
+    cameraAttemptsRef.current = 0;
+    
     setTimeout(() => {
       startCamera();
     }, 1000);

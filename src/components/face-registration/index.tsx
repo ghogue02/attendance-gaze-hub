@@ -22,6 +22,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
   
   useEffect(() => {
     if (open && builder) {
+      console.log("FaceRegistration dialog opened for builder:", builder.id);
       checkRegistrationStatus();
     }
   }, [open, builder]);
@@ -31,42 +32,55 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     
     try {
       const status = await checkFaceRegistrationStatus(builder.id);
-      console.log("Registration status:", status);
+      console.log("Registration status checked:", status);
       
       if (status.completed) {
+        console.log("Builder has completed registration, setting update mode");
         setRegistrationComplete(true);
         setIsUpdateMode(true);
       } else {
+        console.log("Builder has not completed registration, disabling update mode");
         setRegistrationComplete(false);
         setIsUpdateMode(false);
       }
     } catch (error) {
-      console.error('Error checking registration status:', error);
+      console.error('Error checking face registration status:', error);
       setRegistrationComplete(false);
       setIsUpdateMode(false);
     }
   };
 
   const handleRegistrationComplete = (success: boolean) => {
+    console.log("Registration completed with success:", success);
     if (success) {
       setRegistrationComplete(true);
+      
       // Allow a moment to see the success message
       setTimeout(() => {
+        if (onComplete) {
+          console.log("Calling onComplete callback");
+          onComplete();
+        }
         handleComplete();
       }, 1500);
     }
   };
 
   const handleStartOver = () => {
+    console.log("Starting over with registration");
     setRegistrationComplete(false);
   };
 
   const handleComplete = () => {
+    console.log("Registration complete, closing dialog");
     onOpenChange(false);
-    onComplete?.();
+    if (onComplete) {
+      onComplete();
+    }
   };
 
   const toggleCaptureMethod = () => {
+    console.log("Toggling capture method");
     setUseSimplifiedCapture(!useSimplifiedCapture);
   };
 

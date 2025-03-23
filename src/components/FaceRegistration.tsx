@@ -6,7 +6,7 @@ import { Builder } from './BuilderCard';
 import { checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { SimpleFaceCapture } from './face-registration/SimpleFaceCapture';
+import { SimplifiedCapture } from './face-registration/SimplifiedCapture';
 
 interface FaceRegistrationProps {
   builder: Builder;
@@ -83,7 +83,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
             </Button>
           </div>
         ) : (
-          <SimpleFaceCapture 
+          <SimplifiedCapture 
             builder={builder}
             onRegistrationComplete={handleRegistrationComplete}
             isUpdateMode={isUpdateMode}

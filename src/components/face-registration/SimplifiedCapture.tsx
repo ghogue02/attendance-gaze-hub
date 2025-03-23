@@ -1,22 +1,28 @@
 
-import { useState, useRef } from 'react';
-import { Camera, ArrowRight, AlertTriangle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
-import { registerFaceWithFacenet } from '@/utils/faceRecognition';
-import { testRegistrationFlow } from '@/utils/faceRecognition/facenetIntegration';
+import { registerFaceWithFacenet, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
 import { useCamera } from '@/hooks/use-camera';
 
 interface SimplifiedCaptureProps {
   builder: Builder;
   onRegistrationComplete: (success: boolean) => void;
+  isUpdateMode?: boolean;
 }
 
-export const SimplifiedCapture = ({ builder, onRegistrationComplete }: SimplifiedCaptureProps) => {
+export const SimplifiedCapture = ({
+  builder,
+  onRegistrationComplete,
+  isUpdateMode = false
+}: SimplifiedCaptureProps) => {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [debugMode, setDebugMode] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>("Camera initializing...");
+  const [registrationProgress, setRegistrationProgress] = useState(0);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const {
     videoRef,
@@ -34,16 +40,41 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
       height: { ideal: 720 }
     },
     onCameraStart: async () => {
-      console.log('Camera started, pre-loading face models...');
+      console.log('Camera started, loading registration status...');
+      setStatusMessage("Camera ready. Center your face in the frame.");
+      
       try {
         // Preload face models while camera is warming up
         const { initModels } = await import('@/utils/faceRecognition/browser-facenet');
         await initModels();
+        
+        // Load registration status
+        await loadRegistrationStatus();
       } catch (e) {
-        console.warn('Error preloading face models:', e);
+        console.warn('Error initializing:', e);
       }
     }
   });
+  
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+      stopCamera();
+    };
+  }, [stopCamera]);
+  
+  const loadRegistrationStatus = async () => {
+    try {
+      const status = await checkFaceRegistrationStatus(builder.id);
+      console.log("Registration status loaded:", status);
+      setRegistrationProgress(status.count / 5 * 100);
+    } catch (error) {
+      console.error('Error loading registration status:', error);
+    }
+  };
 
   const handleCaptureAndRegister = async () => {
     if (!videoRef.current || !canvasRef.current) {
@@ -53,6 +84,7 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
     
     setProcessing(true);
     setError(null);
+    setStatusMessage("Processing your image...");
     
     try {
       // Capture the image data
@@ -62,34 +94,33 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         setError('Failed to capture image');
         toast.error('Failed to capture image');
         setProcessing(false);
+        setStatusMessage("Failed to capture image. Please try again.");
         return;
       }
       
-      console.log('Using FaceNet registration method');
+      console.log("Image captured successfully, dimensions:", 
+        videoRef.current.videoWidth, "x", videoRef.current.videoHeight);
       
-      // In debug mode, run the test registration flow
-      if (debugMode) {
-        const testResult = await testRegistrationFlow(builder.id, imageData);
-        if (testResult) {
-          toast.success('Test registration successful!');
-          onRegistrationComplete(true);
-        } else {
-          setError('Test registration failed - see console for details');
-          toast.error('Test registration failed');
-        }
-        setProcessing(false);
-        return;
-      }
-      
-      // Normal registration
-      const result = await registerFaceWithFacenet(builder.id, imageData);
+      // Register face with update mode flag
+      console.log("Registering face with update mode:", isUpdateMode);
+      const result = await registerFaceWithFacenet(builder.id, imageData, isUpdateMode);
       
       if (result) {
         toast.success('Face registered successfully!');
-        onRegistrationComplete(true);
+        setStatusMessage("Registration successful!");
+        setRegistrationProgress(100);
+        
+        // Force refresh by calling loadRegistrationStatus
+        await loadRegistrationStatus();
+        
+        // Short delay before calling complete
+        setTimeout(() => {
+          onRegistrationComplete(true);
+        }, 1000);
       } else {
         setError('Registration failed');
         toast.error('Registration failed');
+        setStatusMessage("Registration failed. Please try again.");
         onRegistrationComplete(false);
       }
     } catch (error) {
@@ -97,12 +128,23 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
       const errorMessage = error instanceof Error ? error.message : 'An error occurred during registration';
       setError(errorMessage);
       toast.error('An error occurred during registration');
-      setProcessing(false);
+      setStatusMessage("An error occurred. Please try again.");
     } finally {
       setProcessing(false);
     }
   };
 
+  const handleRestartCamera = () => {
+    setStatusMessage("Restarting camera...");
+    setError(null);
+    stopCamera();
+    
+    setTimeout(() => {
+      startCamera();
+    }, 1000);
+  };
+  
+  // If camera error occurs, show error UI
   if (cameraError) {
     return (
       <div className="text-center p-6 bg-destructive/10 rounded-lg">
@@ -110,8 +152,9 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         <p className="text-muted-foreground mb-4">
           {cameraError}
         </p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
+        <Button variant="outline" onClick={handleRestartCamera}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry Camera
         </Button>
       </div>
     );
@@ -141,6 +184,12 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
             </Button>
           </div>
         )}
+        
+        {statusMessage && (
+          <div className="absolute bottom-0 inset-x-0 p-3 bg-black/70 text-white text-center text-sm">
+            {statusMessage}
+          </div>
+        )}
       </div>
       
       {error && (
@@ -150,7 +199,16 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         </div>
       )}
       
-      <div className="flex flex-col space-y-2">
+      {registrationProgress > 0 && registrationProgress < 100 && (
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div 
+            className="bg-primary h-2.5 rounded-full" 
+            style={{ width: `${registrationProgress}%` }}
+          ></div>
+        </div>
+      )}
+      
+      <div className="flex flex-col space-y-4">
         <p className="text-center text-muted-foreground">
           Look directly at the camera for best results. Make sure your face is well-lit and centered in the frame.
         </p>
@@ -159,9 +217,11 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setDebugMode(!debugMode)}
+            onClick={handleRestartCamera}
+            disabled={processing}
           >
-            {debugMode ? 'Normal Mode' : 'Debug Mode'}
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Restart Camera
           </Button>
           
           <Button
@@ -173,7 +233,7 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
               <span>Processing...</span>
             ) : (
               <span className="flex items-center gap-2">
-                {debugMode ? 'Run Test Registration' : 'Register Face'} <ArrowRight className="h-4 w-4" />
+                {isUpdateMode ? 'Update Face Registration' : 'Register Face'} <ArrowRight className="h-4 w-4" />
               </span>
             )}
           </Button>

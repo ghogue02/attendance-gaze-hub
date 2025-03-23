@@ -238,13 +238,17 @@ export const fetchStudentDetails = async (studentId: string): Promise<FetchStude
 };
 
 // Function to record attendance
-export const recordAttendance = async (studentId: string, status: string = "present") => {
+export const recordAttendance = async (studentId: string, status: string = "present", timestamp?: string) => {
   try {
-    console.log(`Recording attendance for student ID: ${studentId}, status: ${status}`);
+    console.log(`Recording attendance for student ID: ${studentId}, status: ${status}, timestamp: ${timestamp || 'not provided'}`);
     
     const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().split(' ')[0];
+    const date = timestamp ? new Date(timestamp).toISOString().split('T')[0] : now.toISOString().split('T')[0];
+    
+    // Use the provided timestamp or generate a new one
+    const timeRecorded = timestamp || now.toISOString();
+    
+    console.log(`Using date: ${date}, time_recorded: ${timeRecorded}`);
     
     // Create the attendance record
     const { data, error } = await supabase
@@ -253,7 +257,7 @@ export const recordAttendance = async (studentId: string, status: string = "pres
         student_id: studentId,
         status: status,
         date: date,
-        time_recorded: time
+        time_recorded: timeRecorded
       });
     
     if (error) {
@@ -330,4 +334,3 @@ export const checkFaceRegistrationStatus = async (studentId: string): Promise<Ch
     };
   }
 };
-

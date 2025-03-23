@@ -85,7 +85,7 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         // Using ISO string for proper timestamp formatting
         const isoTimestamp = now.toISOString();
         
-        const attendanceResult1 = await recordAttendance(studentData.id, undefined, isoTimestamp);
+        const attendanceResult1 = await recordAttendance(studentData.id, "present", isoTimestamp);
         const attendanceResult2 = await markAttendance(studentData.id, "present");
         
         console.log('Attendance recording results:', { 

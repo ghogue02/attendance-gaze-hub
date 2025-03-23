@@ -1,5 +1,5 @@
 
-// Re-export all face recognition functions, avoiding conflicts
+// Re-export all face recognition functions, focusing on production-ready methods
 export * from './recognition';
 
 // Export specific functions from recognitionUtils to avoid conflicts
@@ -21,13 +21,7 @@ export * from './registration';
 export * from './setup';
 export * from './types';
 
-// Explicitly export functions from fallbackRecognition to avoid conflicts
-export { 
-  recognizeFaceBasic,
-  registerFaceWithoutDetection as registerFaceWithoutDetectionFallback 
-} from './fallbackRecognition';
-
-// Explicitly export functions from facenetIntegration with renamed exports to avoid conflicts
+// Export TensorFlow-based face recognition functions (not fallback)
 export { 
   recognizeFace,
   registerFace,

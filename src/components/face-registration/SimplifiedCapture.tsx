@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import { Camera, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
-import { registerFaceWithoutDetection, registerFace } from '@/utils/faceRecognition';
+import { registerFace } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
 import { useCamera } from '@/hooks/use-camera';
 
@@ -14,7 +14,6 @@ interface SimplifiedCaptureProps {
 
 export const SimplifiedCapture = ({ builder, onRegistrationComplete }: SimplifiedCaptureProps) => {
   const [processing, setProcessing] = useState(false);
-  const [useFacenet, setUseFacenet] = useState(false); // Default to basic mode
   const [error, setError] = useState<string | null>(null);
   
   const {
@@ -54,36 +53,13 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         return;
       }
       
-      let result;
-      
-      // Try to use facenet integration if selected (for better accuracy)
-      if (useFacenet) {
-        console.log('Using FaceNet registration method');
-        try {
-          result = await registerFace(builder.id, imageData);
-          
-          if (!result.success) {
-            console.warn('FaceNet registration failed, falling back to simpler method', result.message);
-            // Fallback to simpler registration if facenet fails
-            console.log('Registering face for builder', builder.id, 'using fallback method');
-            result = await registerFaceWithoutDetection(builder.id, imageData);
-          }
-        } catch (error) {
-          console.error('Error during FaceNet registration, falling back:', error);
-          console.log('Registering face for builder', builder.id, 'using fallback method');
-          result = await registerFaceWithoutDetection(builder.id, imageData);
-        }
-      } else {
-        // Use the simpler registration approach
-        console.log('Using basic registration method');
-        result = await registerFaceWithoutDetection(builder.id, imageData);
-      }
+      console.log('Using FaceNet registration method');
+      const result = await registerFace(builder.id, imageData);
       
       if (result.success) {
         toast.success('Face registered successfully!');
         onRegistrationComplete(true);
       } else {
-        // Fixed: Check if result is an object with a message property
         const errorMessage = result && typeof result === 'object' && 'message' in result 
           ? result.message 
           : 'Registration failed';
@@ -92,7 +68,7 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         onRegistrationComplete(false);
       }
     } catch (error) {
-      console.error('Error in simplified capture:', error);
+      console.error('Error in face capture:', error);
       const errorMessage = error instanceof Error ? error.message : 'An error occurred during registration';
       setError(errorMessage);
       toast.error('An error occurred during registration');
@@ -142,34 +118,16 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         )}
       </div>
       
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-muted-foreground">Recognition mode:</span>
-        <div className="flex items-center">
-          <label className="inline-flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={useFacenet} 
-              onChange={() => setUseFacenet(!useFacenet)}
-              className="sr-only peer" 
-            />
-            <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-            <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-              {useFacenet ? 'Enhanced (FaceNet)' : 'Basic'}
-            </span>
-          </label>
-        </div>
-      </div>
-      
       {error && (
         <div className="p-3 bg-destructive/10 rounded-lg flex items-start gap-2">
           <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-          <p className="text-sm">{error} - Please try again with the Basic mode.</p>
+          <p className="text-sm">{error}</p>
         </div>
       )}
       
       <div className="flex flex-col space-y-2">
         <p className="text-center text-muted-foreground">
-          This is a simplified registration process. Just look at the camera and click the button below.
+          Look directly at the camera for best results. Make sure your face is well-lit and centered in the frame.
         </p>
         
         <Button

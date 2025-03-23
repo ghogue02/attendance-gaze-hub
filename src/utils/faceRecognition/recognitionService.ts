@@ -3,7 +3,6 @@
 import { detectFaces, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory, manageRecognitionHistory } from './recognitionUtils';
 import { getRecognitionSettings } from './setup';
 import { recognizeFace as recognizeFaceWithFacenet } from './facenetIntegration';
-import { recognizeFaceBasic } from './fallbackRecognition';
 import { Builder } from '@/components/BuilderCard';
 import { markAttendance } from './attendance';
 import { RecognitionResult } from './types';
@@ -21,7 +20,7 @@ interface RecognitionOptions {
 /**
  * Process an image for face recognition
  * This is the main function used for recognizing faces,
- * with a fallback to simpler methods if facenet fails
+ * with appropriate error handling for production use
  */
 export const processRecognition = async (
   imageData: string,
@@ -61,36 +60,38 @@ export const processRecognition = async (
     
     // Use Promise.race to implement timeout
     try {
-      // Try FaceNet first for better accuracy
-      if (debugMode) console.log('Attempting FaceNet recognition for better accuracy...');
+      if (debugMode) console.log('Attempting face recognition...');
       
       // Check if the current user is authenticated first
       const { data: userProfile } = await supabase.auth.getUser();
       const isAuthenticated = !!userProfile?.user?.id;
       
-      let facenetResult: RecognitionResult = { success: false, message: 'FaceNet not attempted' };
+      // Attempt to recognize with FaceNet
+      let facenetResult: RecognitionResult;
       
-      // Only try FaceNet if not in passive mode (it's slower)
-      if (!isPassive) {
-        try {
-          facenetResult = await Promise.race([
-            recognizeFaceWithFacenet(imageData, confidenceThreshold),
-            timeoutPromise
-          ]) as RecognitionResult;
-        } catch (facenetError) {
-          console.error('FaceNet recognition error:', facenetError);
-          facenetResult = { 
-            success: false, 
-            message: facenetError instanceof Error 
-              ? facenetError.message 
-              : 'FaceNet recognition failed' 
-          };
-        }
+      try {
+        facenetResult = await Promise.race([
+          recognizeFaceWithFacenet(imageData, confidenceThreshold),
+          timeoutPromise
+        ]) as RecognitionResult;
+      } catch (facenetError) {
+        console.error('Face recognition error:', facenetError);
+        facenetResult = { 
+          success: false, 
+          message: facenetError instanceof Error 
+            ? facenetError.message 
+            : 'Face recognition failed' 
+        };
+        
+        // No fallback, just report the error
+        onError?.(facenetResult.message || 'Face recognition failed');
+        onComplete?.();
+        return;
       }
       
       if (facenetResult.success && facenetResult.builder) {
-        // Success with FaceNet
-        if (debugMode) console.log('FaceNet recognition successful', facenetResult.builder);
+        // Success with recognition
+        if (debugMode) console.log('Face recognition successful', facenetResult.builder);
         
         // Record this successful recognition
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
@@ -116,45 +117,9 @@ export const processRecognition = async (
         return;
       }
       
-      // If FaceNet failed, try the improved basic approach
-      if (debugMode) console.log('FaceNet found no match, trying improved basic recognition');
-      
-      const basicResult: RecognitionResult = await Promise.race([
-        recognizeFaceBasic(imageData, confidenceThreshold),
-        timeoutPromise
-      ]) as RecognitionResult;
-      
-      if (basicResult.success && basicResult.builder) {
-        // Success with basic recognition
-        if (debugMode) console.log('Basic recognition successful', basicResult.builder);
-        
-        // Record this successful recognition
-        const { recognitionHistory, currentTime } = manageRecognitionHistory();
-        updateRecognitionHistory(basicResult.builder.id, recognitionHistory, currentTime);
-        
-        // Record attendance using both methods with proper timestamp format
-        const now = new Date();
-        const isoTimestamp = now.toISOString();
-        
-        const attendanceResult1 = await recordAttendance(basicResult.builder.id, "present", isoTimestamp);
-        const attendanceResult2 = await markAttendance(basicResult.builder.id, "present");
-        
-        if (debugMode) {
-          console.log('Attendance recording results:', { 
-            recordAttendance: attendanceResult1,
-            markAttendance: attendanceResult2
-          });
-        }
-        
-        // Notify of success
-        onSuccess?.(basicResult.builder);
-        onComplete?.();
-        return;
-      }
-      
-      // No method found a match
-      if (debugMode) console.log('No match found with either method');
-      onError?.(facenetResult.message || basicResult.message || 'No matching face found');
+      // No match found
+      if (debugMode) console.log('No match found');
+      onError?.(facenetResult.message || 'No matching face found');
       onComplete?.();
       
     } catch (innerError) {

@@ -60,7 +60,7 @@ const AttendanceCamera = ({
       if (passive) {
         setTimeout(() => {
           initialDelayCompleteRef.current = true;
-          setStatusMessage("Camera ready - scanning for faces...");
+          setStatusMessage("Camera ready - waiting for face recognition...");
           captureImagePassive();
         }, 1000);
       } else {
@@ -112,7 +112,7 @@ const AttendanceCamera = ({
       },
       onError: (message) => {
         toast.error(message);
-        setStatusMessage("No match found. Try again.");
+        setStatusMessage("No match found. Please try again or register your face first.");
         
         setTimeout(() => {
           setProcessingImage(false);
@@ -186,13 +186,13 @@ const AttendanceCamera = ({
           consecutiveFailsRef.current++;
           
           if (consecutiveFailsRef.current > 5) {
-            setStatusMessage(`Waiting for builders... (Scan #${scanCount})`);
+            setStatusMessage(`Waiting for faces... (Scan #${scanCount})`);
           } else {
-            setStatusMessage(`Scanning for builders... (Scan #${scanCount})`);
+            setStatusMessage(`Looking for registered faces... (Scan #${scanCount})`);
           }
         } else if (message !== 'Recently recognized') {
           consecutiveFailsRef.current = 0;
-          setStatusMessage(`Scanning for builders... (Scan #${scanCount}): ${message}`);
+          setStatusMessage(`Recognition not successful (Scan #${scanCount}): ${message}`);
         }
         
         if (debugMode && message !== 'Recently recognized') {

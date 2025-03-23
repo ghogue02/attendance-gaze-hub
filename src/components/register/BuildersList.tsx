@@ -4,6 +4,8 @@ import { Check, AlertCircle, Clock } from 'lucide-react';
 import { Builder } from '@/components/BuilderCard';
 import BuilderCard from '@/components/BuilderCard';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BuildersListProps {
   builders: Builder[];
@@ -24,6 +26,34 @@ export const BuildersList = ({
   onStartRegistration,
   onClearSearch
 }: BuildersListProps) => {
+  const [builderImages, setBuilderImages] = useState<{[key: string]: string}>({});
+
+  // Fetch up-to-date builder images when the component mounts or when registrationStatus changes
+  useEffect(() => {
+    const fetchBuilderImages = async () => {
+      const images: {[key: string]: string} = {};
+      for (const builder of filteredBuilders) {
+        try {
+          // Get the most recent image from the students table
+          const { data, error } = await supabase
+            .from('students')
+            .select('image_url')
+            .eq('id', builder.id)
+            .single();
+            
+          if (data?.image_url) {
+            images[builder.id] = data.image_url;
+          }
+        } catch (error) {
+          console.error('Error fetching builder image:', error);
+        }
+      }
+      setBuilderImages(images);
+    };
+
+    fetchBuilderImages();
+  }, [filteredBuilders, registrationStatus]);
+
   if (loading) {
     return (
       <div className="text-center py-10">
@@ -56,7 +86,21 @@ export const BuildersList = ({
     <div className="grid gap-4 md:grid-cols-2">
       {filteredBuilders.map(builder => (
         <div key={builder.id} className="glass-card p-4">
-          <BuilderCard builder={builder} />
+          <div className="flex items-center gap-4 mb-4">
+            <Avatar className="h-16 w-16 border-2 border-white/20">
+              {builderImages[builder.id] ? (
+                <AvatarImage src={builderImages[builder.id]} alt={builder.name} />
+              ) : (
+                <AvatarFallback className="text-lg">
+                  {builder.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <div>
+              <h3 className="text-lg font-semibold">{builder.name}</h3>
+              <p className="text-sm text-muted-foreground">ID: {builder.builderId}</p>
+            </div>
+          </div>
           
           <div className="mt-4 flex flex-col">
             <div className="flex items-center justify-between mb-2">

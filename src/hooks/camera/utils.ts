@@ -37,6 +37,41 @@ export function prepareConstraints(videoConstraints?: CameraConstraints): MediaS
 }
 
 /**
+ * Function to stop all tracks in a media stream
+ */
+export function stopMediaStreamTracks(stream: MediaStream | null) {
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+}
+
+/**
+ * Format and return a user-friendly camera error message
+ */
+export function getCameraErrorMessage(error: any): string {
+  if (!error) return 'Unknown camera error';
+  
+  if (error instanceof Error) {
+    const { name, message } = error;
+    
+    switch (name) {
+      case 'NotAllowedError':
+        return 'Camera access denied. Please allow camera access in your browser settings.';
+      case 'NotFoundError':
+        return 'No camera found on this device.';
+      case 'NotReadableError':
+        return 'Camera is in use by another application.';
+      case 'OverconstrainedError':
+        return 'Camera constraints cannot be satisfied.';
+      default:
+        return message || 'An error occurred accessing the camera.';
+    }
+  }
+  
+  return String(error);
+}
+
+/**
  * Check if the camera is available and has permissions
  */
 export async function checkCameraAvailability(): Promise<boolean> {
@@ -89,3 +124,8 @@ export function formatCameraError(error: unknown): string {
   
   return String(error);
 }
+
+/**
+ * Alias for prepareConstraints to maintain backward compatibility
+ */
+export const mergeConstraints = prepareConstraints;

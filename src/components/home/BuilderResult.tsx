@@ -1,6 +1,7 @@
 
 import { motion } from 'framer-motion';
 import { Builder } from '@/components/BuilderCard';
+import UserProfileImage from '@/components/dashboard/UserProfileImage';
 
 interface BuilderResultProps {
   detectedBuilder: Builder;
@@ -14,17 +15,11 @@ const BuilderResult = ({ detectedBuilder }: BuilderResultProps) => {
         animate={{ scale: 1, opacity: 1 }}
         className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg mb-4"
       >
-        {detectedBuilder.image ? (
-          <img 
-            src={detectedBuilder.image} 
-            alt={detectedBuilder.name} 
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-primary/20 flex items-center justify-center text-4xl font-bold text-primary">
-            {detectedBuilder.name.substring(0, 2).toUpperCase()}
-          </div>
-        )}
+        <UserProfileImage 
+          userName={detectedBuilder.name} 
+          userId={detectedBuilder.id}
+          className="w-full h-full"
+        />
       </motion.div>
       <h3 className="text-2xl font-bold">{detectedBuilder.name}</h3>
       <p className="text-muted-foreground">ID: {detectedBuilder.builderId}</p>

@@ -1,65 +1,91 @@
 
+import { useRef, useState, useEffect } from 'react';
+import type { UseCameraProps, UseCameraReturn, CameraConstraints } from './types';
+import { captureImageFromVideo } from './captureImage';
+
 /**
- * Safely stops all tracks in a media stream
+ * Helper function to handle camera initialization
  */
-export function stopMediaStreamTracks(stream: MediaStream | null): void {
-  if (!stream) return;
-  
-  stream.getTracks().forEach(track => {
-    console.log(`Stopping track: ${track.kind}, enabled: ${track.enabled}, state: ${track.readyState}`);
-    track.stop();
-  });
+export function initCamera(
+  videoRef: React.RefObject<HTMLVideoElement>,
+  constraints: MediaStreamConstraints
+): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia(constraints);
 }
 
 /**
- * Gets a more specific error message based on the DOMException
+ * Convert camera constraints object to MediaStreamConstraints
  */
-export function getCameraErrorMessage(err: unknown): string {
-  let errorMessage = 'Unable to access camera. Please check permissions.';
+export function prepareConstraints(videoConstraints?: CameraConstraints): MediaStreamConstraints {
+  // Default video constraints
+  const defaultConstraints: CameraConstraints = {
+    facingMode: 'user',
+    width: { ideal: 1280 },
+    height: { ideal: 720 }
+  };
+
+  // Merge default constraints with provided constraints
+  const mergedVideoConstraints = videoConstraints 
+    ? { ...defaultConstraints, ...videoConstraints }
+    : defaultConstraints;
+
+  // Return properly formatted MediaStreamConstraints
+  return {
+    audio: false,
+    video: mergedVideoConstraints as MediaTrackConstraints
+  };
+}
+
+/**
+ * Check if the camera is available and has permissions
+ */
+export async function checkCameraAvailability(): Promise<boolean> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+    
+    if (videoDevices.length === 0) {
+      return false;
+    }
+    
+    // Try to access the camera with minimal constraints
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'user' },
+      audio: false 
+    });
+    
+    // Remember to stop all tracks to release the camera
+    stream.getTracks().forEach(track => track.stop());
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking camera availability:', error);
+    return false;
+  }
+}
+
+/**
+ * Format camera error messages for better user understanding
+ */
+export function formatCameraError(error: unknown): string {
+  if (!error) return 'Unknown camera error';
   
-  if (err instanceof DOMException) {
-    if (err.name === 'NotFoundError') {
-      errorMessage = 'No camera found. Please make sure your device has a camera.';
-    } else if (err.name === 'NotAllowedError') {
-      errorMessage = 'Camera access denied. Please allow camera access in your browser settings.';
-    } else if (err.name === 'AbortError') {
-      errorMessage = 'Camera setup was aborted. Please try again.';
-    } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-      errorMessage = 'Camera is already in use by another application. Please close other apps using the camera.';
-    } else if (err.name === 'OverconstrainedError') {
-      errorMessage = 'Camera cannot satisfy the requested constraints. Please use a different camera.';
+  if (error instanceof Error) {
+    const { name, message } = error;
+    
+    switch (name) {
+      case 'NotAllowedError':
+        return 'Camera access denied. Please allow camera access in your browser settings.';
+      case 'NotFoundError':
+        return 'No camera found on this device.';
+      case 'NotReadableError':
+        return 'Camera is in use by another application.';
+      case 'OverconstrainedError':
+        return 'Camera constraints cannot be satisfied.';
+      default:
+        return message || 'An error occurred accessing the camera.';
     }
   }
   
-  return errorMessage;
-}
-
-/**
- * Creates a set of default camera constraints
- */
-export function getDefaultConstraints(): MediaStreamConstraints {
-  return {
-    video: {
-      facingMode: 'user',
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-      frameRate: { ideal: 30 }
-    },
-    audio: false
-  };
-}
-
-/**
- * Merges user provided constraints with defaults
- */
-export function mergeConstraints(userConstraints: any): MediaStreamConstraints {
-  const defaultVideoConstraints = getDefaultConstraints().video;
-  
-  return {
-    video: {
-      ...defaultVideoConstraints,
-      ...userConstraints
-    },
-    audio: false
-  };
+  return String(error);
 }

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle, Clock } from 'lucide-react';
 import { Builder } from '@/components/BuilderCard';
 import BuilderCard from '@/components/BuilderCard';
 import { Button } from '@/components/ui/button';
@@ -66,9 +66,14 @@ export const BuildersList = ({
                   <Check size={14} className="mr-1" />
                   Complete
                 </span>
-              ) : (
+              ) : registrationStatus[builder.id]?.count > 0 ? (
                 <span className="text-sm bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
-                  {registrationStatus[builder.id]?.count || 0}/5 Angles
+                  {registrationStatus[builder.id]?.count}/5 Angles
+                </span>
+              ) : (
+                <span className="text-sm bg-yellow-50 text-yellow-600 px-2 py-1 rounded-full flex items-center">
+                  <Clock size={14} className="mr-1" />
+                  Pending
                 </span>
               )}
             </div>

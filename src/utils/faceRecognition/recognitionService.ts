@@ -1,3 +1,4 @@
+
 // Import existing functionalities
 import { detectFaces, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory, manageRecognitionHistory } from './recognitionUtils';
 import { getRecognitionSettings } from './setup';

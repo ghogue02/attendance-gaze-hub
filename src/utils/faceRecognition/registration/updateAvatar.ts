@@ -72,23 +72,34 @@ export const updateBuilderAvatar = async (builderId: string, imageData: string):
       
       // Also ensure the face_embeddings table has this image
       try {
-        const { error: embedError } = await supabase
+        // First check if we already have an embedding for this student
+        const { data: existingEmbedding, error: checkError } = await supabase
           .from('face_embeddings')
-          .upsert({
-            student_id: builderId,
-            image_data: imageData,
-            // We're not updating the embedding itself since that requires running the model
-            // This just ensures the latest image is stored with existing embeddings
-            created_at: new Date().toISOString()
-          }, { 
-            onConflict: 'student_id',
-            ignoreDuplicates: false
-          });
+          .select('id, embedding')
+          .eq('student_id', builderId)
+          .maybeSingle();
           
-        if (embedError) {
-          console.warn('Could not update face_embeddings table:', embedError);
+        if (checkError) {
+          console.warn('Error checking for existing embedding:', checkError);
+        } else if (existingEmbedding && existingEmbedding.embedding) {
+          // If we have an existing embedding, update it
+          const { error: embedError } = await supabase
+            .from('face_embeddings')
+            .update({
+              image_data: imageData,
+              created_at: new Date().toISOString()
+            })
+            .eq('student_id', builderId);
+            
+          if (embedError) {
+            console.warn('Could not update face_embeddings table:', embedError);
+          } else {
+            console.log('Updated face_embeddings with new image');
+          }
         } else {
-          console.log('Updated face_embeddings with new image');
+          // For now, don't try to create a new embedding record without the embedding itself
+          // That will happen in the face recognition process
+          console.log('No existing embedding found. New embedding will be created during recognition.');
         }
       } catch (embedErr) {
         console.warn('Error updating face embeddings:', embedErr);

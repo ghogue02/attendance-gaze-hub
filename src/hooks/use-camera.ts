@@ -28,7 +28,8 @@ export function useCamera({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const retryCountRef = useRef(0);
-  const maxRetries = 3;
+  const maxRetries = 5; // Increased max retries
+  const initializedRef = useRef(false);
 
   // Memoize the start camera function to avoid recreating it on each render
   const startCamera = useCallback(async () => {
@@ -46,6 +47,11 @@ export function useCamera({
       
       console.log("Starting camera with constraints:", videoConstraints);
       
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera access is not supported in this browser');
+      }
+      
       // Default constraints
       const defaultConstraints: CameraConstraints = {
         facingMode: 'user',
@@ -60,16 +66,28 @@ export function useCamera({
         ...videoConstraints
       };
       
+      // Add a small delay before accessing camera to allow previous instances to clean up
+      if (initializedRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        initializedRef.current = true;
+      }
+      
       // Try to get access to the camera
+      console.log("Requesting camera access...");
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: constraints,
         audio: false
       });
       
+      console.log("Camera access granted successfully");
+      
       // Store the stream and set it as the video source
       streamRef.current = stream;
       
       if (videoRef.current) {
+        // Make sure video element is ready
+        videoRef.current.srcObject = null;
         videoRef.current.srcObject = stream;
         
         // Wait for video to be ready before notifying
@@ -88,9 +106,23 @@ export function useCamera({
             })
             .catch(playError => {
               console.error("Error starting video playback:", playError);
-              setCameraError("Failed to start video playback. Please reload the page.");
+              setCameraError("Failed to start video playback. Please reload the page or check browser permissions.");
               setIsCapturing(false);
+              
+              // Auto-retry playback
+              setTimeout(() => {
+                console.log("Auto-retrying video playback...");
+                videoRef.current?.play()
+                  .catch(e => console.error("Retry failed:", e));
+              }, 1000);
             });
+        };
+        
+        // Add error handler
+        videoRef.current.onerror = (err) => {
+          console.error("Video element error:", err);
+          setCameraError("Video element error. Please reload the page.");
+          setIsCapturing(false);
         };
       }
     } catch (err) {
@@ -105,6 +137,10 @@ export function useCamera({
           errorMessage = 'Camera access denied. Please allow camera access in your browser settings.';
         } else if (err.name === 'AbortError') {
           errorMessage = 'Camera setup was aborted. Please try again.';
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          errorMessage = 'Camera is already in use by another application. Please close other apps using the camera.';
+        } else if (err.name === 'OverconstrainedError') {
+          errorMessage = 'Camera cannot satisfy the requested constraints. Please use a different camera.';
         }
       }
       
@@ -136,6 +172,8 @@ export function useCamera({
     
     if (videoRef.current) {
       videoRef.current.srcObject = null;
+      videoRef.current.onloadedmetadata = null;
+      videoRef.current.onerror = null;
     }
     
     setIsCapturing(false);
@@ -164,6 +202,13 @@ export function useCamera({
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    
+    // Ensure video is playing and has dimensions
+    if (video.paused || video.ended || !video.videoWidth) {
+      console.error('Video is not playing or has no dimensions');
+      return null;
+    }
+    
     const context = canvas.getContext('2d');
     
     if (!context) {
@@ -191,7 +236,7 @@ export function useCamera({
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       // For optimal performance, use a lower quality JPEG
-      return canvas.toDataURL('image/jpeg', 0.9);
+      return canvas.toDataURL('image/jpeg', 0.8);
     } catch (err) {
       console.error('Error converting canvas to data URL:', err);
       return null;
@@ -212,7 +257,7 @@ export function useCamera({
       // Camera appears unhealthy, restart it
       console.warn('Camera appears unhealthy, attempting to restart...');
       stopCamera();
-      setTimeout(() => startCamera(), 500);
+      setTimeout(() => startCamera(), 1000);
       return false;
     }
     

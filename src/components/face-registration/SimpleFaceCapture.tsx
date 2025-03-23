@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Camera, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
 import { registerFace, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
@@ -23,6 +23,7 @@ export const SimpleFaceCapture = ({
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>("Camera initializing...");
   const [registrationProgress, setRegistrationProgress] = useState(0);
+  const [cameraReady, setCameraReady] = useState(false);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const {
@@ -43,10 +44,12 @@ export const SimpleFaceCapture = ({
     onCameraStart: () => {
       console.log('Camera started in SimpleFaceCapture');
       setStatusMessage("Camera ready. Center your face in the frame.");
+      setCameraReady(true);
       loadRegistrationStatus();
     },
     onCameraStop: () => {
       setStatusMessage(null);
+      setCameraReady(false);
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
@@ -65,6 +68,11 @@ export const SimpleFaceCapture = ({
   const handleCaptureAndRegister = async () => {
     if (!videoRef.current || !canvasRef.current) {
       toast.error('Camera not ready');
+      return;
+    }
+    
+    if (!cameraReady) {
+      toast.error('Please wait for camera to initialize fully');
       return;
     }
     
@@ -112,6 +120,15 @@ export const SimpleFaceCapture = ({
     }
   };
 
+  const handleRestartCamera = () => {
+    setStatusMessage("Restarting camera...");
+    setError(null);
+    stopCamera();
+    setTimeout(() => {
+      startCamera();
+    }, 1000);
+  };
+
   // If camera isn't working, retry after a delay
   useEffect(() => {
     if (cameraError) {
@@ -119,9 +136,12 @@ export const SimpleFaceCapture = ({
         clearTimeout(retryTimeoutRef.current);
       }
       
+      setCameraReady(false);
+      setStatusMessage(`Camera error: ${cameraError}`);
+      
       retryTimeoutRef.current = setTimeout(() => {
         console.log("Retrying camera initialization...");
-        startCamera();
+        handleRestartCamera();
       }, 3000);
     }
     
@@ -165,20 +185,31 @@ export const SimpleFaceCapture = ({
           Look directly at the camera for best results. Make sure your face is well-lit and centered in the frame.
         </p>
         
-        <Button
-          size="lg"
-          disabled={!isCapturing || processing}
-          onClick={handleCaptureAndRegister}
-          className="mx-auto"
-        >
-          {processing ? (
-            <span>Processing...</span>
-          ) : (
-            <span className="flex items-center gap-2">
-              {isUpdateMode ? 'Update Face Registration' : 'Register Face'} <ArrowRight className="h-4 w-4" />
-            </span>
-          )}
-        </Button>
+        <div className="flex justify-between items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRestartCamera}
+            disabled={processing}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Restart Camera
+          </Button>
+          
+          <Button
+            size="lg"
+            disabled={!isCapturing || processing || !cameraReady}
+            onClick={handleCaptureAndRegister}
+          >
+            {processing ? (
+              <span>Processing...</span>
+            ) : (
+              <span className="flex items-center gap-2">
+                {isUpdateMode ? 'Update Face Registration' : 'Register Face'} <ArrowRight className="h-4 w-4" />
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

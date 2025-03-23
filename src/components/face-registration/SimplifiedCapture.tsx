@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
-import { registerFace } from '@/utils/faceRecognition';
+import { registerFaceWithFacenet } from '@/utils/faceRecognition';
 import { testRegistrationFlow } from '@/utils/faceRecognition/facenetIntegration';
 import { toast } from 'sonner';
 import { useCamera } from '@/hooks/use-camera';
@@ -82,17 +82,14 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
       }
       
       // Normal registration
-      const result = await registerFace(builder.id, imageData);
+      const result = await registerFaceWithFacenet(builder.id, imageData);
       
-      if (result.success) {
+      if (result) {
         toast.success('Face registered successfully!');
         onRegistrationComplete(true);
       } else {
-        const errorMessage = result && typeof result === 'object' && 'message' in result 
-          ? result.message 
-          : 'Registration failed';
-        setError(errorMessage);
-        toast.error(errorMessage);
+        setError('Registration failed');
+        toast.error('Registration failed');
         onRegistrationComplete(false);
       }
     } catch (error) {

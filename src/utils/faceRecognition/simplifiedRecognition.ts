@@ -106,13 +106,13 @@ function createBuilderFromStudent(student: any): Builder {
     id: student.id,
     name: `${student.first_name} ${student.last_name}`,
     builderId: student.student_id || '',
-    imageUrl: student.image_url || '',
     status: 'present',
     timeRecorded: new Date().toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
-    })
+    }),
+    image: student.image_url || `https://ui-avatars.com/api/?name=${student.first_name}+${student.last_name}&background=random`
   };
 }
 

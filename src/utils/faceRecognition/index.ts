@@ -5,6 +5,7 @@ export * from './recognition';
 // Export specific functions from recognitionUtils to avoid conflicts
 export {
   detectFaces,
+  detectFacesWithFallback,
   fetchRegisteredStudents,
   groupRegistrationsByStudent,
   manageRecognitionHistory,
@@ -22,7 +23,7 @@ export * from './setup';
 export * from './types';
 
 // Export the recognizeFace function from facenetIntegration
-export { recognizeFace } from './facenetIntegration';
+export { recognizeFace, registerFaceWithFacenet } from './facenetIntegration';
 
 // Export testing functionality
 export { testRegistrationFlow } from './facenetIntegration';

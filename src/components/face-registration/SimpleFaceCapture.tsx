@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
-import { registerFace, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
+import { registerFaceWithFacenet, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
 import { useCamera } from '@/hooks/use-camera';
 import { CameraView } from './CameraView';
@@ -93,19 +93,16 @@ export const SimpleFaceCapture = ({
       }
       
       // Call the registerFace function
-      const result = await registerFace(builder.id, imageData);
+      const result = await registerFaceWithFacenet(builder.id, imageData);
       
-      if (result && result.success) {
+      if (result) {
         toast.success('Face registered successfully!');
         setStatusMessage("Registration successful!");
         setRegistrationProgress(100);
         onRegistrationComplete(true);
       } else {
-        const errorMessage = result && typeof result === 'object' && 'message' in result 
-          ? result.message 
-          : 'Registration failed';
-        setError(errorMessage);
-        toast.error(errorMessage);
+        setError('Registration failed');
+        toast.error('Registration failed');
         setStatusMessage("Registration failed. Please try again.");
         onRegistrationComplete(false);
       }

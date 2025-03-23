@@ -2,6 +2,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/BuilderCard';
 import { FaceDetectionResult } from './types';
 
+declare global {
+  interface Window {
+    recognitionHistory: Map<string, number>;
+  }
+}
+
 /**
  * Detect faces in an image using the server-side face detection service
  * or fallback to local detection if server is unavailable
@@ -173,7 +179,7 @@ export const detectFacesWithFallback = async (imageData: string): Promise<FaceDe
 /**
  * Fetch all registered students with their face registration data
  */
-export const fetchRegisteredStudents = async (): Promise<any[]> => {
+export const fetchRegisteredStudents = async () => {
   try {
     const { data, error } = await supabase
       .from('face_registrations')
@@ -308,13 +314,13 @@ export const fetchStudentDetails = async (studentId: string): Promise<Builder | 
       id: data.id,
       name: `${data.first_name} ${data.last_name}`,
       builderId: data.student_id || '',
-      imageUrl: data.image_url || '',
       status: 'present' as BuilderStatus,
       timeRecorded: new Date().toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
-      })
+      }),
+      image: data.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.first_name)}+${encodeURIComponent(data.last_name)}&background=random`
     };
   } catch (error) {
     console.error('Error in fetchStudentDetails:', error);
@@ -391,47 +397,29 @@ export const recordAttendance = async (
 };
 
 /**
- * Select a student for recognition based on face data
+ * Select a student for recognition based on available students
  */
-export const selectStudentForRecognition = async (
-  faceData: string,
-  registeredStudents: any[]
-): Promise<Builder | null> => {
-  try {
-    // Group registrations by student
-    const studentMap = groupRegistrationsByStudent(registeredStudents);
-    
-    // If no registered students, return null
-    if (studentMap.size === 0) {
-      console.log('No registered students found');
-      return null;
-    }
-    
-    // For now, just return the first student (this will be replaced with actual face recognition)
-    const firstStudentId = Array.from(studentMap.keys())[0];
-    const firstStudent = studentMap.get(firstStudentId)?.[0]?.students;
-    
-    if (!firstStudent) {
-      console.log('No student data found');
-      return null;
-    }
-    
-    return {
-      id: firstStudent.id,
-      name: `${firstStudent.first_name} ${firstStudent.last_name}`,
-      builderId: firstStudent.student_id || '',
-      imageUrl: firstStudent.image_url || '',
-      status: 'present',
-      timeRecorded: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      })
-    };
-  } catch (error) {
-    console.error('Error in selectStudentForRecognition:', error);
-    return null;
+export const selectStudentForRecognition = (
+  studentIds: string[], 
+  useRandom: boolean = true
+): string => {
+  if (studentIds.length === 0) {
+    throw new Error('No student IDs provided');
   }
+  
+  // If only one student, return that one
+  if (studentIds.length === 1) {
+    return studentIds[0];
+  }
+  
+  // Otherwise randomly select one if useRandom is true
+  if (useRandom) {
+    const randomIndex = Math.floor(Math.random() * studentIds.length);
+    return studentIds[randomIndex];
+  }
+  
+  // Or return the first one
+  return studentIds[0];
 };
 
 /**

@@ -24,17 +24,19 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         
         // Fetch all students who have completed face registration
         const registeredStudentsResult = await fetchRegisteredStudents();
-        if (!registeredStudentsResult.success) {
+        
+        // The fetchRegisteredStudents should return a properly structured response with success property
+        if (!Array.isArray(registeredStudentsResult) || registeredStudentsResult.length === 0) {
           resolve({
             success: false,
-            message: registeredStudentsResult.message
+            message: 'No registered students found'
           });
           return;
         }
         
         // Group face registrations by student ID
-        const studentRegistrations = groupRegistrationsByStudent(registeredStudentsResult.data);
-        const uniqueStudentIds = Object.keys(studentRegistrations);
+        const studentRegistrations = groupRegistrationsByStudent(registeredStudentsResult);
+        const uniqueStudentIds = Array.from(studentRegistrations.keys());
         console.log(`Found ${uniqueStudentIds.length} students with face registrations`);
         
         if (uniqueStudentIds.length === 0) {
@@ -50,10 +52,14 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         
         // Use a higher confidence threshold for more accurate recognition
         // In a real system, we would compare face embeddings here
-        const studentId = selectStudentForRecognition(uniqueStudentIds, false); // Set to false to increase accuracy
+        // This is a mock implementation that randomly selects a student for demonstration purposes
+        const randomIndex = Math.floor(Math.random() * uniqueStudentIds.length);
+        const studentId = uniqueStudentIds[randomIndex];
         
         // Check if this user was recently recognized to prevent duplicates
-        if (checkRecentlyRecognized(studentId, recognitionHistory, currentTime)) {
+        const recentlyRecognized = await checkRecentlyRecognized(studentId, recognitionHistory, currentTime);
+        
+        if (recentlyRecognized) {
           resolve({
             success: false,
             message: 'Recently recognized'
@@ -62,17 +68,17 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
         }
         
         // Get student details from database
-        const studentResult = await fetchStudentDetails(studentId);
-        if (!studentResult.success) {
+        const studentDetail = await fetchStudentDetails(studentId);
+        if (!studentDetail) {
           resolve({
             success: false,
-            message: studentResult.message
+            message: 'Student details not found'
           });
           return;
         }
         
-        const studentData = studentResult.data;
-        console.log(`Found student: ${studentData.first_name} ${studentData.last_name}`, studentData);
+        const studentData = studentDetail;
+        console.log(`Found student: ${studentData.name}`, studentData);
         
         // Format time for display - keep only hours and minutes for display
         const now = new Date();
@@ -93,14 +99,14 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
           markAttendance: attendanceResult2
         });
         
-        // Convert database student to application Builder format
+        // Return the student as a Builder
         const builder: Builder = {
           id: studentData.id,
-          name: `${studentData.first_name} ${studentData.last_name}`,
-          builderId: studentData.student_id || '',
+          name: studentData.name,
+          builderId: studentData.builderId || '',
           status: 'present' as BuilderStatus,
           timeRecorded,
-          image: studentData.image_url || `https://ui-avatars.com/api/?name=${studentData.first_name}+${studentData.last_name}&background=random`
+          image: studentData.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(studentData.name)}&background=random`
         };
         
         resolve({

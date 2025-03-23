@@ -23,7 +23,7 @@ export * from './setup';
 export * from './types';
 
 // Export the recognizeFace function from facenetIntegration
-export { recognizeFace, registerFaceWithFacenet } from './facenetIntegration';
+export { recognizeFace as recognizeFaceWithFacenet, registerFaceWithFacenet } from './facenetIntegration';
 
 // Export testing functionality
 export { testRegistrationFlow } from './facenetIntegration';

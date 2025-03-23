@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { FaceRegistrationResult } from '../types';
 import { detectFaces } from '../recognitionUtils';
+import { updateBuilderAvatar } from './updateAvatar';
 
 // Function to register a face image for a student with simplified approach
 export const registerFaceImage = async (
@@ -11,6 +12,14 @@ export const registerFaceImage = async (
 ): Promise<FaceRegistrationResult> => {
   try {
     console.log(`Starting face registration for student ${studentId}`);
+    
+    // Validate inputs
+    if (!studentId || !imageData) {
+      return {
+        success: false,
+        message: 'Missing required parameters'
+      };
+    }
     
     // Check if the image contains a face - pass attempt #3 to indicate this is a registration attempt
     // This will make the detection more lenient
@@ -64,31 +73,21 @@ export const registerFaceImage = async (
       };
     }
     
-    // For initial registration, use the image as profile picture
-    if (!isUpdateMode) {
-      console.log("Processing image as profile picture");
-      
-      // Update the student's profile image
-      const { error: updateError } = await supabase
-        .from('students')
-        .update({ 
-          image_url: imageData,
-          last_face_update: new Date().toISOString()
-        })
-        .eq('id', studentId);
-        
-      if (updateError) {
-        console.error('Error updating student image:', updateError);
-        return {
-          success: false,
-          message: 'Failed to save face image'
-        };
-      }
-      
-      console.log('Successfully updated profile image');
+    // Always update the profile image to ensure consistency
+    console.log("Updating profile image");
+    const avatarUpdated = await updateBuilderAvatar(studentId, imageData);
+    
+    if (!avatarUpdated) {
+      console.error('Failed to update avatar');
+      return {
+        success: false,
+        message: 'Failed to update profile image'
+      };
     }
     
-    // Clear existing registrations to ensure fresh data
+    console.log('Successfully updated profile image');
+    
+    // Clear existing registrations if in update mode
     if (isUpdateMode) {
       const { error: deleteError } = await supabase
         .from('face_registrations')
@@ -98,6 +97,8 @@ export const registerFaceImage = async (
       if (deleteError) {
         console.log('Error clearing previous registrations:', deleteError);
         // Continue anyway
+      } else {
+        console.log('Successfully cleared previous face registrations');
       }
     }
     
@@ -111,7 +112,23 @@ export const registerFaceImage = async (
     }
     
     // Wait for all registrations to complete
-    await Promise.all(registrationPromises);
+    const results = await Promise.allSettled(registrationPromises);
+    
+    // Check if any registrations failed
+    const failedRegistrations = results.filter(r => r.status === 'rejected');
+    if (failedRegistrations.length > 0) {
+      console.warn(`${failedRegistrations.length} out of 5 registrations failed`);
+    }
+    
+    // As long as at least one registration succeeded, consider it a success
+    const anySucceeded = results.some(r => r.status === 'fulfilled' && (r.value as FaceRegistrationResult).success);
+    
+    if (!anySucceeded) {
+      return {
+        success: false,
+        message: 'Failed to store face registrations'
+      };
+    }
     
     return {
       success: true,

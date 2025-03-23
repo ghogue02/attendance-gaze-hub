@@ -1,248 +1,23 @@
 
-/**
- * This file contains the integration with facenet for improved face recognition
- * 
- * Facenet uses embeddings (128-dimensional vectors) to represent faces.
- * Similar faces have embeddings that are close to each other in vector space.
- * 
- * This approach provides more accurate recognition than our current implementation.
- */
-
+// Import TensorFlow.js
+import * as tf from "@tensorflow/tfjs";
 import { supabase } from '@/integrations/supabase/client';
-import { Builder } from '@/components/BuilderCard';
-import { FaceRegistrationResult } from './types';
-import { 
-  detectFaces, 
-  generateEmbedding, 
-  storeFaceEmbedding, 
-  findClosestMatch, 
-  calculateEuclideanDistance,
-  initModels
-} from './browser-facenet';
-
-// Database table to store face embeddings
-const FACE_EMBEDDINGS_TABLE = 'face_embeddings';
+import { toast } from "sonner";
+import { Builder } from "@/components/BuilderCard";
 
 /**
- * Process an image for face registration
- * This handles face detection, alignment, and embedding generation
+ * Test the registration flow to validate all steps are working
  */
-export const processFaceForRegistration = async (
-  imageData: string
-): Promise<{ 
-  success: boolean; 
-  embedding?: number[]; 
-  error?: string;
-  faceImageData?: string;
-}> => {
-  try {
-    console.log('Processing face for registration...');
-    
-    // Ensure models are initialized first
-    const modelsInitialized = await initModels();
-    if (!modelsInitialized) {
-      console.error('Face models failed to initialize during registration');
-      return { success: false, error: 'Face recognition models failed to load. Please try again.' };
-    }
-    
-    // Step 1: Detect faces in the image
-    const faces = await detectFaces(imageData);
-    
-    if (!faces || faces.length === 0) {
-      console.error('No faces detected during registration');
-      return { success: false, error: 'No faces detected in the image' };
-    }
-    
-    if (faces.length > 1) {
-      console.error('Multiple faces detected during registration');
-      return { success: false, error: 'Multiple faces detected. Please capture only one face.' };
-    }
-    
-    console.log('Face detected, generating embedding...');
-    
-    // Step 2: Extract face and generate embedding
-    // For simplicity, we're using the whole image here
-    // In a production system, you'd crop the face based on detection box
-    const embedding = await generateEmbedding(imageData);
-    
-    if (!embedding) {
-      console.error('Failed to generate embedding');
-      return { success: false, error: 'Failed to generate face embedding' };
-    }
-    
-    console.log(`Embedding generated successfully with length: ${embedding.length}`);
-    console.log('Embedding sample:', embedding.slice(0, 5));
-    
-    return { 
-      success: true, 
-      embedding,
-      faceImageData: imageData 
-    };
-  } catch (error) {
-    console.error('Error processing face for registration:', error);
-    return { success: false, error: 'Error processing face' };
-  }
-};
-
-/**
- * Register a face with the system
- */
-export const registerFace = async (
+export const testRegistrationFlow = async (
   studentId: string,
   imageData: string
-): Promise<FaceRegistrationResult> => {
-  try {
-    console.log(`Registering face for student ${studentId}...`);
-    
-    // Process the face image and get embedding
-    const result = await processFaceForRegistration(imageData);
-    
-    if (!result.success || !result.embedding) {
-      console.error('Face processing failed:', result.error);
-      return { success: false, message: result.error || 'Face processing failed' };
-    }
-    
-    // DEBUGGING: Log the embedding being generated
-    console.log(`Generated embedding for student ${studentId}, length: ${result.embedding.length}`);
-    console.log('Embedding sample:', result.embedding.slice(0, 5));
-    
-    // Store the embedding in the database
-    const stored = await storeFaceEmbedding(
-      studentId, 
-      result.embedding,
-      result.faceImageData
-    );
-    
-    if (!stored) {
-      console.error('Failed to store face embedding - check Supabase console for errors');
-      return { success: false, message: 'Failed to store face embedding' };
-    }
-    
-    console.log('Face registered successfully');
-    
-    // Let's verify that the embedding was actually stored
-    await verifyEmbeddingStorage(studentId);
-    
-    return { 
-      success: true, 
-      message: 'Face registered successfully',
-      completed: true,
-      faceDetected: true
-    };
-  } catch (error) {
-    console.error('Error registering face:', error);
-    return { success: false, message: 'Error during face registration' };
-  }
-};
-
-/**
- * Verify that an embedding was properly stored
- */
-const verifyEmbeddingStorage = async (studentId: string): Promise<boolean> => {
-  try {
-    const { data, error } = await supabase
-      .from(FACE_EMBEDDINGS_TABLE)
-      .select('*')
-      .eq('student_id', studentId);
-      
-    if (error) {
-      console.error('Error verifying embedding storage:', error);
-      return false;
-    }
-    
-    if (!data || data.length === 0) {
-      console.error('No embeddings found for student after storage attempt');
-      return false;
-    }
-    
-    console.log(`Verified ${data.length} embeddings stored for student ${studentId}`);
-    return true;
-  } catch (e) {
-    console.error('Exception during storage verification:', e);
-    return false;
-  }
-};
-
-/**
- * Test database connection
- */
-export const testDatabaseConnection = async (): Promise<boolean> => {
-  try {
-    // Test face_embeddings table
-    const testEmbedding = Array(128).fill(0.1); // Create dummy embedding
-    const { error: embeddingError } = await supabase
-      .from('face_embeddings')
-      .insert({
-        student_id: '00000000-0000-0000-0000-000000000000', // Test ID
-        embedding: testEmbedding,
-        created_at: new Date().toISOString()
-      });
-      
-    if (embeddingError) {
-      console.error('Error inserting test embedding:', embeddingError);
-      return false;
-    }
-    
-    console.log('Test embedding inserted successfully');
-    return true;
-  } catch (error) {
-    console.error('Database connection test failed:', error);
-    return false;
-  }
-};
-
-/**
- * Recognize a face from an image
- */
-export const recognizeFace = async (
-  imageData: string,
-  threshold = 0.65 // Using lower threshold for more permissive matching
-): Promise<{ success: boolean; builder?: Builder; message: string }> => {
-  try {
-    console.log('Starting face recognition with threshold:', threshold);
-    
-    // Ensure models are initialized first
-    const modelsInitialized = await initModels();
-    if (!modelsInitialized) {
-      console.error('Face models failed to initialize during recognition');
-      return { success: false, message: 'Face recognition models failed to load. Please try again.' };
-    }
-    
-    // Process the image to get face embedding
-    const result = await processFaceForRegistration(imageData);
-    
-    if (!result.success || !result.embedding) {
-      console.error('Face processing failed during recognition:', result.error);
-      return { success: false, message: result.error || 'Face processing failed' };
-    }
-    
-    console.log('Face embedding generated, finding closest match...');
-    
-    // Find the closest match
-    const match = await findClosestMatch(result.embedding, threshold);
-    
-    if (!match) {
-      console.warn('No matching face found with threshold:', threshold);
-      return { success: false, message: 'No matching face found. Please try again or register your face.' };
-    }
-    
-    console.log('Face successfully matched to:', match.name);
-    return { success: true, builder: match, message: 'Face successfully recognized' };
-  } catch (error) {
-    console.error('Error recognizing face:', error);
-    return { success: false, message: 'Error during face recognition' };
-  }
-};
-
-/**
- * Set up a complete test for face registration flow
- */
-export const testRegistrationFlow = async (studentId: string, imageData: string): Promise<boolean> => {
+): Promise<boolean> => {
   console.group('Registration Flow Test');
   
   try {
     // Step 1: Test model initialization
     console.log('1. Testing model initialization...');
+    const { initModels } = await import('./browser-facenet');
     const modelsInitialized = await initModels();
     console.log('Models initialized:', modelsInitialized);
     
@@ -254,6 +29,7 @@ export const testRegistrationFlow = async (studentId: string, imageData: string)
     
     // Step 2: Test face detection
     console.log('2. Testing face detection...');
+    const { detectFaces } = await import('./browser-facenet');
     const facesResult = await detectFaces(imageData);
     console.log('Face detection result:', facesResult);
     
@@ -265,6 +41,7 @@ export const testRegistrationFlow = async (studentId: string, imageData: string)
     
     // Step 3: Test embedding generation
     console.log('3. Testing embedding generation...');
+    const { generateEmbedding } = await import('./browser-facenet');
     const embedding = await generateEmbedding(imageData);
     console.log('Embedding generated:', embedding ? 'Yes (length: ' + embedding.length + ')' : 'No');
     
@@ -279,8 +56,14 @@ export const testRegistrationFlow = async (studentId: string, imageData: string)
     const stored = await storeFaceEmbedding(studentId, embedding, imageData);
     console.log('Database insertion result:', stored);
     
+    // Step 5: Test profile image update
+    console.log('5. Testing profile image update...');
+    const { updateBuilderAvatar } = await import('./registration/updateAvatar');
+    const avatarUpdated = await updateBuilderAvatar(studentId, imageData);
+    console.log('Avatar update result:', avatarUpdated);
+    
     console.groupEnd();
-    return stored;
+    return stored && avatarUpdated;
   } catch (error) {
     console.error('Registration flow test error:', error);
     console.groupEnd();
@@ -289,47 +72,355 @@ export const testRegistrationFlow = async (studentId: string, imageData: string)
 };
 
 /**
- * A simplified recognition test for debugging
+ * Process a face image for registration
  */
-export const testSimpleRecognition = async (): Promise<Builder | null> => {
+export const processFaceForRegistration = async (
+  imageData: string
+): Promise<{
+  success: boolean;
+  embedding?: number[];
+  faceImageData?: string;
+  error?: string;
+}> => {
   try {
-    // Bypass the complex recognition process for testing
-    // 1. Get all students with face data
-    const { data: students } = await supabase
-      .from('students')
-      .select('id, first_name, last_name, student_id, image_url')
-      .not('image_url', 'is', null);
+    // First, initialize the face recognition models
+    const { initModels, detectFaces, generateEmbedding } = await import("./browser-facenet");
+    await initModels();
+    
+    // Next, detect faces in the image
+    const faces = await detectFaces(imageData);
+    
+    // If no face was detected, return error
+    if (!faces || faces.length === 0) {
+      console.error("No face detected in the image during registration");
+      return {
+        success: false,
+        error: "No face detected. Please ensure your face is clearly visible."
+      };
+    }
+    
+    // If multiple faces detected, we'll use the largest face
+    if (faces.length > 1) {
+      console.warn(`Multiple faces (${faces.length}) detected during registration`);
+      // Sort by area (product of width and height)
+      faces.sort((a, b) => 
+        (b.width * b.height) - (a.width * a.height)
+      );
+    }
+    
+    // Generate face embedding for the detected face
+    const embedding = await generateEmbedding(imageData);
+    
+    if (!embedding || embedding.length === 0) {
+      return {
+        success: false,
+        error: "Failed to generate face embedding"
+      };
+    }
+    
+    return {
+      success: true,
+      embedding,
+      faceImageData: imageData
+    };
+  } catch (error) {
+    console.error("Error processing face for registration:", error);
+    return {
+      success: false,
+      error: "Error processing face: " + (error instanceof Error ? error.message : "Unknown error")
+    };
+  }
+};
+
+/**
+ * Store a face embedding in the database
+ */
+export const storeFaceEmbedding = async (
+  studentId: string,
+  embedding: number[],
+  imageData?: string
+): Promise<boolean> => {
+  try {
+    console.log(`Storing face embedding for student ${studentId}`);
+    
+    // Ensure embedding is in the expected format
+    if (!Array.isArray(embedding) || embedding.length === 0) {
+      console.error("Invalid embedding format:", embedding);
+      return false;
+    }
+    
+    // Store the embedding in the database
+    const { error } = await supabase
+      .from("face_embeddings")
+      .insert({
+        student_id: studentId,
+        embedding: embedding,
+        image_data: imageData || null
+      });
+    
+    if (error) {
+      console.error("Error storing face embedding:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Exception storing face embedding:", error);
+    return false;
+  }
+};
+
+/**
+ * Register a face directly using the Facenet model
+ */
+export const registerFace = async (
+  studentId: string,
+  imageData: string
+): Promise<{
+  success: boolean;
+  message: string;
+}> => {
+  try {
+    console.log(`Starting face registration for student ${studentId} using Facenet`);
+    
+    // First attempt to process the face using facenet
+    const result = await processFaceForRegistration(imageData);
+    
+    if (!result.success || !result.embedding) {
+      // If facenet processing fails, use the fallback registration method
+      console.log("Facenet processing failed, using fallback registration method");
+      const { registerFaceImage } = await import("./registration/registerFace");
+      const fallbackResult = await registerFaceImage(studentId, imageData, false);
       
-    if (!students || students.length === 0) {
-      console.log('No students with face data found');
+      if (fallbackResult.success) {
+        console.log("Fallback registration successful");
+        return { 
+          success: true, 
+          message: "Face registered successfully with fallback method"
+        };
+      } else {
+        console.error("Both Facenet and fallback registration failed");
+        return { 
+          success: false, 
+          message: fallbackResult.message || "Registration failed with both methods"
+        };
+      }
+    }
+    
+    // Log the embedding being generated for debugging
+    console.log(`Generated embedding for student ${studentId}, length: ${result.embedding.length}`);
+    
+    // Store the embedding in the database
+    const embeddingStored = await storeFaceEmbedding(
+      studentId, 
+      result.embedding,
+      result.faceImageData
+    );
+    
+    if (!embeddingStored) {
+      console.error("Failed to store embedding - falling back to simple registration");
+      
+      // If embedding storage fails, try the simpler registration method
+      const { registerFaceImage } = await import("./registration/registerFace");
+      const fallbackResult = await registerFaceImage(studentId, imageData, false);
+      
+      if (fallbackResult.success) {
+        return { 
+          success: true, 
+          message: "Face registered with basic method (embedding storage failed)"
+        };
+      } else {
+        return { 
+          success: false, 
+          message: "Registration failed completely"
+        };
+      }
+    }
+    
+    // Also update the avatar image in the student profile
+    const { updateBuilderAvatar } = await import("./registration/updateAvatar");
+    const avatarUpdated = await updateBuilderAvatar(studentId, imageData);
+    
+    if (!avatarUpdated) {
+      console.warn("Warning: Embedding stored but failed to update avatar");
+    }
+    
+    // Also store the face in face_registrations table for comprehensive access
+    const { registerFaceWithoutDetection } = await import("./registration/registerFaceWithoutDetection");
+    await registerFaceWithoutDetection(studentId, imageData);
+    
+    return {
+      success: true,
+      message: "Face registered successfully"
+    };
+  } catch (error) {
+    console.error("Error in registerFace:", error);
+    return {
+      success: false,
+      message: "An unexpected error occurred during registration"
+    };
+  }
+};
+
+/**
+ * Calculate Euclidean distance between two embeddings
+ */
+export const calculateEuclideanDistance = (
+  embedding1: number[],
+  embedding2: number[]
+): number => {
+  if (embedding1.length !== embedding2.length) {
+    throw new Error("Embeddings must have the same length");
+  }
+  
+  let sum = 0;
+  for (let i = 0; i < embedding1.length; i++) {
+    const diff = embedding1[i] - embedding2[i];
+    sum += diff * diff;
+  }
+  
+  return Math.sqrt(sum);
+};
+
+/**
+ * Find the closest match for a face embedding
+ */
+export const findClosestMatch = async (
+  embedding: number[],
+  threshold: number = 0.6
+): Promise<Builder | null> => {
+  try {
+    // Fetch all stored face embeddings
+    const { data: embeddings, error } = await supabase
+      .from("face_embeddings")
+      .select("student_id, embedding");
+    
+    if (error || !embeddings || embeddings.length === 0) {
+      console.error("Error fetching face embeddings:", error);
       return null;
     }
     
-    // 2. Pick the first student for testing
-    const student = students[0];
-    console.log('Using student for test recognition:', student.first_name, student.last_name);
+    let closestMatch: { studentId: string; distance: number } | null = null;
     
-    // 3. Create a builder object
-    return {
-      id: student.id,
-      name: `${student.first_name} ${student.last_name}`,
-      builderId: student.student_id || '',
-      status: 'present',
-      timeRecorded: new Date().toLocaleTimeString(),
-      image: student.image_url
-    };
+    // Find the closest match
+    for (const storedEmbedding of embeddings) {
+      const distance = calculateEuclideanDistance(embedding, storedEmbedding.embedding);
+      
+      if (distance < threshold && (!closestMatch || distance < closestMatch.distance)) {
+        closestMatch = {
+          studentId: storedEmbedding.student_id,
+          distance
+        };
+      }
+    }
+    
+    if (closestMatch) {
+      // Fetch student details
+      const { data: student, error: studentError } = await supabase
+        .from("students")
+        .select("*")
+        .eq("id", closestMatch.studentId)
+        .maybeSingle();
+      
+      if (studentError || !student) {
+        console.error("Error fetching student details:", studentError);
+        return null;
+      }
+      
+      // Convert to Builder object
+      const builder: Builder = {
+        id: student.id,
+        name: `${student.first_name} ${student.last_name}`,
+        builderId: student.student_id || "",
+        status: "present",
+        timeRecorded: new Date().toLocaleTimeString(),
+        image: student.image_url
+      };
+      
+      return builder;
+    }
+    
+    return null;
   } catch (error) {
-    console.error('Test simple recognition error:', error);
+    console.error("Error finding closest match:", error);
     return null;
   }
 };
 
-// Re-export functions from browser-facenet
-export { 
-  detectFaces,
-  generateEmbedding,
-  storeFaceEmbedding,
-  findClosestMatch,
-  calculateEuclideanDistance,
-  initModels
+/**
+ * Recognize a face in an image
+ */
+export const recognizeFace = async (
+  imageData: string
+): Promise<Builder | null> => {
+  try {
+    // Initialize models if not already done
+    const { initModels, detectFaces, generateEmbedding } = await import("./browser-facenet");
+    const initialized = await initModels();
+    
+    if (!initialized) {
+      console.error("Failed to initialize face recognition models");
+      toast.error("Face recognition not available");
+      return null;
+    }
+    
+    // Detect faces in the image
+    const faces = await detectFaces(imageData);
+    
+    if (!faces || faces.length === 0) {
+      console.log("No face detected in the image");
+      return null;
+    }
+    
+    // Generate embedding for the face
+    const embedding = await generateEmbedding(imageData);
+    
+    if (!embedding) {
+      console.error("Failed to generate face embedding");
+      return null;
+    }
+    
+    // Find the closest match
+    const match = await findClosestMatch(embedding);
+    
+    return match;
+  } catch (error) {
+    console.error("Error recognizing face:", error);
+    return null;
+  }
+};
+
+/**
+ * Generate embedding for a face image
+ */
+export const generateEmbedding = async (
+  imageData: string
+): Promise<number[] | null> => {
+  try {
+    const { initModels } = await import("./browser-facenet");
+    const { generateEmbedding: genEmbed } = await import("./browser-facenet");
+    
+    await initModels();
+    return await genEmbed(imageData);
+  } catch (error) {
+    console.error("Error generating embedding:", error);
+    return null;
+  }
+};
+
+/**
+ * Detect faces in an image
+ */
+export const detectFaces = async (
+  imageData: string
+): Promise<Array<{ x: number; y: number; width: number; height: number }> | null> => {
+  try {
+    const { initModels, detectFaces: detect } = await import("./browser-facenet");
+    
+    await initModels();
+    return await detect(imageData);
+  } catch (error) {
+    console.error("Error detecting faces:", error);
+    return null;
+  }
 };

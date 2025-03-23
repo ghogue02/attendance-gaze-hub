@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,7 +32,23 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
       try {
         console.log(`Fetching image for user: ${userName} (ID: ${userId})`);
         
-        // First try to get the image by userId
+        // First try to get the image from the students table
+        if (userId) {
+          const { data: studentData, error: studentError } = await supabase
+            .from('students')
+            .select('image_url')
+            .eq('id', userId)
+            .maybeSingle();
+            
+          if (!studentError && studentData?.image_url) {
+            console.log(`Found image in students table for ID ${userId}`);
+            setImageUrl(studentData.image_url);
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // If that fails, try face_registrations table
         if (userId) {
           const { data, error } = await supabase
             .from('face_registrations')
@@ -43,15 +58,11 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
             .limit(1)
             .maybeSingle();
             
-          if (error) {
-            console.error(`Error fetching face data for userId ${userId}:`, error);
-          } else if (data?.face_data) {
+          if (!error && data?.face_data) {
             console.log(`Found face data by ID ${userId}`);
             setImageUrl(data.face_data);
             setIsLoading(false);
             return;
-          } else {
-            console.log(`No face data found for ID ${userId}, checking other methods`);
           }
         }
         
@@ -60,17 +71,30 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           const gregId = '28bc877a-ba4a-4f73-bf58-90380a299b97';
           console.log('Using hardcoded ID for Greg Hogue:', gregId);
           
+          // First check students table
+          const { data: gregStudent, error: gregStudentError } = await supabase
+            .from('students')
+            .select('image_url')
+            .eq('id', gregId)
+            .maybeSingle();
+            
+          if (!gregStudentError && gregStudent?.image_url) {
+            console.log('Found image for Greg in students table');
+            setImageUrl(gregStudent.image_url);
+            setIsLoading(false);
+            return;
+          }
+          
+          // Then check face_registrations
           const { data, error } = await supabase
             .from('face_registrations')
             .select('face_data')
             .eq('student_id', gregId)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
             
-          if (error) {
-            console.error('Error fetching face registration for Greg:', error);
-          } else if (data?.face_data) {
+          if (!error && data?.face_data) {
             console.log('Found face data for Greg');
             setImageUrl(data.face_data);
             setIsLoading(false);
@@ -86,13 +110,9 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           return;
         }
       
-        // If all else fails, use the image from the builder object or show fallback
-        if (imageUrl) {
-          setIsLoading(false);
-        } else {
-          setImageError(true);
-          setIsLoading(false);
-        }
+        // If all else fails, show fallback
+        setImageError(true);
+        setIsLoading(false);
       } catch (error) {
         console.error('Error fetching user image:', error);
         setImageError(true);
@@ -101,7 +121,7 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
     };
     
     fetchUserImage();
-  }, [userName, userId, imageUrl]);
+  }, [userName, userId]);
 
   return (
     <Avatar className={`relative overflow-hidden ${className}`}>

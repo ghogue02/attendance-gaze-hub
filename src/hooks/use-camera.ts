@@ -32,7 +32,17 @@ export function useCamera({
   const startCamera = useCallback(async () => {
     try {
       setCameraError('');
+      
+      // First, make sure any previous streams are stopped
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      // Set capturing state to true before starting
       setIsCapturing(true);
+      
+      console.log("Starting camera with constraints:", videoConstraints);
       
       // Default constraints
       const defaultConstraints: CameraConstraints = {
@@ -48,13 +58,13 @@ export function useCamera({
         ...videoConstraints
       };
       
-      console.log("Starting camera with constraints:", constraints);
-      
+      // Try to get access to the camera
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: constraints,
         audio: false
       });
       
+      // Store the stream and set it as the video source
       streamRef.current = stream;
       
       if (videoRef.current) {
@@ -64,12 +74,36 @@ export function useCamera({
         videoRef.current.onloadedmetadata = () => {
           console.log("Camera ready with resolution:", 
             videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
-          onCameraStart?.();
+            
+          // Make sure video plays
+          videoRef.current?.play()
+            .then(() => {
+              console.log("Video playback started successfully");
+              onCameraStart?.();
+            })
+            .catch(playError => {
+              console.error("Error starting video playback:", playError);
+              setCameraError("Failed to start video playback. Please reload the page.");
+              setIsCapturing(false);
+            });
         };
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setCameraError('Unable to access camera. Please check permissions.');
+      let errorMessage = 'Unable to access camera. Please check permissions.';
+      
+      // More specific error messages
+      if (err instanceof DOMException) {
+        if (err.name === 'NotFoundError') {
+          errorMessage = 'No camera found. Please make sure your device has a camera.';
+        } else if (err.name === 'NotAllowedError') {
+          errorMessage = 'Camera access denied. Please allow camera access in your browser settings.';
+        } else if (err.name === 'AbortError') {
+          errorMessage = 'Camera setup was aborted. Please try again.';
+        }
+      }
+      
+      setCameraError(errorMessage);
       setIsCapturing(false);
     }
   }, [videoConstraints, onCameraStart]);
@@ -103,23 +137,39 @@ export function useCamera({
 
   // Capture the current frame from the video stream
   const captureImageData = useCallback((): string | null => {
-    if (!videoRef.current || !canvasRef.current) return null;
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('Video or canvas reference not available');
+      return null;
+    }
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     
-    if (!context) return null;
+    if (!context) {
+      console.error('Canvas context not available');
+      return null;
+    }
     
     // Set canvas to match video dimensions
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
+    if (canvas.width === 0 || canvas.height === 0) {
+      console.error('Invalid video dimensions:', canvas.width, 'x', canvas.height);
+      return null;
+    }
+    
     // Draw the current video frame to canvas
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
     // For optimal performance, use a lower quality JPEG
-    return canvas.toDataURL('image/jpeg', 0.9);
+    try {
+      return canvas.toDataURL('image/jpeg', 0.9);
+    } catch (err) {
+      console.error('Error converting canvas to data URL:', err);
+      return null;
+    }
   }, []);
 
   return {

@@ -1,4 +1,3 @@
-
 /**
  * Browser-compatible FaceNet implementation using TensorFlow.js
  * This provides similar functionality to node-facenet but works in browser environments
@@ -34,17 +33,45 @@ export const initModels = async (): Promise<boolean> => {
     isModelLoading = true;
     console.log('Loading browser-compatible face models...');
     
-    // Load the face detection model (BlazeFace is lightweight and works well in browsers)
-    faceDetectionModel = await tf.loadGraphModel(
-      'https://tfhub.dev/tensorflow/tfjs-model/blazeface/1/default/1', 
-      { fromTFHub: true }
-    );
+    // First, ensure TensorFlow.js is ready
+    await tf.ready();
     
-    // For facenet, we'll use a pre-trained MobileNet model that's been converted to TFJS
-    // In a real implementation, you would host this model on your own server or CDN
-    facenetModel = await tf.loadGraphModel(
-      'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json'
-    );
+    // Load the face detection model - using a more reliable model source
+    // We'll use the BlazeFace model which is lightweight and works well in browsers
+    try {
+      console.log('Loading BlazeFace detection model...');
+      faceDetectionModel = await tf.loadLayersModel(
+        'https://storage.googleapis.com/tfjs-models/tfjs/blazeface_v1/model.json'
+      );
+      console.log('BlazeFace model loaded successfully');
+    } catch (error) {
+      console.error('Error loading BlazeFace model:', error);
+      
+      // Try an alternative model as fallback
+      try {
+        console.log('Trying alternative face detection model...');
+        faceDetectionModel = await tf.loadGraphModel(
+          'https://tfhub.dev/mediapipe/tfjs-model/blazeface/1/default/1', 
+          { fromTFHub: true }
+        );
+        console.log('Alternative face detection model loaded successfully');
+      } catch (fallbackError) {
+        console.error('Error loading alternative face detection model:', fallbackError);
+        return false;
+      }
+    }
+    
+    // For facenet, we'll use MobileNet as a feature extractor
+    try {
+      console.log('Loading feature extraction model...');
+      facenetModel = await tf.loadLayersModel(
+        'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json'
+      );
+      console.log('Feature extraction model loaded successfully');
+    } catch (error) {
+      console.error('Error loading feature extraction model:', error);
+      return false;
+    }
     
     console.log('Face models loaded successfully');
     return true;
@@ -60,34 +87,70 @@ export const initModels = async (): Promise<boolean> => {
  * Detect faces in an image and return their bounding boxes
  */
 export const detectFaces = async (imageData: string): Promise<Array<{box: [number, number, number, number], confidence: number}> | null> => {
-  if (!await initModels()) return null;
-  
   try {
+    if (!await initModels()) {
+      console.error('Failed to initialize face detection models');
+      return null;
+    }
+    
     // Convert base64 image to tensor
-    const img = await tf.browser.fromPixelsAsync(await createImageBitmap(dataURItoBlob(imageData)));
+    const img = await createImageTensor(imageData);
+    if (!img) {
+      console.error('Failed to create image tensor from image data');
+      return null;
+    }
     
     // Normalize and prepare input
     const input = tf.tidy(() => {
+      // Resize to expected input size for BlazeFace
       return img.expandDims(0).toFloat().div(127.5).sub(1);
     });
     
     // Run detection
     const result = await faceDetectionModel!.predict(input) as any;
     
-    // Process results
-    const faces = await result[0].arraySync();
-    const confidences = await result[1].arraySync();
+    // Process results based on model type
+    let faces = [];
     
-    // Cleanup
-    tf.dispose([img, input, ...result]);
+    if (Array.isArray(result)) {
+      // BlazeFace model output format
+      const predictions = await result[0].arraySync();
+      const confidences = await result[1].arraySync();
+      
+      // Clean up tensors
+      tf.dispose([img, input, ...result]);
+      
+      if (!predictions || predictions.length === 0) {
+        console.log('No faces detected in image');
+        return [];
+      }
+      
+      // Format results
+      faces = predictions.map((face: number[], i: number) => ({
+        box: face.slice(0, 4) as [number, number, number, number],
+        confidence: confidences[i]
+      }));
+    } else {
+      // Alternative model output format
+      const predictions = await result.arraySync();
+      
+      // Clean up tensors
+      tf.dispose([img, input, result]);
+      
+      if (!predictions || predictions[0].length === 0) {
+        console.log('No faces detected in image');
+        return [];
+      }
+      
+      // Format results - adjust based on actual model output format
+      faces = predictions[0].map((pred: any) => ({
+        box: [pred.topLeft[0], pred.topLeft[1], pred.bottomRight[0], pred.bottomRight[1]] as [number, number, number, number],
+        confidence: pred.probability
+      }));
+    }
     
-    if (!faces || faces.length === 0) return [];
-    
-    // Format results
-    return faces.map((face: number[], i: number) => ({
-      box: face.slice(0, 4) as [number, number, number, number],
-      confidence: confidences[i]
-    }));
+    console.log(`Detected ${faces.length} faces in image`);
+    return faces;
   } catch (error) {
     console.error('Error detecting faces:', error);
     return null;
@@ -98,11 +161,18 @@ export const detectFaces = async (imageData: string): Promise<Array<{box: [numbe
  * Generate embedding for a face image
  */
 export const generateEmbedding = async (faceImageData: string): Promise<number[] | null> => {
-  if (!await initModels()) return null;
-  
   try {
+    if (!await initModels()) {
+      console.error('Failed to initialize face detection models');
+      return null;
+    }
+    
     // Convert face image to tensor
-    const img = await tf.browser.fromPixelsAsync(await createImageBitmap(dataURItoBlob(faceImageData)));
+    const img = await createImageTensor(faceImageData);
+    if (!img) {
+      console.error('Failed to create image tensor');
+      return null;
+    }
     
     // Resize to expected input size and normalize
     const input = tf.tidy(() => {
@@ -134,6 +204,36 @@ export const generateEmbedding = async (faceImageData: string): Promise<number[]
     return null;
   }
 };
+
+/**
+ * Helper function to create an image tensor from data URI
+ */
+async function createImageTensor(imageData: string): Promise<tf.Tensor3D | null> {
+  try {
+    // Check if the image data is valid
+    if (!imageData || !imageData.startsWith('data:image/')) {
+      console.error('Invalid image data format');
+      return null;
+    }
+    
+    // Create an HTML image element
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    // Wait for the image to load
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = imageData;
+    });
+    
+    // Convert to tensor
+    return tf.browser.fromPixels(img);
+  } catch (error) {
+    console.error('Error creating image tensor:', error);
+    return null;
+  }
+}
 
 /**
  * Store a face embedding in the database

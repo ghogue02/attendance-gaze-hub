@@ -62,32 +62,22 @@ export const processRecognition = async (
     try {
       if (debugMode) console.log('Attempting face recognition...');
       
-      // Check if the current user is authenticated first
-      const { data: userProfile } = await supabase.auth.getUser();
-      const isAuthenticated = !!userProfile?.user?.id;
-      
-      // Attempt to recognize with FaceNet
-      let facenetResult: RecognitionResult;
-      
-      try {
-        facenetResult = await Promise.race([
-          recognizeFaceWithFacenet(imageData, confidenceThreshold),
-          timeoutPromise
-        ]) as RecognitionResult;
-      } catch (facenetError) {
-        console.error('Face recognition error:', facenetError);
-        facenetResult = { 
-          success: false, 
-          message: facenetError instanceof Error 
-            ? facenetError.message 
-            : 'Face recognition failed' 
-        };
-        
-        // No fallback, just report the error
-        onError?.(facenetResult.message || 'Face recognition failed');
+      // First, try to detect if there's a face in the image at all
+      const faceDetectionResult = await detectFaces(imageData, false, 0);
+      if (!faceDetectionResult || faceDetectionResult.length === 0) {
+        console.log('No face detected in the image');
+        onError?.('No face detected in frame');
         onComplete?.();
         return;
       }
+      
+      console.log(`Detected ${faceDetectionResult.length} faces in the image`);
+      
+      // Attempt to recognize with FaceNet
+      const facenetResult: RecognitionResult = await Promise.race([
+        recognizeFaceWithFacenet(imageData, confidenceThreshold),
+        timeoutPromise
+      ]) as RecognitionResult;
       
       if (facenetResult.success && facenetResult.builder) {
         // Success with recognition
@@ -97,18 +87,14 @@ export const processRecognition = async (
         const { recognitionHistory, currentTime } = manageRecognitionHistory();
         updateRecognitionHistory(facenetResult.builder.id, recognitionHistory, currentTime);
         
-        // Record attendance using both methods with proper timestamp format
+        // Record attendance with proper timestamp format
         const now = new Date();
         const isoTimestamp = now.toISOString();
         
-        const attendanceResult1 = await recordAttendance(facenetResult.builder.id, "present", isoTimestamp);
-        const attendanceResult2 = await markAttendance(facenetResult.builder.id, "present");
+        const attendanceResult = await recordAttendance(facenetResult.builder.id, "present", isoTimestamp);
         
         if (debugMode) {
-          console.log('Attendance recording results:', { 
-            recordAttendance: attendanceResult1,
-            markAttendance: attendanceResult2
-          });
+          console.log('Attendance recording results:', attendanceResult);
         }
         
         // Notify of success

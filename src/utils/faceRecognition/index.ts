@@ -20,12 +20,13 @@ export * from './registration';
 export * from './setup';
 export * from './types';
 
-// Explicitly export functions from fallbackRecognition and facenetIntegration to avoid conflicts
+// Explicitly export functions from fallbackRecognition to avoid conflicts
 export { 
   registerFaceWithoutDetection,
   recognizeFaceBasic
 } from './fallbackRecognition';
 
+// Explicitly export functions from facenetIntegration with renamed exports to avoid conflicts
 export { 
   recognizeFace as recognizeFaceWithFacenet,
   registerFace,

@@ -1,6 +1,6 @@
 
 // Import existing functionalities
-import { selectStudentForRecognition, checkRecentlyRecognized } from './recognitionUtils';
+import { detectFaces, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory, manageRecognitionHistory } from './recognitionUtils';
 import { getRecognitionSettings } from './setup';
 import { recognizeFace } from './facenetIntegration';
 import { recognizeFaceBasic } from './fallbackRecognition';
@@ -36,11 +36,16 @@ export const processRecognition = async (
   
   try {
     // First check if we've recently recognized this person
-    if (isPassive && await checkRecentlyRecognized()) {
-      if (debugMode) console.log('Recently recognized, skipping');
-      onError?.('Recently recognized');
-      onComplete?.();
-      return;
+    if (isPassive) {
+      const { recognitionHistory, currentTime } = manageRecognitionHistory();
+      const recentlyRecognized = await checkRecentlyRecognized("all", recognitionHistory, currentTime);
+      
+      if (recentlyRecognized) {
+        if (debugMode) console.log('Recently recognized, skipping');
+        onError?.('Recently recognized');
+        onComplete?.();
+        return;
+      }
     }
     
     // Try the enhanced FaceNet approach first
@@ -54,7 +59,9 @@ export const processRecognition = async (
         if (debugMode) console.log('FaceNet recognition successful');
         
         // Record this successful recognition
-        await selectStudentForRecognition(result.builder.id);
+        const { recognitionHistory, currentTime } = manageRecognitionHistory();
+        updateRecognitionHistory(result.builder.id, recognitionHistory, currentTime);
+        await recordAttendance(result.builder.id, "present");
         
         // Notify of success
         onSuccess?.(result.builder);
@@ -72,14 +79,16 @@ export const processRecognition = async (
     // Fallback to basic recognition
     if (debugMode) console.log('Using fallback recognition...');
     
-    const fallbackResult = await recognizeFaceBasic(imageData);
+    const fallbackResult = await recognizeFaceBasic(imageData, settings.minConfidenceThreshold);
     
     if (fallbackResult.success && fallbackResult.builder) {
       // Fallback succeeded
       if (debugMode) console.log('Fallback recognition successful');
       
       // Record this successful recognition
-      await selectStudentForRecognition(fallbackResult.builder.id);
+      const { recognitionHistory, currentTime } = manageRecognitionHistory();
+      updateRecognitionHistory(fallbackResult.builder.id, recognitionHistory, currentTime);
+      await recordAttendance(fallbackResult.builder.id, "present");
       
       // Notify of success
       onSuccess?.(fallbackResult.builder);

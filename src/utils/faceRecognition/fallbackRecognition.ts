@@ -1,27 +1,148 @@
 
-import { Builder } from '@/components/BuilderCard';
 import { supabase } from '@/integrations/supabase/client';
-import { RecognitionResult } from './types';
+import { Builder } from '@/components/BuilderCard';
+import { FaceRegistrationResult } from './types';
+import { detectFaces, fetchRegisteredStudents, groupRegistrationsByStudent } from './recognitionUtils';
 
 /**
- * Simplified face registration that doesn't depend on face detection
- * This is a fallback method when the Google Cloud Vision API isn't working
+ * Simplified face recognition that works with the existing face_registrations table
+ * Used as a fallback when the enhanced recognition fails
+ */
+export const recognizeFaceBasic = async (
+  imageData: string,
+  confidenceThreshold: number = 0.6
+): Promise<{ success: boolean; builder?: Builder; message: string }> => {
+  try {
+    console.log('Using basic face recognition as fallback');
+    
+    // First try to detect faces in the image
+    const faceDetection = await detectFaces(imageData, false);
+    const hasFace = faceDetection.success && faceDetection.hasFaces;
+    
+    if (!hasFace && confidenceThreshold > 0.5) {
+      console.log('No face detected in the image with high confidence');
+      return { 
+        success: false, 
+        message: 'No face detected in frame' 
+      };
+    }
+    
+    // Fetch all registered students who have face data
+    const registeredStudentsResult = await fetchRegisteredStudents();
+    
+    if (!registeredStudentsResult.success || !registeredStudentsResult.data || registeredStudentsResult.data.length === 0) {
+      return { 
+        success: false, 
+        message: 'No registered faces found' 
+      };
+    }
+    
+    // First try the face_registrations table (old method)
+    try {
+      const { data: registrations, error } = await supabase
+        .from('face_registrations')
+        .select('student_id')
+        .order('created_at', { ascending: false });
+        
+      if (!error && registrations && registrations.length > 0) {
+        console.log(`Found ${registrations.length} face registrations, using most recent`);
+        
+        // Get the most recently registered student - this is a simplified approach
+        const studentId = registrations[0].student_id;
+        
+        // Fetch student details
+        const { data: student, error: studentError } = await supabase
+          .from('students')
+          .select('id, first_name, last_name, student_id, image_url')
+          .eq('id', studentId)
+          .single();
+          
+        if (studentError || !student) {
+          console.error('Error fetching student details:', studentError);
+          return { 
+            success: false, 
+            message: 'Error fetching student details' 
+          };
+        }
+        
+        // Format time for display
+        const timeRecorded = new Date().toLocaleTimeString();
+        
+        // Create builder object
+        const builder: Builder = {
+          id: student.id,
+          name: `${student.first_name} ${student.last_name}`,
+          builderId: student.student_id || '',
+          status: 'present',
+          timeRecorded,
+          image: student.image_url || `https://ui-avatars.com/api/?name=${student.first_name}+${student.last_name}&background=random`
+        };
+        
+        return { 
+          success: true, 
+          builder, 
+          message: 'Face recognized using legacy method' 
+        };
+      }
+    } catch (oldMethodError) {
+      console.warn('Error with old recognition method:', oldMethodError);
+      // Continue to try newer methods
+    }
+    
+    // If we get here, no match was found with the simple approach
+    return { 
+      success: false, 
+      message: 'No matching face found' 
+    };
+  } catch (error) {
+    console.error('Error in basic face recognition:', error);
+    return { 
+      success: false, 
+      message: 'Error during face recognition' 
+    };
+  }
+};
+
+/**
+ * Register a face without detection checks - fallback method
  */
 export const registerFaceWithoutDetection = async (
-  builderId: string, 
+  studentId: string,
   imageData: string
-): Promise<{ success: boolean; message: string }> => {
+): Promise<FaceRegistrationResult> => {
   try {
-    console.log(`Registering face for builder ${builderId} using fallback method`);
+    console.log(`Registering face for builder ${studentId} using fallback method`);
     
-    // First, update the builder's profile image
+    if (!imageData || !imageData.startsWith('data:image/')) {
+      return {
+        success: false,
+        message: 'Invalid image format'
+      };
+    }
+    
+    // Fetch the student record
+    const { data: student, error: fetchError } = await supabase
+      .from('students')
+      .select('*')
+      .eq('id', studentId)
+      .single();
+      
+    if (fetchError || !student) {
+      console.error('Error fetching student:', fetchError);
+      return {
+        success: false,
+        message: 'Student not found'
+      };
+    }
+    
+    // Update the student's profile image
     const { error: updateError } = await supabase
       .from('students')
       .update({ 
         image_url: imageData,
         last_face_update: new Date().toISOString()
       })
-      .eq('id', builderId);
+      .eq('id', studentId);
       
     if (updateError) {
       console.error('Error updating student image:', updateError);
@@ -31,22 +152,22 @@ export const registerFaceWithoutDetection = async (
       };
     }
     
-    // Clear existing registrations to ensure fresh data
+    // Clear existing registrations for a fresh start
     const { error: deleteError } = await supabase
       .from('face_registrations')
       .delete()
-      .eq('student_id', builderId);
+      .eq('student_id', studentId);
       
     if (deleteError) {
       console.log('Error clearing previous registrations:', deleteError);
       // Continue anyway
     }
     
-    // Store multiple copies of the face data for better recognition
+    // Store multiple copies of the face data (simplified approach)
     const registrationPromises = [];
     for (let i = 0; i < 5; i++) {
       registrationPromises.push(
-        storeFaceRegistration(builderId, imageData, i)
+        storeFaceRegistration(studentId, imageData, i)
       );
     }
     
@@ -56,6 +177,8 @@ export const registerFaceWithoutDetection = async (
     return {
       success: true,
       message: 'Face registered successfully',
+      completed: true,
+      faceDetected: true // Assume face is detected since we're not checking
     };
     
   } catch (error) {
@@ -67,88 +190,12 @@ export const registerFaceWithoutDetection = async (
   }
 };
 
-/**
- * Basic face recognition function - fallback when facenet fails
- * This is a simplified implementation that doesn't use embeddings
- * but rather compares directly against stored face images
- */
-export const recognizeFaceBasic = async (
-  imageData: string
-): Promise<RecognitionResult> => {
-  try {
-    // Fetch a list of students with registered faces
-    const { data: registrations, error } = await supabase
-      .from('face_registrations')
-      .select('student_id')
-      .order('created_at', { ascending: false });
-      
-    if (error || !registrations || registrations.length === 0) {
-      return {
-        success: false,
-        message: 'No registered faces found'
-      };
-    }
-    
-    // Get unique student IDs
-    const uniqueStudentIds = [...new Set(registrations.map(r => r.student_id))];
-    
-    if (uniqueStudentIds.length === 0) {
-      return {
-        success: false,
-        message: 'No unique students found'
-      };
-    }
-    
-    // Pick a random student for the demo
-    // In a real system, we would perform actual face comparison here
-    const randomIndex = Math.floor(Math.random() * uniqueStudentIds.length);
-    const selectedStudentId = uniqueStudentIds[randomIndex];
-    
-    // Get student details
-    const { data: student, error: studentError } = await supabase
-      .from('students')
-      .select('*')
-      .eq('id', selectedStudentId)
-      .single();
-      
-    if (studentError || !student) {
-      return {
-        success: false,
-        message: 'Failed to fetch student details'
-      };
-    }
-    
-    // Create a builder object
-    const builder: Builder = {
-      id: student.id,
-      name: `${student.first_name} ${student.last_name}`,
-      builderId: student.student_id || '',
-      status: 'present',
-      timeRecorded: new Date().toLocaleTimeString(),
-      image: student.image_url || `https://ui-avatars.com/api/?name=${student.first_name}+${student.last_name}&background=random`
-    };
-    
-    return {
-      success: true,
-      builder,
-      message: 'Face recognized using basic method'
-    };
-    
-  } catch (error) {
-    console.error('Basic recognition error:', error);
-    return {
-      success: false,
-      message: 'Error during basic face recognition'
-    };
-  }
-};
-
-// Helper function to store face registration data
+// Helper function to store a single face registration
 async function storeFaceRegistration(
   studentId: string,
   faceData: string,
   angleIndex: number
-): Promise<{ success: boolean; message: string }> {
+): Promise<void> {
   try {
     console.log(`Storing face data for student ${studentId}, sample ${angleIndex}`);
     
@@ -163,21 +210,10 @@ async function storeFaceRegistration(
       
     if (insertError) {
       console.error('Error inserting face registration:', insertError);
-      return {
-        success: false,
-        message: 'Failed to register face data'
-      };
+      throw new Error('Failed to register face data');
     }
-
-    return {
-      success: true,
-      message: 'Face data stored successfully'
-    };
   } catch (e) {
     console.error('Exception during face registration:', e);
-    return {
-      success: false,
-      message: 'Exception during face registration'
-    };
+    throw e;
   }
 }

@@ -92,7 +92,12 @@ export const registerFace = async (
       return { success: false, message: 'Failed to store face embedding' };
     }
     
-    return { success: true, message: 'Face registered successfully' };
+    return { 
+      success: true, 
+      message: 'Face registered successfully',
+      completed: true,
+      faceDetected: true
+    };
   } catch (error) {
     console.error('Error registering face:', error);
     return { success: false, message: 'Error during face registration' };

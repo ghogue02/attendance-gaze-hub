@@ -13,9 +13,9 @@ export {
   recordAttendance,
   updateRecognitionHistory,
   selectStudentForRecognition,
-  // We won't export checkFaceRegistrationStatus from here
-  // since it's already exported from registration/checkStatus
+  // Remove checkFaceRegistrationStatus export from here
 } from './recognitionUtils';
+// Export all registration-related functions
 export * from './registration';
 export * from './setup';
 export * from './types';

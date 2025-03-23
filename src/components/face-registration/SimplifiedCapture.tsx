@@ -56,8 +56,10 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
         toast.success('Face registered successfully!');
         onRegistrationComplete(true);
       } else {
-        // Fix: Check if result.message exists and is a string, otherwise use a default message
-        const errorMessage = typeof result === 'object' && result.message ? result.message : 'Registration failed';
+        // Fixed: Check if result is an object with a message property
+        const errorMessage = result && typeof result === 'object' && 'message' in result 
+          ? result.message 
+          : 'Registration failed';
         toast.error(errorMessage);
         onRegistrationComplete(false);
       }
@@ -75,7 +77,7 @@ export const SimplifiedCapture = ({ builder, onRegistrationComplete }: Simplifie
       <div className="text-center p-6 bg-destructive/10 rounded-lg">
         <h3 className="font-semibold text-lg mb-2">Camera Error</h3>
         <p className="text-muted-foreground mb-4">
-          {cameraError.message || 'Unable to access camera. Please check permissions and try again.'}
+          {cameraError}
         </p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Retry

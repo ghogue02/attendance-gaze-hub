@@ -37,7 +37,7 @@ export const processRecognition = async (
   
   const settings = getRecognitionSettings();
   // Use a higher confidence threshold to improve accuracy
-  const confidenceThreshold = Math.max(settings.minConfidenceThreshold, 0.9); // Increased threshold
+  const confidenceThreshold = Math.max(settings.minConfidenceThreshold, 0.7);
   
   // Add timeout to prevent getting stuck
   const timeoutPromise = new Promise((_, reject) => {
@@ -62,23 +62,46 @@ export const processRecognition = async (
     try {
       if (debugMode) console.log('Attempting face recognition...');
       
-      // First, try to detect if there's a face in the image at all
-      const faceDetectionResult = await detectFaces(imageData, false, 0);
+      // First, try to detect face using browser's local model (more reliable approach)
+      // Import the detectFaces function from browser-facenet directly for a direct check
+      const { detectFaces: detectFacesLocally } = await import('./browser-facenet');
+      const localFaceDetection = await detectFacesLocally(imageData);
       
-      // Check if faces were detected using the hasFaces property instead of length
-      if (!faceDetectionResult || !faceDetectionResult.hasFaces || (faceDetectionResult.faceCount && faceDetectionResult.faceCount === 0)) {
-        console.log('No face detected in the image');
+      // If local detection works, log that we're using it
+      let faceDetectedLocally = false;
+      if (localFaceDetection && localFaceDetection.length > 0) {
+        console.log('Face detected locally with browser model:', localFaceDetection.length, 'faces');
+        faceDetectedLocally = true;
+      } else {
+        console.log('No faces detected locally, will try server detection');
+      }
+      
+      // Try server-side detection as a second option if needed
+      let serverDetectionResult = null;
+      if (!faceDetectedLocally) {
+        try {
+          serverDetectionResult = await detectFaces(imageData, false, 0);
+          if (debugMode) {
+            console.log('Server detection result:', serverDetectionResult);
+          }
+        } catch (serverError) {
+          console.error('Server face detection failed, using local detection only:', serverError);
+        }
+      }
+      
+      // Combine results - use local detection as priority, fallback to server
+      const faceDetected = faceDetectedLocally || 
+        (serverDetectionResult && serverDetectionResult.hasFaces);
+      
+      if (!faceDetected) {
+        console.log('No face detected in the image by any method');
         onError?.('No face detected in frame');
         onComplete?.();
         return;
       }
       
-      // Log detected faces using faceCount property instead of length
-      if (faceDetectionResult.faceCount) {
-        console.log(`Detected ${faceDetectionResult.faceCount} faces in the image`);
-      } else {
-        console.log('Face detected in the image');
-      }
+      // Log detected faces
+      console.log('Face detected in the image, proceeding with recognition');
       
       // Attempt to recognize with FaceNet
       const facenetResult: RecognitionResult = await Promise.race([

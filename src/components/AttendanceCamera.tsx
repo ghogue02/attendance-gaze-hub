@@ -29,6 +29,7 @@ const AttendanceCamera = ({
   const [scanCount, setScanCount] = useState(0);
   const consecutiveFailsRef = useRef(0);
   const initialDelayCompleteRef = useRef(false);
+  const [initializingModels, setInitializingModels] = useState(false);
   
   const effectivePassiveInterval = passive ? (passiveInterval < 700 ? passiveInterval : 700) : passiveInterval;
 
@@ -57,6 +58,8 @@ const AttendanceCamera = ({
       consecutiveFailsRef.current = 0;
       initialDelayCompleteRef.current = false;
       
+      preloadRecognitionModels();
+      
       if (passive) {
         setTimeout(() => {
           initialDelayCompleteRef.current = true;
@@ -74,6 +77,25 @@ const AttendanceCamera = ({
       }
     }
   });
+  
+  const preloadRecognitionModels = async () => {
+    try {
+      setInitializingModels(true);
+      const { initModels } = await import('@/utils/faceRecognition/browser-facenet');
+      const success = await initModels();
+      
+      if (success) {
+        console.log('Face recognition models loaded successfully');
+      } else {
+        console.warn('Failed to load face recognition models');
+        toast.error('Face recognition initialization failed');
+      }
+    } catch (error) {
+      console.error('Error preloading models:', error);
+    } finally {
+      setInitializingModels(false);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -85,6 +107,11 @@ const AttendanceCamera = ({
 
   const captureImage = () => {
     if (!isCapturing) return;
+    
+    if (initializingModels) {
+      toast.error("Face recognition models are still loading, please wait");
+      return;
+    }
     
     setProcessingImage(true);
     setStatusMessage("Processing your image...");
@@ -103,6 +130,7 @@ const AttendanceCamera = ({
     processRecognition(imageData, {
       isPassive: false,
       debugMode: debugMode,
+      timeout: 15000,
       onSuccess: (builder) => {
         onBuilderDetected?.(builder);
         toast.success(`Builder successfully recognized: ${builder.name}`);
@@ -111,7 +139,12 @@ const AttendanceCamera = ({
         consecutiveFailsRef.current = 0;
       },
       onError: (message) => {
-        toast.error(message);
+        if (message === 'No face detected in frame') {
+          toast.error("No face detected. Please center your face in the frame and ensure good lighting.");
+        } else {
+          toast.error(message);
+        }
+        
         setStatusMessage("No match found. Please try again or register your face first.");
         
         setTimeout(() => {

@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
 import { toast } from 'sonner';
+import { getFormattedName } from '@/components/builder/BuilderCardUtils';
 
 /**
  * Gets all builders with their current attendance status for today
@@ -63,9 +64,12 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         status = 'excused';
       }
       
+      // Use the utility function to format name with nickname if available
+      const formattedName = getFormattedName(student.first_name, student.last_name || '', student.notes);
+      
       return {
         id: student.id,
-        name: `${student.first_name} ${student.last_name || ''}`.trim(),
+        name: formattedName,
         builderId: student.student_id || '',
         status: status,
         timeRecorded: attendanceRecord?.timeRecorded,

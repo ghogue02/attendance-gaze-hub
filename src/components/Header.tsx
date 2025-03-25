@@ -36,9 +36,9 @@ const Header = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
           <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-white font-bold">
-            FID
+            PAS
           </div>
-          <span className="font-semibold text-lg hidden sm:inline-block">FaceID Attendance</span>
+          <span className="font-semibold text-lg hidden sm:inline-block">Pursuit AI-Native Attendance</span>
         </Link>
 
         {/* Desktop Navigation */}

@@ -1,7 +1,6 @@
 
-import { Camera, UserCircle2, Search } from 'lucide-react';
+import { Camera, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 import { Builder } from '@/components/BuilderCard';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
@@ -125,19 +124,6 @@ export const AttendanceSection = ({
                     </Button>
                   </div>
                 )}
-                
-                <div className="flex justify-end mt-2">
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Link to="/register">
-                      <UserCircle2 size={16} />
-                      Register New Builder
-                    </Link>
-                  </Button>
-                </div>
               </>
             ) : (
               <p className="text-muted-foreground text-sm">

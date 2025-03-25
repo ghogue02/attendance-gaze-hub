@@ -1,131 +1,68 @@
 
-import { useRef, useState, useEffect } from 'react';
-import type { UseCameraProps, UseCameraReturn, CameraConstraints } from './types';
-import { captureImageFromVideo } from './captureImage';
-
 /**
- * Helper function to handle camera initialization
+ * Stops all media tracks in a MediaStream
  */
-export function initCamera(
-  videoRef: React.RefObject<HTMLVideoElement>,
-  constraints: MediaStreamConstraints
-): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia(constraints);
-}
-
-/**
- * Convert camera constraints object to MediaStreamConstraints
- */
-export function prepareConstraints(videoConstraints?: CameraConstraints): MediaStreamConstraints {
-  // Default video constraints
-  const defaultConstraints: CameraConstraints = {
-    facingMode: 'user',
-    width: { ideal: 1280 },
-    height: { ideal: 720 }
-  };
-
-  // Merge default constraints with provided constraints
-  const mergedVideoConstraints = videoConstraints 
-    ? { ...defaultConstraints, ...videoConstraints }
-    : defaultConstraints;
-
-  // Return properly formatted MediaStreamConstraints
-  return {
-    audio: false,
-    video: mergedVideoConstraints as MediaTrackConstraints
-  };
-}
-
-/**
- * Function to stop all tracks in a media stream
- */
-export function stopMediaStreamTracks(stream: MediaStream | null) {
+export const stopMediaStreamTracks = (stream: MediaStream): void => {
   if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-  }
-}
-
-/**
- * Format and return a user-friendly camera error message
- */
-export function getCameraErrorMessage(error: any): string {
-  if (!error) return 'Unknown camera error';
-  
-  if (error instanceof Error) {
-    const { name, message } = error;
-    
-    switch (name) {
-      case 'NotAllowedError':
-        return 'Camera access denied. Please allow camera access in your browser settings.';
-      case 'NotFoundError':
-        return 'No camera found on this device.';
-      case 'NotReadableError':
-        return 'Camera is in use by another application.';
-      case 'OverconstrainedError':
-        return 'Camera constraints cannot be satisfied.';
-      default:
-        return message || 'An error occurred accessing the camera.';
-    }
-  }
-  
-  return String(error);
-}
-
-/**
- * Check if the camera is available and has permissions
- */
-export async function checkCameraAvailability(): Promise<boolean> {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    
-    if (videoDevices.length === 0) {
-      return false;
-    }
-    
-    // Try to access the camera with minimal constraints
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: 'user' },
-      audio: false 
+    stream.getTracks().forEach(track => {
+      track.stop();
     });
-    
-    // Remember to stop all tracks to release the camera
-    stream.getTracks().forEach(track => track.stop());
-    
-    return true;
-  } catch (error) {
-    console.error('Error checking camera availability:', error);
-    return false;
   }
-}
+};
 
 /**
- * Format camera error messages for better user understanding
+ * Gets a user-friendly error message from a getUserMedia error
  */
-export function formatCameraError(error: unknown): string {
+export const getCameraErrorMessage = (error: any): string => {
   if (!error) return 'Unknown camera error';
   
-  if (error instanceof Error) {
-    const { name, message } = error;
-    
-    switch (name) {
-      case 'NotAllowedError':
-        return 'Camera access denied. Please allow camera access in your browser settings.';
-      case 'NotFoundError':
-        return 'No camera found on this device.';
-      case 'NotReadableError':
-        return 'Camera is in use by another application.';
-      case 'OverconstrainedError':
-        return 'Camera constraints cannot be satisfied.';
-      default:
-        return message || 'An error occurred accessing the camera.';
-    }
+  if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+    return 'Camera access denied. Please grant permission to use your camera.';
+  } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+    return 'No camera found on this device.';
+  } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+    return 'Camera is already in use by another application.';
+  } else if (error.name === 'OverconstrainedError') {
+    return 'Camera constraints not satisfied. Please try different settings.';
+  } else if (error.name === 'TypeError' || error.name === 'TypeError') {
+    return 'Invalid camera constraints.';
   }
   
-  return String(error);
-}
+  return `Camera error: ${error.message || error.name || 'Unknown'}`;
+};
 
 /**
- * Alias for prepareConstraints to maintain backward compatibility
+ * Merges default constraints with user provided constraints
  */
-export const mergeConstraints = prepareConstraints;
+export const mergeConstraints = (userConstraints: any = {}): MediaStreamConstraints => {
+  // Default constraints
+  const defaultConstraints: MediaStreamConstraints = {
+    video: {
+      facingMode: 'user',
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    },
+    audio: false
+  };
+  
+  // If user provided a simple boolean for video, use default video constraints
+  if (typeof userConstraints === 'boolean') {
+    return {
+      ...defaultConstraints,
+      video: userConstraints ? defaultConstraints.video : false
+    };
+  }
+  
+  // If user provided specific video constraints, merge them with defaults
+  if (userConstraints && typeof userConstraints === 'object') {
+    return {
+      video: {
+        ...(defaultConstraints.video as object),
+        ...userConstraints
+      },
+      audio: false
+    };
+  }
+  
+  return defaultConstraints;
+};

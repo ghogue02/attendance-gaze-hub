@@ -9,10 +9,6 @@ const Index = () => {
     isCameraActive,
     detectedBuilder,
     showIntro,
-    passiveMode,
-    debugMode,
-    setPassiveMode,
-    toggleDebugMode,
     handleBuilderDetected,
     startAttendance,
     reset
@@ -23,17 +19,11 @@ const Index = () => {
       <IndexContent
         isCameraActive={isCameraActive}
         detectedBuilder={detectedBuilder}
-        passiveMode={passiveMode}
-        debugMode={debugMode}
-        setPassiveMode={setPassiveMode}
-        toggleDebugMode={toggleDebugMode}
         handleBuilderDetected={handleBuilderDetected}
         startAttendance={startAttendance}
         reset={reset}
       />
       <AttendanceOptions
-        passiveMode={passiveMode}
-        setPassiveMode={setPassiveMode}
         startAttendance={startAttendance}
       />
     </IndexLayout>

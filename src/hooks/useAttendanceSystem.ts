@@ -1,30 +1,19 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Builder } from '@/components/BuilderCard';
 
 export const useAttendanceSystem = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [detectedBuilder, setDetectedBuilder] = useState<Builder | null>(null);
   const [showIntro, setShowIntro] = useState(true);
-  const [passiveMode, setPassiveMode] = useState(false);
-  const [debugMode, setDebugMode] = useState(true); // Enable debug mode by default
-
-  // Automatically start camera when passive mode is enabled
-  useEffect(() => {
-    if (passiveMode) {
-      startAttendance();
-    }
-  }, [passiveMode]);
 
   const handleBuilderDetected = (builder: Builder) => {
     setDetectedBuilder(builder);
     
-    // Don't automatically close camera in passive mode
-    if (!passiveMode) {
-      setTimeout(() => {
-        setIsCameraActive(false);
-      }, 1000);
-    }
+    // Automatically close camera after detection
+    setTimeout(() => {
+      setIsCameraActive(false);
+    }, 1000);
   };
 
   const startAttendance = () => {
@@ -37,32 +26,12 @@ export const useAttendanceSystem = () => {
     setDetectedBuilder(null);
     setIsCameraActive(false);
     setShowIntro(true);
-    setPassiveMode(false);
-  };
-
-  // Custom function to toggle passive mode
-  const togglePassiveMode = (value: boolean) => {
-    setPassiveMode(value);
-    
-    // If turning off passive mode and camera is active, close it
-    if (!value && isCameraActive) {
-      setIsCameraActive(false);
-    }
-  };
-
-  // Toggle debug mode
-  const toggleDebugMode = () => {
-    setDebugMode(prev => !prev);
   };
 
   return {
     isCameraActive,
     detectedBuilder,
     showIntro,
-    passiveMode,
-    debugMode,
-    setPassiveMode: togglePassiveMode,
-    toggleDebugMode,
     handleBuilderDetected,
     startAttendance,
     reset

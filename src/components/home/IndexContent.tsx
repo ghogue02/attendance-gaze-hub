@@ -1,53 +1,44 @@
 
-import React from 'react';
-import { AttendanceSection } from './AttendanceSection';
-import AttendanceOptions from './AttendanceOptions';
-import CameraSection from './CameraSection';
+import { motion } from 'framer-motion';
 import { Builder } from '@/components/BuilderCard';
-import { Button } from '@/components/ui/button';
+import CameraSection from './CameraSection';
+import { AttendanceSection } from './AttendanceSection';
 
 interface IndexContentProps {
   isCameraActive: boolean;
   detectedBuilder: Builder | null;
-  passiveMode: boolean;
-  debugMode?: boolean;
-  setPassiveMode: (passive: boolean) => void;
-  toggleDebugMode?: () => void;
-  handleBuilderDetected: (builder: Builder) => void;
   startAttendance: () => void;
+  handleBuilderDetected: (builder: Builder) => void;
   reset: () => void;
 }
 
-const IndexContent = ({
-  isCameraActive,
-  detectedBuilder,
-  passiveMode,
-  debugMode = true,
-  setPassiveMode,
-  toggleDebugMode,
-  handleBuilderDetected,
-  startAttendance,
-  reset
+const IndexContent = ({ 
+  isCameraActive, 
+  detectedBuilder, 
+  startAttendance, 
+  handleBuilderDetected, 
+  reset 
 }: IndexContentProps) => {
   return (
-    <div className="space-y-6 py-8">
-      <div className="grid grid-cols-1 gap-6">
+    <div className="grid lg:grid-cols-2 gap-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <AttendanceSection 
           isCameraActive={isCameraActive}
           detectedBuilder={detectedBuilder}
           startAttendance={startAttendance}
           reset={reset}
         />
-        
-        <CameraSection 
-          isCameraActive={isCameraActive}
-          detectedBuilder={detectedBuilder}
-          passiveMode={passiveMode}
-          debugMode={debugMode}
-          onBuilderDetected={handleBuilderDetected}
-          toggleDebugMode={toggleDebugMode}
-        />
-      </div>
+      </motion.div>
+      
+      <CameraSection
+        isCameraActive={isCameraActive}
+        detectedBuilder={detectedBuilder}
+        onBuilderDetected={handleBuilderDetected}
+      />
     </div>
   );
 };

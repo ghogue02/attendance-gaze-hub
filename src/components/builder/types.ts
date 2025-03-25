@@ -1,5 +1,5 @@
 
-export type BuilderStatus = 'present' | 'absent' | 'excused' | 'pending';
+export type BuilderStatus = 'present' | 'absent' | 'excused' | 'pending' | 'late';
 
 export interface Builder {
   id: string;

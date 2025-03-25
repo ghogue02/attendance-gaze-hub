@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -66,38 +65,26 @@ export const updateBuilderAvatar = async (
     
     const blob = new Blob(byteArrays, { type: mimeType });
     
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage directly now that we have proper RLS policies
     const filename = `avatar-${studentId}-${Date.now()}.${mimeType.split('/')[1] || 'jpg'}`;
     console.log(`Uploading image to avatars/${filename}`);
     
-    // Use a publicly signed URL instead of direct upload to avoid RLS issues
-    const { data: signedURL, error: signedURLError } = await supabase
+    // Direct upload to the bucket since we have the proper policies now
+    const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from('avatars')
-      .createSignedUploadUrl(filename);
+      .upload(filename, blob, {
+        contentType: mimeType,
+        upsert: true
+      });
       
-    if (signedURLError || !signedURL) {
-      console.error('Error creating signed URL:', signedURLError);
-      toast.error(`Failed to create upload URL: ${signedURLError?.message || 'Unknown error'}`);
+    if (uploadError) {
+      console.error('Error uploading to storage:', uploadError);
+      toast.error(`Failed to upload image: ${uploadError.message}`);
       return false;
     }
     
-    // Upload the file using the signed URL
-    const uploadResponse = await fetch(signedURL.signedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': mimeType
-      },
-      body: blob
-    });
-    
-    if (!uploadResponse.ok) {
-      console.error('Error uploading to storage:', uploadResponse.statusText);
-      toast.error(`Failed to upload image: ${uploadResponse.statusText}`);
-      return false;
-    }
-    
-    console.log('Image uploaded successfully to path:', signedURL.path);
+    console.log('Image uploaded successfully to path:', uploadData.path);
     
     // Get the public URL
     const { data: { publicUrl } } = supabase
@@ -149,6 +136,22 @@ export const updateBuilderAvatar = async (
       console.log('Profile updated via fallback upsert');
     } else {
       console.log('Student image updated successfully:', updateResult.data[0].id);
+    }
+    
+    // Also update face_registrations table to keep face data consistent
+    const { error: faceRegError } = await supabase
+      .from('face_registrations')
+      .insert({
+        student_id: studentId,
+        face_data: imageData,
+        angle_index: 0 // Default angle
+      });
+      
+    if (faceRegError) {
+      console.warn('Note: Could not update face_registrations table:', faceRegError);
+      // Continue anyway since the profile was updated successfully
+    } else {
+      console.log('Face registration data also updated');
     }
     
     return true;

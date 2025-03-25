@@ -59,7 +59,6 @@ export const AttendanceSection = ({
           <div className="flex flex-col space-y-4">
             {!isCameraActive ? (
               <>
-                <Label htmlFor="builder-search">Search for your name or ID</Label>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
                   <Input

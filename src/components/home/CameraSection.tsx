@@ -48,7 +48,7 @@ const InactiveCameraState = () => {
       </div>
       <h3 className="text-xl font-semibold mb-2">Attendance Camera</h3>
       <p className="text-muted-foreground max-w-xs mb-4">
-        Search for your name, select yourself, and then take a photo to mark your attendance
+        Find your name, then take a photo to mark your attendance
       </p>
     </div>
   );

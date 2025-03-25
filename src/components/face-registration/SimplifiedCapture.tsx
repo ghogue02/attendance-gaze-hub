@@ -35,8 +35,8 @@ export const SimplifiedCapture = ({
     isCameraActive: true,
     videoConstraints: {
       facingMode: 'user',
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
+      width: { min: 640, ideal: 1280, max: 1920 },
+      height: { min: 480, ideal: 720, max: 1080 }
     },
     onCameraStart: async () => {
       console.log('Camera started, loading registration status...');
@@ -55,7 +55,6 @@ export const SimplifiedCapture = ({
     }
   });
   
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (retryTimeoutRef.current) {
@@ -143,7 +142,6 @@ export const SimplifiedCapture = ({
     }, 1000);
   };
   
-  // If camera error occurs, show error UI
   if (cameraError) {
     return (
       <div className="text-center p-6 bg-destructive/10 rounded-lg">

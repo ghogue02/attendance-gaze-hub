@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, RefreshCw, Check } from 'lucide-react';
+import { Camera, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCamera } from '@/hooks/camera';
 import { markAttendance } from '@/utils/attendance/markAttendance';
@@ -67,6 +67,8 @@ const SimpleAttendanceCamera = ({
         return;
       }
       
+      console.log('Image captured successfully, processing attendance...');
+      
       let builder: Builder;
       
       if (selectedBuilder) {
@@ -80,13 +82,21 @@ const SimpleAttendanceCamera = ({
           console.error('Error updating profile image');
           toast.error('Error updating your profile image');
         } else {
+          console.log('Profile image updated successfully');
           toast.success('Profile image updated successfully');
         }
         
-        // Mark attendance
-        await markAttendance(builder.id, 'present');
+        // Mark attendance with explicit "present" status
+        const attendanceResult = await markAttendance(builder.id, 'present');
         
-        // Update the builder object with the new image
+        if (!attendanceResult) {
+          console.error('Failed to mark attendance');
+          toast.error('Failed to mark attendance');
+        } else {
+          console.log('Attendance marked successfully');
+        }
+        
+        // Update the builder object with the new image and status
         builder = {
           ...builder,
           image: imageData,
@@ -130,8 +140,13 @@ const SimpleAttendanceCamera = ({
           toast.success('Profile image updated successfully');
         }
         
-        // Mark attendance
-        await markAttendance(builderData.id, 'present');
+        // Mark attendance - make sure we use 'present' status
+        const attendanceResult = await markAttendance(builderData.id, 'present');
+        
+        if (!attendanceResult) {
+          console.error('Failed to mark attendance');
+          toast.error('Failed to mark attendance');
+        }
         
         // Create builder object from the database result
         builder = {
@@ -152,7 +167,7 @@ const SimpleAttendanceCamera = ({
       toast.success(`Attendance marked for ${builder.name}`);
       setStatusMessage('Attendance successfully marked!');
       
-      // Call the callback
+      // Call the callback with the updated builder information
       onAttendanceMarked(builder);
       
     } catch (error) {

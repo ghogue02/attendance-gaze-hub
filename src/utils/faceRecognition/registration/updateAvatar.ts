@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -39,6 +38,35 @@ export const updateBuilderAvatar = async (
     }
     
     console.log('Student record updated successfully');
+    
+    // Also update the most recent face_registration for this student to keep data consistent
+    try {
+      const { data: registrations, error: fetchError } = await supabase
+        .from('face_registrations')
+        .select('id')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (!fetchError && registrations && registrations.length > 0) {
+        const registrationId = registrations[0].id;
+        
+        const { error: updateRegError } = await supabase
+          .from('face_registrations')
+          .update({ face_data: imageData })
+          .eq('id', registrationId);
+          
+        if (updateRegError) {
+          console.error('Error updating face registration:', updateRegError);
+          // Continue anyway, this is not critical
+        } else {
+          console.log('Face registration updated successfully');
+        }
+      }
+    } catch (regError) {
+      console.error('Error handling face registration update:', regError);
+      // This is not critical, so we continue
+    }
     
     return true;
   } catch (error) {

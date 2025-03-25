@@ -11,6 +11,8 @@ export const markAttendance = async (
   status: string = 'present'
 ): Promise<boolean> => {
   try {
+    console.log(`Marking attendance for student ID: ${studentId} with status: ${status}`);
+    
     // Check if attendance has already been recorded for today
     const today = new Date().toISOString().split('T')[0];
     
@@ -28,6 +30,8 @@ export const markAttendance = async (
     
     // If attendance already exists, update it
     if (existingAttendance) {
+      console.log(`Updating existing attendance record (ID: ${existingAttendance.id}) to status: ${status}`);
+      
       const { error: updateError } = await supabase
         .from('attendance')
         .update({
@@ -41,11 +45,14 @@ export const markAttendance = async (
         return false;
       }
       
+      console.log('Attendance record updated successfully');
       return true;
     }
     
     // Otherwise, insert new attendance record
-    const { error: insertError } = await supabase
+    console.log(`Creating new attendance record for student ${studentId} with status: ${status}`);
+    
+    const { data, error: insertError } = await supabase
       .from('attendance')
       .insert({
         student_id: studentId,
@@ -59,6 +66,7 @@ export const markAttendance = async (
       return false;
     }
     
+    console.log('Attendance record created successfully');
     return true;
   } catch (error) {
     console.error('Error in markAttendance:', error);

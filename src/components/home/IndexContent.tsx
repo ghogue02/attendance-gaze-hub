@@ -7,16 +7,22 @@ import { AttendanceSection } from './AttendanceSection';
 interface IndexContentProps {
   isCameraActive: boolean;
   detectedBuilder: Builder | null;
+  selectedBuilder: Builder | null;
+  builders: Builder[];
   startAttendance: () => void;
   handleBuilderDetected: (builder: Builder) => void;
+  handleSelectBuilder: (builder: Builder) => void;
   reset: () => void;
 }
 
 const IndexContent = ({ 
   isCameraActive, 
-  detectedBuilder, 
+  detectedBuilder,
+  selectedBuilder,
+  builders,
   startAttendance, 
   handleBuilderDetected, 
+  handleSelectBuilder,
   reset 
 }: IndexContentProps) => {
   return (
@@ -31,12 +37,15 @@ const IndexContent = ({
           detectedBuilder={detectedBuilder}
           startAttendance={startAttendance}
           reset={reset}
+          onSelectBuilder={handleSelectBuilder}
+          builders={builders}
         />
       </motion.div>
       
       <CameraSection
         isCameraActive={isCameraActive}
         detectedBuilder={detectedBuilder}
+        selectedBuilder={selectedBuilder}
         onBuilderDetected={handleBuilderDetected}
       />
     </div>

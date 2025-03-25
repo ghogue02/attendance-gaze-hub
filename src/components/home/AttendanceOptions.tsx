@@ -4,10 +4,12 @@ import { Camera } from 'lucide-react';
 
 interface AttendanceOptionsProps {
   startAttendance: () => void;
+  isBuilderSelected: boolean;
 }
 
 const AttendanceOptions = ({ 
-  startAttendance 
+  startAttendance,
+  isBuilderSelected
 }: AttendanceOptionsProps) => {
   return (
     <div className="glass-card p-6 mt-6">
@@ -17,6 +19,7 @@ const AttendanceOptions = ({
         <Button
           onClick={startAttendance}
           className="flex-1 flex items-center justify-center gap-2"
+          disabled={!isBuilderSelected}
         >
           <Camera size={20} />
           Take Attendance Photo

@@ -11,11 +11,13 @@ import { supabase } from '@/integrations/supabase/client';
 interface SimpleAttendanceCameraProps {
   onAttendanceMarked: (builder: Builder) => void;
   isCameraActive: boolean;
+  selectedBuilder?: Builder | null;
 }
 
 const SimpleAttendanceCamera = ({ 
   onAttendanceMarked, 
-  isCameraActive 
+  isCameraActive,
+  selectedBuilder = null
 }: SimpleAttendanceCameraProps) => {
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>('Position yourself in the frame');
@@ -32,8 +34,8 @@ const SimpleAttendanceCamera = ({
     isCameraActive,
     videoConstraints: {
       facingMode: 'user',
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
+      width: { min: 640, ideal: 1280, max: 1920 },
+      height: { min: 480, ideal: 720, max: 1080 }
     },
     onCameraStart: () => {
       setStatusMessage('Camera ready. Center yourself in the frame.');
@@ -64,54 +66,86 @@ const SimpleAttendanceCamera = ({
         return;
       }
       
-      // Show a dialog to select builder ID
-      const builderIdInput = prompt('Enter your Builder ID:');
-      if (!builderIdInput) {
-        setStatusMessage('Attendance marking cancelled.');
-        setProcessing(false);
-        return;
-      }
+      let builder: Builder;
       
-      // Search for the builder in the database
-      const { data: builderData, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('student_id', builderIdInput)
-        .maybeSingle();
+      if (selectedBuilder) {
+        // Use the pre-selected builder
+        builder = selectedBuilder;
         
-      if (error || !builderData) {
-        toast.error('Builder not found. Please check your ID.');
-        setStatusMessage('Builder not found. Please try again.');
-        setProcessing(false);
-        return;
-      }
-      
-      // Update the builder's profile image with the captured image
-      const { error: updateError } = await supabase
-        .from('students')
-        .update({ image_url: imageData })
-        .eq('id', builderData.id);
+        // Update the builder's profile image with the captured image
+        const { error: updateError } = await supabase
+          .from('students')
+          .update({ image_url: imageData })
+          .eq('id', builder.id);
+          
+        if (updateError) {
+          console.error('Error updating profile image:', updateError);
+        }
         
-      if (updateError) {
-        console.error('Error updating profile image:', updateError);
+        // Mark attendance
+        await markAttendance(builder.id, 'present');
+        
+        // Update the builder object with the new image
+        builder = {
+          ...builder,
+          image: imageData,
+          status: 'present',
+          timeRecorded: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })
+        };
+      } else {
+        // If no builder is selected, prompt for builder ID (fallback)
+        const builderIdInput = prompt('Enter your Builder ID:');
+        if (!builderIdInput) {
+          setStatusMessage('Attendance marking cancelled.');
+          setProcessing(false);
+          return;
+        }
+        
+        // Search for the builder in the database
+        const { data: builderData, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('student_id', builderIdInput)
+          .maybeSingle();
+          
+        if (error || !builderData) {
+          toast.error('Builder not found. Please check your ID.');
+          setStatusMessage('Builder not found. Please try again.');
+          setProcessing(false);
+          return;
+        }
+        
+        // Update the builder's profile image with the captured image
+        const { error: updateError } = await supabase
+          .from('students')
+          .update({ image_url: imageData })
+          .eq('id', builderData.id);
+          
+        if (updateError) {
+          console.error('Error updating profile image:', updateError);
+        }
+        
+        // Mark attendance
+        await markAttendance(builderData.id, 'present');
+        
+        // Create builder object from the database result
+        builder = {
+          id: builderData.id,
+          name: `${builderData.first_name} ${builderData.last_name}`,
+          builderId: builderData.student_id || '',
+          status: 'present',
+          timeRecorded: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          }),
+          image: imageData
+        };
       }
-      
-      // Mark attendance
-      const now = new Date();
-      const timeRecorded = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true});
-      const isoTimestamp = now.toISOString();
-      
-      await markAttendance(builderData.id, 'present');
-      
-      // Create builder object from the database result
-      const builder: Builder = {
-        id: builderData.id,
-        name: `${builderData.first_name} ${builderData.last_name}`,
-        builderId: builderData.student_id || '',
-        status: 'present',
-        timeRecorded,
-        image: imageData
-      };
       
       // Notify success
       toast.success(`Attendance marked for ${builder.name}`);

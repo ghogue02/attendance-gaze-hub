@@ -8,12 +8,14 @@ import BuilderResult from './BuilderResult';
 interface CameraSectionProps {
   isCameraActive: boolean;
   detectedBuilder: Builder | null;
+  selectedBuilder: Builder | null;
   onBuilderDetected: (builder: Builder) => void;
 }
 
 const CameraSection = ({
   isCameraActive,
   detectedBuilder,
+  selectedBuilder,
   onBuilderDetected
 }: CameraSectionProps) => {
   return (
@@ -27,6 +29,7 @@ const CameraSection = ({
         <SimpleAttendanceCamera 
           onAttendanceMarked={onBuilderDetected}
           isCameraActive={isCameraActive}
+          selectedBuilder={selectedBuilder}
         />
       ) : detectedBuilder ? (
         <BuilderResult detectedBuilder={detectedBuilder} />
@@ -45,7 +48,7 @@ const InactiveCameraState = () => {
       </div>
       <h3 className="text-xl font-semibold mb-2">Attendance Camera</h3>
       <p className="text-muted-foreground max-w-xs mb-4">
-        Click "Start Attendance Camera" to activate the camera and take a picture to mark your attendance
+        Search for your name, select yourself, and then take a photo to mark your attendance
       </p>
     </div>
   );

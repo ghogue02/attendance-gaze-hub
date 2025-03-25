@@ -39,29 +39,34 @@ export const updateBuilderAvatar = async (
     
     console.log('Student record updated successfully');
     
-    // Also update the most recent face_registration for this student to keep data consistent
+    // Also update all face_registration entries for this student to keep data consistent
     try {
+      // First, fetch all face registrations for this student
       const { data: registrations, error: fetchError } = await supabase
         .from('face_registrations')
         .select('id')
-        .eq('student_id', studentId)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .eq('student_id', studentId);
         
-      if (!fetchError && registrations && registrations.length > 0) {
-        const registrationId = registrations[0].id;
+      if (fetchError) {
+        console.error('Error fetching face registrations:', fetchError);
+        // Continue anyway since updating the main student record was successful
+      } else if (registrations && registrations.length > 0) {
+        console.log(`Found ${registrations.length} face registrations to update`);
         
+        // Update all face registrations with the new image
         const { error: updateRegError } = await supabase
           .from('face_registrations')
           .update({ face_data: imageData })
-          .eq('id', registrationId);
+          .eq('student_id', studentId);
           
         if (updateRegError) {
-          console.error('Error updating face registration:', updateRegError);
+          console.error('Error updating face registrations:', updateRegError);
           // Continue anyway, this is not critical
         } else {
-          console.log('Face registration updated successfully');
+          console.log('Face registrations updated successfully');
         }
+      } else {
+        console.log('No existing face registrations found for this student');
       }
     } catch (regError) {
       console.error('Error handling face registration update:', regError);

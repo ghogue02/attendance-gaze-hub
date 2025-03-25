@@ -52,7 +52,7 @@ export const markAttendance = async (
     // Otherwise, insert new attendance record
     console.log(`Creating new attendance record for student ${studentId} with status: ${status}`);
     
-    const { data, error: insertError } = await supabase
+    const { error: insertError } = await supabase
       .from('attendance')
       .insert({
         student_id: studentId,

@@ -42,6 +42,12 @@ export const StatsSection = () => {
         const attendanceRate = totalBuilders ? 
           Math.round((presentCount / totalBuilders) * 100) : 0;
           
+        console.log('Stats updated:', {
+          totalBuilders,
+          presentCount,
+          attendanceRate
+        });
+          
         setStats({
           totalBuilders: totalBuilders || 0,
           attendanceRate
@@ -51,7 +57,28 @@ export const StatsSection = () => {
       }
     };
     
+    // Fetch stats initially
     fetchStats();
+    
+    // Set up a subscription to the attendance table
+    const attendanceChannel = supabase
+      .channel('attendance-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'attendance' }, 
+        () => {
+          console.log('Attendance change detected, refreshing stats');
+          fetchStats();
+        }
+      )
+      .subscribe();
+      
+    // Refresh stats every minute as a fallback
+    const refreshInterval = setInterval(fetchStats, 60000);
+    
+    return () => {
+      clearInterval(refreshInterval);
+      supabase.removeChannel(attendanceChannel);
+    };
   }, []);
 
   return (

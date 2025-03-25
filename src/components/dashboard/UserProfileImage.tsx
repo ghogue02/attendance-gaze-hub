@@ -25,107 +25,124 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
       .toUpperCase();
   };
 
-  useEffect(() => {
-    const fetchUserImage = async () => {
-      setIsLoading(true);
-      setImageError(false);
+  // Create a function to fetch the image that can be reused
+  const fetchUserImage = async () => {
+    setIsLoading(true);
+    setImageError(false);
+    
+    try {
+      console.log(`Fetching image for user: ${userName} (ID: ${userId})`);
       
-      try {
-        console.log(`Fetching image for user: ${userName} (ID: ${userId})`);
-        
-        // First try to get the image from the students table
-        if (userId) {
-          const { data: studentData, error: studentError } = await supabase
-            .from('students')
-            .select('image_url')
-            .eq('id', userId)
-            .maybeSingle();
-            
-          console.log("Student data from database:", studentData);
-            
-          if (!studentError && studentData?.image_url) {
-            console.log(`Found image in students table for ID ${userId}`);
-            setImageUrl(studentData.image_url);
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        // If that fails, try face_registrations table
-        if (userId) {
-          const { data, error } = await supabase
-            .from('face_registrations')
-            .select('face_data')
-            .eq('student_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-            
-          console.log("Face registration data:", data);
-            
-          if (!error && data?.face_data) {
-            console.log(`Found face data by ID ${userId}`);
-            setImageUrl(data.face_data);
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        // Fallback: For Greg Hogue, use the specific ID
-        if (userName === 'Greg Hogue') {
-          const gregId = '28bc877a-ba4a-4f73-bf58-90380a299b97';
-          console.log('Using hardcoded ID for Greg Hogue:', gregId);
+      // First try to get the image from the students table
+      if (userId) {
+        const { data: studentData, error: studentError } = await supabase
+          .from('students')
+          .select('image_url')
+          .eq('id', userId)
+          .maybeSingle();
           
-          // First check students table
-          const { data: gregStudent, error: gregStudentError } = await supabase
-            .from('students')
-            .select('image_url')
-            .eq('id', gregId)
-            .maybeSingle();
-            
-          if (!gregStudentError && gregStudent?.image_url) {
-            console.log('Found image for Greg in students table');
-            setImageUrl(gregStudent.image_url);
-            setIsLoading(false);
-            return;
-          }
+        console.log("Student data from database:", studentData);
           
-          // Then check face_registrations
-          const { data, error } = await supabase
-            .from('face_registrations')
-            .select('face_data')
-            .eq('student_id', gregId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-            
-          if (!error && data?.face_data) {
-            console.log('Found face data for Greg');
-            setImageUrl(data.face_data);
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        // Fallback to local image for Greg Hogue
-        if (userName?.toLowerCase() === 'greg hogue') {
-          console.log('Using local image fallback for Greg Hogue');
-          setImageUrl('/greg-hogue.jpg');
+        if (!studentError && studentData?.image_url) {
+          console.log(`Found image in students table for ID ${userId}`);
+          setImageUrl(studentData.image_url);
           setIsLoading(false);
           return;
         }
-      
-        // If all else fails, show fallback
-        setImageError(true);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching user image:', error);
-        setImageError(true);
-        setIsLoading(false);
       }
-    };
+      
+      // If that fails, try face_registrations table
+      if (userId) {
+        const { data, error } = await supabase
+          .from('face_registrations')
+          .select('face_data')
+          .eq('student_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        console.log("Face registration data:", data);
+          
+        if (!error && data?.face_data) {
+          console.log(`Found face data by ID ${userId}`);
+          setImageUrl(data.face_data);
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Fallback: For Greg Hogue, use the specific ID
+      if (userName === 'Greg Hogue') {
+        const gregId = '28bc877a-ba4a-4f73-bf58-90380a299b97';
+        console.log('Using hardcoded ID for Greg Hogue:', gregId);
+        
+        // First check students table
+        const { data: gregStudent, error: gregStudentError } = await supabase
+          .from('students')
+          .select('image_url')
+          .eq('id', gregId)
+          .maybeSingle();
+          
+        if (!gregStudentError && gregStudent?.image_url) {
+          console.log('Found image for Greg in students table');
+          setImageUrl(gregStudent.image_url);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Then check face_registrations
+        const { data, error } = await supabase
+          .from('face_registrations')
+          .select('face_data')
+          .eq('student_id', gregId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (!error && data?.face_data) {
+          console.log('Found face data for Greg');
+          setImageUrl(data.face_data);
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Fallback to local image for Greg Hogue
+      if (userName?.toLowerCase() === 'greg hogue') {
+        console.log('Using local image fallback for Greg Hogue');
+        setImageUrl('/greg-hogue.jpg');
+        setIsLoading(false);
+        return;
+      }
     
+      // If all else fails, show fallback
+      setImageError(true);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching user image:', error);
+      setImageError(true);
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchUserImage();
+    
+    // Set up a realtime subscription to detect profile updates
+    const studentsChannel = supabase
+      .channel('profile-image-changes')
+      .on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'students', filter: userId ? `id=eq.${userId}` : undefined }, 
+        (payload) => {
+          console.log('Profile image change detected:', payload);
+          fetchUserImage();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(studentsChannel);
+    };
   }, [userName, userId]);
 
   return (

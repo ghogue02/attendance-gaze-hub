@@ -14,6 +14,7 @@ import AttendanceChart from '@/components/dashboard/AttendanceChart';
 import AttendancePieChart from '@/components/dashboard/AttendancePieChart';
 import AttendanceHistory from '@/components/dashboard/AttendanceHistory';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
@@ -26,6 +27,35 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadBuilders();
+    
+    // Subscribe to attendance changes
+    const attendanceChannel = supabase
+      .channel('dashboard-attendance-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'attendance' }, 
+        () => {
+          console.log('Attendance change detected, refreshing dashboard data');
+          loadBuilders();
+        }
+      )
+      .subscribe();
+      
+    // Subscribe to student profile changes  
+    const profileChannel = supabase
+      .channel('dashboard-profile-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'students' }, 
+        () => {
+          console.log('Student profile change detected, refreshing dashboard data');
+          loadBuilders();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(attendanceChannel);
+      supabase.removeChannel(profileChannel);
+    };
   }, []);
 
   useEffect(() => {
@@ -83,6 +113,9 @@ const Dashboard = () => {
         
         const statusText = status === 'excused' ? 'Excused absence' : `Attendance marked as ${status}`;
         toast.success(statusText);
+        
+        // Force refresh to ensure data is up to date
+        setTimeout(loadBuilders, 500);
       } else {
         toast.error('Failed to update attendance');
       }

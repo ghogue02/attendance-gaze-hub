@@ -15,7 +15,6 @@ export type Database = {
           date: string
           excuse_reason: string | null
           id: string
-          notes: string | null
           status: string
           student_id: string
           time_recorded: string | null
@@ -26,7 +25,6 @@ export type Database = {
           date?: string
           excuse_reason?: string | null
           id?: string
-          notes?: string | null
           status: string
           student_id: string
           time_recorded?: string | null
@@ -37,7 +35,6 @@ export type Database = {
           date?: string
           excuse_reason?: string | null
           id?: string
-          notes?: string | null
           status?: string
           student_id?: string
           time_recorded?: string | null

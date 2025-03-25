@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -92,6 +93,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
     
     setIsLoading(true);
     try {
+      // For database, we need to handle 'excused' status by setting status to 'absent' with excuse_reason
       const dbStatus = editStatus === 'excused' ? 'absent' : editStatus;
       const dbExcuseReason = editStatus === 'excused' ? editExcuseReason : null;
       
@@ -113,6 +115,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
       
       toast.success('Attendance record updated');
       
+      // Update local state
       setAttendanceHistory(prev => 
         prev.map(record => 
           record.id === editingRecord.id
@@ -162,7 +165,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Notes</TableHead>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-12"></TableHead> {/* Column for edit button */}
                 </TableRow>
               </TableHeader>
               <TableBody>

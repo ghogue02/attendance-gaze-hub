@@ -1,6 +1,6 @@
 
 import { motion } from 'framer-motion';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 
 interface StatisticsCardsProps {
   builders: Builder[];
@@ -14,6 +14,15 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   const excusedCount = builders.filter(s => s.status === 'excused').length;
   const pendingCount = builders.filter(s => s.status === 'pending').length;
   const attendanceRate = totalBuilders > 0 ? Math.round((presentCount / totalBuilders) * 100) : 0;
+
+  // Debug output to detect issues with attendance statistics
+  console.log('Statistics calculation:', { 
+    totalBuilders, 
+    presentCount, 
+    absentCount, 
+    excusedCount, 
+    pendingCount 
+  });
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">

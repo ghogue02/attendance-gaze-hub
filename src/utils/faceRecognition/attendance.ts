@@ -1,77 +1,82 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Builder, BuilderStatus } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
+import { toast } from 'sonner';
 
-// Function to get all builders
+/**
+ * Gets all builders with their current attendance status for today
+ */
 export const getAllBuilders = async (): Promise<Builder[]> => {
   try {
-    const { data, error } = await supabase
+    console.log('Fetching all builders with attendance status');
+    
+    // Get the current date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    console.log('Fetching attendance for date:', today);
+    
+    // First, fetch all students
+    const { data: students, error: studentsError } = await supabase
       .from('students')
       .select('*')
       .order('first_name', { ascending: true });
       
-    if (error) {
-      console.error('Error fetching builders:', error);
+    if (studentsError) {
+      console.error('Error fetching students:', studentsError);
       return [];
     }
     
-    return data.map(student => ({
-      id: student.id,
-      name: `${student.first_name} ${student.last_name}`,
-      builderId: student.student_id || '',
-      imageUrl: student.image_url || '',
-      status: 'pending' as BuilderStatus,
-      timeRecorded: ''
-    }));
-  } catch (error) {
-    console.error('Error in getAllBuilders:', error);
-    return [];
-  }
-};
-
-// Function to mark attendance
-export const markAttendance = async (
-  builderId: string, 
-  status: BuilderStatus, 
-  excuseReason?: string
-): Promise<boolean> => {
-  try {
-    console.log(`Marking attendance for builder ID: ${builderId}, status: ${status}`);
+    console.log(`Retrieved ${students.length} students from database`);
     
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    
-    // Create a proper ISO timestamp format that Supabase can understand
-    const timestamp = now.toISOString();
-    
-    // Log the data we're about to insert
-    console.log('Attendance data to insert:', {
-      student_id: builderId,
-      status: status,
-      date,
-      time_recorded: timestamp,
-      excuse_reason: excuseReason || null
-    });
-    
-    const { data, error } = await supabase
+    // Then, fetch all attendance records for today
+    const { data: attendanceRecords, error: attendanceError } = await supabase
       .from('attendance')
-      .insert({
-        student_id: builderId,
-        status: status,
-        date: date,
-        time_recorded: timestamp,
-        excuse_reason: excuseReason || null
-      });
-    
-    if (error) {
-      console.error('Error marking attendance:', error);
-      return false;
+      .select('*')
+      .eq('date', today);
+      
+    if (attendanceError) {
+      console.error('Error fetching attendance:', attendanceError);
+      return [];
     }
     
-    console.log('Attendance marked successfully:', data);
-    return true;
+    console.log(`Retrieved ${attendanceRecords?.length || 0} attendance records for today`);
+    
+    // Create a map of student IDs to attendance records for faster lookup
+    const attendanceMap = new Map();
+    attendanceRecords?.forEach(record => {
+      attendanceMap.set(record.student_id, {
+        status: record.status,
+        timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString() : undefined,
+        excuseReason: record.excuse_reason
+      });
+    });
+    
+    // Map students to builders with their attendance status
+    const builders: Builder[] = students.map(student => {
+      const attendanceRecord = attendanceMap.get(student.id);
+      
+      return {
+        id: student.id,
+        name: `${student.first_name} ${student.last_name || ''}`.trim(),
+        builderId: student.student_id || '',
+        // Default to 'pending' if no attendance record exists for today
+        status: attendanceRecord?.status || 'pending',
+        timeRecorded: attendanceRecord?.timeRecorded,
+        image: student.image_url,
+        excuseReason: attendanceRecord?.excuseReason
+      };
+    });
+    
+    console.log('Processed builders with attendance status:', builders.map(b => ({ 
+      id: b.id, 
+      name: b.name, 
+      status: b.status 
+    })));
+    
+    return builders;
+    
   } catch (error) {
-    console.error('Error in markAttendance:', error);
-    return false;
+    console.error('Error in getAllBuilders:', error);
+    toast.error('Failed to fetch builders data');
+    return [];
   }
 };

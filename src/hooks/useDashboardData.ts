@@ -90,7 +90,8 @@ export const useDashboardData = () => {
 
   const handleMarkAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
     try {
-      const success = await markAttendance(builderId, status, excuseReason);
+      // Pass only the required parameters to markAttendance
+      const success = await markAttendance(builderId, status);
       
       if (success) {
         // Update local state immediately

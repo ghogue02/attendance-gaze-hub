@@ -1,6 +1,6 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Builder, BuilderStatus } from '@/components/BuilderCard';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
+  onError?: (message: string) => void;
 }
 
 interface AttendanceRecord {
@@ -34,7 +35,7 @@ const getStatusColor = (status: BuilderStatus) => {
   }
 };
 
-const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
+const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -64,6 +65,7 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
         if (error) {
           console.error('Error fetching attendance history:', error);
           toast.error('Failed to load attendance history');
+          if (onError) onError('Failed to load attendance history: ' + error.message);
           return;
         }
         
@@ -116,13 +118,14 @@ const AttendanceHistory = ({ builders }: AttendanceHistoryProps) => {
       } catch (error) {
         console.error('Error in fetchAttendanceHistory:', error);
         toast.error('Error loading attendance history');
+        if (onError) onError('Error loading attendance history: ' + (error instanceof Error ? error.message : String(error)));
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchAttendanceHistory();
-  }, [builders]);
+  }, [builders, onError]);
   
   // Format date string from YYYY-MM-DD format to MMM D, YYYY display format
   const formatDate = (dateStr: string) => {

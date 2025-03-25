@@ -14,6 +14,7 @@ import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, subDays } from 'date-fns';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface AttendanceChartProps {
   builders: Builder[];
@@ -26,12 +27,21 @@ interface DailyAttendance {
   Present: number;
   Absent: number;
   Excused: number;
-  Late: number;
 }
 
-const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
+const timeFrameOptions = [
+  { value: "7", label: "7 Days" },
+  { value: "14", label: "14 Days" },
+  { value: "30", label: "30 Days" },
+  { value: "60", label: "60 Days" },
+  { value: "90", label: "90 Days" },
+];
+
+const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeFrame, setTimeFrame] = useState("7");
+  const days = parseInt(timeFrame);
   
   // Calculate date range once
   const dateRange = useMemo(() => {
@@ -85,7 +95,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         }
         
         // Create a map to aggregate attendance by date
-        const dateMap = new Map<string, { Present: number; Absent: number; Excused: number; Late: number }>();
+        const dateMap = new Map<string, { Present: number; Absent: number; Excused: number }>();
         
         // Initialize the dateMap with all dates in the range (to ensure we have entries even for days with no attendance)
         const currentDate = new Date(dateRange.start);
@@ -96,8 +106,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
           dateMap.set(dateStr, {
             Present: 0,
             Absent: 0,
-            Excused: 0,
-            Late: 0
+            Excused: 0
           });
           currentDate.setDate(currentDate.getDate() + 1);
         }
@@ -111,8 +120,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
             dateMap.set(dateStr, {
               Present: 0,
               Absent: 0,
-              Excused: 0,
-              Late: 0
+              Excused: 0
             });
           }
           
@@ -121,8 +129,6 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
           // Map the status properly (simplified logic based on the current status field)
           if (record.status === 'present') {
             dateStats.Present++;
-          } else if (record.status === 'late') {
-            dateStats.Late++;
           } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
             dateStats.Excused++;
           } else if (record.status === 'absent') {
@@ -143,8 +149,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
               date: dateStr,
               Present: counts.Present,
               Absent: counts.Absent,
-              Excused: counts.Excused,
-              Late: counts.Late
+              Excused: counts.Excused
             };
           } catch (e) {
             // Fallback for any invalid dates
@@ -154,8 +159,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
               date: dateStr,
               Present: counts.Present,
               Absent: counts.Absent,
-              Excused: counts.Excused,
-              Late: counts.Late
+              Excused: counts.Excused
             };
           }
         });
@@ -178,7 +182,21 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
 
   return (
     <div className="glass-card p-6 w-full h-80">
-      <h3 className="text-lg font-semibold mb-4">Attendance Trend ({days} Days)</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Attendance Trend</h3>
+        <Select value={timeFrame} onValueChange={setTimeFrame}>
+          <SelectTrigger className="w-[120px]">
+            <SelectValue placeholder="Select timeframe" />
+          </SelectTrigger>
+          <SelectContent>
+            {timeFrameOptions.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <ResponsiveContainer width="100%" height="85%">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -207,7 +225,6 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
             <Bar dataKey="Present" fill="#4ade80" radius={[4, 4, 0, 0]} />
             <Bar dataKey="Absent" fill="#f87171" radius={[4, 4, 0, 0]} />
             <Bar dataKey="Excused" fill="#facc15" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Late" fill="#60a5fa" radius={[4, 4, 0, 0]} />
           </BarChart>
         )}
       </ResponsiveContainer>

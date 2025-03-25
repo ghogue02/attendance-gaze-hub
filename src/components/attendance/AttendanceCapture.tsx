@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Builder } from '@/components/BuilderCard';
 import { markAttendance } from '@/utils/attendance/markAttendance';
 import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useCamera } from '@/hooks/camera';
 import CameraViewport from './CameraViewport';
 import CaptureButton from './CaptureButton';
+import ProcessingOverlay from './ProcessingOverlay';
 
 interface AttendanceCaptureProps {
   onAttendanceMarked: (builder: Builder) => void;
@@ -22,6 +23,10 @@ const AttendanceCapture = ({
 }: AttendanceCaptureProps) => {
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>('Position yourself in the frame');
+  
+  useEffect(() => {
+    console.log('AttendanceCapture mounted, selectedBuilder:', selectedBuilder?.id);
+  }, [selectedBuilder]);
   
   const {
     videoRef,
@@ -76,37 +81,53 @@ const AttendanceCapture = ({
       if (selectedBuilder) {
         // Use the pre-selected builder
         builder = selectedBuilder;
+        console.log('Using pre-selected builder:', builder.id, builder.name);
         
-        // First update the builder's profile image with the captured image
-        // This needs to happen before marking attendance to ensure image is saved
+        // CRITICAL: First update the builder's profile image with the captured image
+        // This must happen successfully before marking attendance
         console.log('Updating profile image for student:', builder.id);
         const imageUpdateSuccess = await updateBuilderAvatar(builder.id, imageData);
         
         if (!imageUpdateSuccess) {
-          console.error('Error updating profile image');
-          toast.error('Error updating your profile image');
-          // Continue since we still want to mark attendance
-        } else {
-          console.log('Profile image updated successfully');
+          console.error('Failed to update profile image in Supabase');
+          toast.error('Failed to save your image to the database');
+          setProcessing(false);
+          return;
         }
+        
+        console.log('Profile image updated successfully in Supabase');
         
         // Then mark attendance with explicit "present" status
         console.log('Marking attendance for student:', builder.id);
         const attendanceResult = await markAttendance(builder.id, 'present');
         
         if (!attendanceResult) {
-          console.error('Failed to mark attendance');
+          console.error('Failed to mark attendance in database');
           toast.error('Failed to mark attendance');
           setProcessing(false);
           return;
+        }
+        
+        console.log('Attendance marked successfully in database');
+        
+        // Verify the image was saved correctly by fetching the latest data
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('students')
+          .select('image_url')
+          .eq('id', builder.id)
+          .single();
+          
+        if (verifyError || !verifyData.image_url) {
+          console.error('Image verification failed:', verifyError || 'No image URL found');
+          // Continue anyway since we did attempt to save the image
         } else {
-          console.log('Attendance marked successfully');
+          console.log('Image verified in database, length:', verifyData.image_url.length);
         }
         
         // Update the builder object with the new image and status
         builder = {
           ...builder,
-          image: imageData,
+          image: imageData, // This is for the UI
           status: 'present',
           timeRecorded: new Date().toLocaleTimeString([], {
             hour: '2-digit',
@@ -143,11 +164,12 @@ const AttendanceCapture = ({
         
         if (!imageUpdateSuccess) {
           console.error('Error updating profile image');
-          toast.error('Error updating your profile image');
-          // Continue since we still want to mark attendance
-        } else {
-          console.log('Profile image updated successfully');
+          toast.error('Failed to save your image to the database');
+          setProcessing(false);
+          return;
         }
+        
+        console.log('Profile image updated successfully');
         
         // Then mark attendance with explicit "present" status
         console.log('Marking attendance for student:', builderData.id);
@@ -202,6 +224,8 @@ const AttendanceCapture = ({
         statusMessage={statusMessage}
         onRetry={handleRetryCamera}
       />
+      
+      {processing && <ProcessingOverlay message={statusMessage || 'Processing...'} />}
       
       <div className="flex justify-center">
         <CaptureButton 

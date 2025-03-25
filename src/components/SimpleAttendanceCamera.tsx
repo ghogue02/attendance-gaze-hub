@@ -13,6 +13,8 @@ const SimpleAttendanceCamera = ({
   isCameraActive,
   selectedBuilder = null
 }: SimpleAttendanceCameraProps) => {
+  console.log('SimpleAttendanceCamera rendering with selectedBuilder:', selectedBuilder?.id);
+  
   return (
     <AttendanceCapture
       onAttendanceMarked={onAttendanceMarked}

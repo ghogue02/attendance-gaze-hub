@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -10,7 +11,8 @@ export const updateBuilderAvatar = async (
   imageData: string
 ): Promise<boolean> => {
   try {
-    console.log(`Updating avatar for student ${studentId} (image size: ${imageData.length} chars)`);
+    console.log(`Starting avatar update for student ${studentId}`);
+    console.log(`Image data size: ${imageData.length} chars`);
     
     if (!studentId) {
       console.error('Missing required parameter: studentId');
@@ -30,23 +32,10 @@ export const updateBuilderAvatar = async (
       return false;
     }
     
+    // NOTE: We'll use separate calls with error handling for better debugging
+    
+    // 1. First update the student record with the new image
     console.log('Updating student record with new image');
-    
-    // First fetch current image for comparison
-    const { data: currentData, error: fetchError } = await supabase
-      .from('students')
-      .select('image_url')
-      .eq('id', studentId)
-      .single();
-      
-    if (fetchError) {
-      console.error('Error fetching current student image:', fetchError);
-      // Continue anyway to attempt the update
-    } else {
-      console.log('Current image exists:', !!currentData?.image_url);
-    }
-    
-    // Update the student's image_url in the students table
     const { data: updateData, error: updateError } = await supabase
       .from('students')
       .update({ 
@@ -54,7 +43,7 @@ export const updateBuilderAvatar = async (
         last_face_update: new Date().toISOString()
       })
       .eq('id', studentId)
-      .select('id, first_name, last_name');
+      .select('id, first_name, last_name, image_url');
       
     if (updateError) {
       console.error('Error updating student record:', updateError);
@@ -68,9 +57,19 @@ export const updateBuilderAvatar = async (
       return false;
     }
     
-    console.log('Student record updated successfully for', updateData[0]?.first_name, updateData[0]?.last_name);
+    // Verify the data was actually saved (not just that the update succeeded)
+    if (!updateData[0]?.image_url) {
+      console.error('Image URL is empty after update!');
+      toast.error('Failed to save image properly');
+      return false;
+    }
     
-    // Also update all face_registration entries for this student to keep data consistent
+    console.log('Student record updated successfully', {
+      name: `${updateData[0]?.first_name} ${updateData[0]?.last_name}`,
+      imageSize: updateData[0]?.image_url?.length || 0
+    });
+    
+    // 2. Now update face_registrations entries for this student
     try {
       // First, fetch all face registrations for this student
       const { data: registrations, error: fetchError } = await supabase

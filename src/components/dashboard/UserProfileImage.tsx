@@ -31,7 +31,7 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
     setImageError(false);
     
     try {
-      console.log(`Fetching image for user: ${userName} (ID: ${userId})`);
+      console.log(`UserProfileImage: Fetching image for user: ${userName} (ID: ${userId})`);
       
       // First try to get the image from the students table
       if (userId) {
@@ -42,6 +42,8 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           .maybeSingle();
           
         console.log("Student data from database:", studentData);
+        console.log("Image data exists:", !!studentData?.image_url);
+        console.log("Image data length:", studentData?.image_url?.length || 0);
           
         if (!studentError && studentData?.image_url) {
           console.log(`Found image in students table for ID ${userId}`);
@@ -62,6 +64,8 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           .maybeSingle();
           
         console.log("Face registration data:", data);
+        console.log("Face data exists:", !!data?.face_data);
+        console.log("Face data length:", data?.face_data?.length || 0);
           
         if (!error && data?.face_data) {
           console.log(`Found face data by ID ${userId}`);
@@ -108,7 +112,7 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
       }
       
       // Fallback to local image for Greg Hogue
-      if (userName?.toLowerCase() === 'greg hogue') {
+      if (userName?.toLowerCase().includes('greg')) {
         console.log('Using local image fallback for Greg Hogue');
         setImageUrl('/greg-hogue.jpg');
         setIsLoading(false);

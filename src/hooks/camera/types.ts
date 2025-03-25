@@ -3,10 +3,10 @@ import { RefObject } from 'react';
 
 export interface CameraConstraints {
   facingMode?: 'user' | 'environment';
-  width?: number | { min: number; ideal: number; max: number };
-  height?: number | { min: number; ideal: number; max: number };
+  width?: number | { min?: number; ideal?: number; max?: number };
+  height?: number | { min?: number; ideal?: number; max?: number };
   aspectRatio?: number;
-  frameRate?: number | { min: number; ideal: number; max: number };
+  frameRate?: number | { min?: number; ideal?: number; max?: number };
 }
 
 export interface UseCameraProps {
@@ -24,5 +24,5 @@ export interface UseCameraReturn {
   startCamera: () => Promise<void>;
   stopCamera: () => void;
   captureImageData: () => string | null;
-  checkCameraHealth: () => boolean;
+  checkCameraHealth?: () => boolean;
 }

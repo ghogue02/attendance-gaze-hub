@@ -1,42 +1,36 @@
 
 /**
- * Stops all media tracks in a MediaStream
+ * Stop all tracks in a media stream
  */
-export const stopMediaStreamTracks = (stream: MediaStream): void => {
-  if (stream) {
-    stream.getTracks().forEach(track => {
-      track.stop();
-    });
-  }
+export const stopMediaStreamTracks = (stream: MediaStream) => {
+  stream.getTracks().forEach(track => track.stop());
 };
 
 /**
- * Gets a user-friendly error message from a getUserMedia error
+ * Get a friendly error message for camera access issues
  */
 export const getCameraErrorMessage = (error: any): string => {
-  if (!error) return 'Unknown camera error';
-  
   if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-    return 'Camera access denied. Please grant permission to use your camera.';
+    return 'Camera access denied. Please allow camera access in your browser settings.';
   } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-    return 'No camera found on this device.';
+    return 'No camera found. Please connect a camera to your device.';
   } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-    return 'Camera is already in use by another application.';
+    return 'Camera is in use by another application. Please close other applications that may be using the camera.';
   } else if (error.name === 'OverconstrainedError') {
-    return 'Camera constraints not satisfied. Please try different settings.';
-  } else if (error.name === 'TypeError' || error.name === 'TypeError') {
-    return 'Invalid camera constraints.';
+    return 'The requested camera settings are not supported by your device.';
+  } else if (error.name === 'TypeError' || error.message?.includes('getUserMedia is not defined')) {
+    return 'Camera access is not supported in this browser.';
+  } else {
+    return `Camera error: ${error.message || 'Unknown error'}`;
   }
-  
-  return `Camera error: ${error.message || error.name || 'Unknown'}`;
 };
 
 /**
- * Merges default constraints with user provided constraints
+ * Merge default constraints with user-provided constraints
  */
-export const mergeConstraints = (userConstraints: any = {}): MediaStreamConstraints => {
-  // Default constraints
-  const defaultConstraints: MediaStreamConstraints = {
+export const mergeConstraints = (userConstraints: MediaTrackConstraints = {}) => {
+  // Default constraints for good video quality
+  const defaultConstraints = {
     video: {
       facingMode: 'user',
       width: { ideal: 1280 },
@@ -45,24 +39,11 @@ export const mergeConstraints = (userConstraints: any = {}): MediaStreamConstrai
     audio: false
   };
   
-  // If user provided a simple boolean for video, use default video constraints
-  if (typeof userConstraints === 'boolean') {
-    return {
-      ...defaultConstraints,
-      video: userConstraints ? defaultConstraints.video : false
-    };
-  }
-  
-  // If user provided specific video constraints, merge them with defaults
-  if (userConstraints && typeof userConstraints === 'object') {
-    return {
-      video: {
-        ...(defaultConstraints.video as object),
-        ...userConstraints
-      },
-      audio: false
-    };
-  }
-  
-  return defaultConstraints;
+  return {
+    ...defaultConstraints,
+    video: {
+      ...defaultConstraints.video,
+      ...userConstraints
+    }
+  };
 };

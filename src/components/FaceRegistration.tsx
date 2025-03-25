@@ -1,12 +1,10 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { Builder } from './BuilderCard';
-import { checkFaceRegistrationStatus } from '@/utils/faceRecognition';
-import { Button } from './ui/button';
+import { Builder } from './builder/types';
+import { PhotoCapture } from './PhotoCapture';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { SimplifiedCapture } from './face-registration/SimplifiedCapture';
 
 interface FaceRegistrationProps {
   builder: Builder;
@@ -17,55 +15,24 @@ interface FaceRegistrationProps {
 
 const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegistrationProps) => {
   const [registrationComplete, setRegistrationComplete] = useState(false);
-  const [isUpdateMode, setIsUpdateMode] = useState(false);
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    if (open && builder) {
-      checkRegistrationStatus();
-    }
-  }, [open, builder]);
   
-  const checkRegistrationStatus = async () => {
-    if (!builder) return;
-    
-    try {
-      const status = await checkFaceRegistrationStatus(builder.id);
-      console.log("Registration status:", status);
-      
-      if (status.completed) {
-        setRegistrationComplete(true);
-        setProgress(100);
-        setIsUpdateMode(status.count >= 5);
-      } else {
-        setProgress((status.count / 5) * 100);
+  const handleSuccess = (updatedBuilder: Builder) => {
+    setRegistrationComplete(true);
+    setTimeout(() => {
+      if (onComplete) {
+        onComplete();
       }
-    } catch (error) {
-      console.error('Error checking registration status:', error);
-    }
-  };
-
-  const handleRegistrationComplete = (success: boolean) => {
-    if (success) {
-      setRegistrationComplete(true);
-      setProgress(100);
-      checkRegistrationStatus();
-      onComplete?.();
-    }
-  };
-
-  const handleComplete = () => {
-    onOpenChange(false);
-    onComplete?.();
+      onOpenChange(false);
+    }, 1500);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Face Registration</DialogTitle>
+          <DialogTitle>Photo Registration</DialogTitle>
           <DialogDescription>
-            Please register your face to improve recognition accuracy.
+            Take a photo to update your profile
           </DialogDescription>
         </DialogHeader>
         
@@ -76,17 +43,13 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
             </div>
             <h3 className="text-xl font-medium mb-2">Registration Complete!</h3>
             <p className="text-muted-foreground mb-6">
-              Your face has been successfully registered.
+              Your photo has been successfully saved.
             </p>
-            <Button onClick={handleComplete}>
-              Done
-            </Button>
           </div>
         ) : (
-          <SimplifiedCapture 
+          <PhotoCapture 
             builder={builder}
-            onRegistrationComplete={handleRegistrationComplete}
-            isUpdateMode={isUpdateMode}
+            onSuccess={handleSuccess}
           />
         )}
       </DialogContent>

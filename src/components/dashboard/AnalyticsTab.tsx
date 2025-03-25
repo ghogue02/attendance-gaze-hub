@@ -1,7 +1,6 @@
 
 import { Builder } from '@/components/builder/types';
 import AttendanceChart from './AttendanceChart';
-import AttendancePieChart from './AttendancePieChart';
 
 interface AnalyticsTabProps {
   builders: Builder[];
@@ -14,9 +13,8 @@ const AnalyticsTab = ({ builders }: AnalyticsTabProps) => {
         <h2 className="text-2xl font-semibold">Attendance Analytics</h2>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <AttendanceChart builders={builders} />
-        <AttendancePieChart builders={builders} />
       </div>
     </div>
   );

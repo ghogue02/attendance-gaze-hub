@@ -1,6 +1,7 @@
 
-import { BuilderStatus } from '@/components/builder/types';
 import { UserCheck, UserX, Clock } from 'lucide-react';
+import { format } from 'date-fns';
+import { BuilderStatus } from './types';
 
 export const getStatusColor = (status: BuilderStatus) => {
   switch (status) {
@@ -34,7 +35,6 @@ export const getStatusIcon = (status: BuilderStatus) => {
   }
 };
 
-// Format date string from YYYY-MM-DD format to MMM D, YYYY display format
 export const formatDate = (dateStr: string) => {
   try {
     if (!dateStr) return '';
@@ -47,11 +47,7 @@ export const formatDate = (dateStr: string) => {
     const day = parseInt(parts[2]);
     
     const date = new Date(year, month, day);
-    return new Intl.DateTimeFormat('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    }).format(date);
+    return format(date, 'MMM d, yyyy');
   } catch (e) {
     console.error('Error formatting date:', e, dateStr);
     return dateStr;

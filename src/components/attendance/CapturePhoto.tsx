@@ -1,7 +1,7 @@
 
 import { Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 
 interface CapturePhotoProps {
   isCapturing: boolean;

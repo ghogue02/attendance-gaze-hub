@@ -1,6 +1,6 @@
 
-import { useEffect } from 'react';
-import { Builder } from '@/components/BuilderCard';
+import { useEffect, useState } from 'react';
+import { Builder } from '@/components/builder/types';
 import { useCamera } from '@/hooks/camera/useCamera';
 import { toast } from 'sonner';
 import CapturePhoto from './attendance/CapturePhoto';
@@ -8,6 +8,7 @@ import CameraDisplay from './attendance/CameraDisplay';
 import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
 import { markAttendance } from '@/utils/attendance/markAttendance';
 import { supabase } from '@/integrations/supabase/client';
+import { AlertCircle } from 'lucide-react';
 
 interface SimpleAttendanceCameraProps {
   onAttendanceMarked: (builder: Builder) => void;
@@ -20,6 +21,8 @@ const SimpleAttendanceCamera = ({
   isCameraActive,
   selectedBuilder = null
 }: SimpleAttendanceCameraProps) => {
+  const [error, setError] = useState<string | null>(null);
+  
   const {
     videoRef,
     canvasRef,
@@ -44,6 +47,9 @@ const SimpleAttendanceCamera = ({
       selectedBuilder: selectedBuilder?.id
     });
     
+    // Clear any previous errors when props change
+    setError(null);
+    
     return () => {
       stopCamera();
     };
@@ -56,11 +62,13 @@ const SimpleAttendanceCamera = ({
     }
 
     try {
+      setError(null);
       console.log('Starting attendance capture process for:', selectedBuilder.name);
       
       // Capture image data
       const imageData = captureImageData();
       if (!imageData) {
+        setError('Failed to capture image');
         toast.error('Failed to capture image');
         return;
       }
@@ -75,8 +83,10 @@ const SimpleAttendanceCamera = ({
       const imageUpdateSuccess = await updateBuilderAvatar(selectedBuilder.id, imageData);
       
       if (!imageUpdateSuccess) {
-        console.error('Failed to update builder avatar in Supabase');
-        toast.error('Failed to save profile image', { id: 'profile-update' });
+        const errorMsg = 'Failed to update profile image in database';
+        console.error(errorMsg);
+        toast.error(errorMsg, { id: 'profile-update' });
+        setError(errorMsg);
         return;
       }
       
@@ -88,11 +98,13 @@ const SimpleAttendanceCamera = ({
         .from('students')
         .select('image_url')
         .eq('id', selectedBuilder.id)
-        .single();
+        .maybeSingle();
         
       if (verifyError || !verifyData?.image_url) {
+        const errorMsg = 'Could not verify image was saved properly';
         console.error('Image verification failed:', verifyError || 'No image URL found');
-        toast.error('Could not verify image was saved properly');
+        toast.error(errorMsg);
+        setError(errorMsg);
         return;
       }
       
@@ -103,8 +115,10 @@ const SimpleAttendanceCamera = ({
       const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present');
       
       if (!attendanceSuccess) {
-        console.error('Failed to mark attendance');
-        toast.error('Failed to record attendance');
+        const errorMsg = 'Failed to record attendance';
+        console.error(errorMsg);
+        toast.error(errorMsg);
+        setError(errorMsg);
         return;
       }
       
@@ -127,12 +141,15 @@ const SimpleAttendanceCamera = ({
       toast.success(`Attendance marked for ${updatedBuilder.name}`);
       
     } catch (error) {
+      const errorMsg = 'An error occurred while marking attendance';
       console.error('Error in attendance capture:', error);
-      toast.error('An error occurred while marking attendance');
+      toast.error(errorMsg);
+      setError(errorMsg);
     }
   };
 
   const handleRestartCamera = () => {
+    setError(null);
     stopCamera();
     setTimeout(() => {
       startCamera();
@@ -148,6 +165,16 @@ const SimpleAttendanceCamera = ({
         cameraError={cameraError}
         onRestartCamera={handleRestartCamera}
       />
+      
+      {error && (
+        <div className="bg-destructive/10 text-destructive p-3 rounded-lg flex items-start gap-2">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Error</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
       
       <CapturePhoto
         isCapturing={isCapturing}

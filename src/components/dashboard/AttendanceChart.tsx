@@ -41,25 +41,20 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
       try {
         // Calculate the date range - we want the most recent days
         const endDate = new Date(); // Today
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - (days - 1));
         
-        // Format dates for query, avoiding timezone issues
-        const formatDateForQuery = (date: Date) => {
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        // Format date for logging
+        const formatDateForLog = (date: Date) => {
+          return date.toISOString().split('T')[0];
         };
         
-        const startDateStr = formatDateForQuery(startDate);
-        const endDateStr = formatDateForQuery(endDate);
+        console.log(`Fetching attendance chart data with end date: ${formatDateForLog(endDate)}`);
         
-        console.log(`Fetching attendance chart data from ${startDateStr} to ${endDateStr}`);
-        
-        // Fetch all attendance data directly without limiting to a date range
-        // This ensures we get all historical data
+        // Fetch ALL attendance data without limiting to a date range
+        // This ensures we get all historical data including imported records
         const { data: attendanceData, error } = await supabase
           .from('attendance')
           .select('*')
-          .order('date', { ascending: true });
+          .order('date', { ascending: false });
           
         if (error) {
           console.error('Error fetching historical attendance:', error);
@@ -70,119 +65,88 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         
         console.log('Raw attendance data fetched for chart:', attendanceData?.length || 0, 'records');
         
-        // Initialize day-by-day data structure
-        const dateMap: Record<string, DailyAttendance> = {};
+        if (!attendanceData || attendanceData.length === 0) {
+          setChartData([]);
+          setIsLoading(false);
+          return;
+        }
         
-        // Initialize the date range with zeros
-        for (let i = 0; i < days; i++) {
-          const date = new Date(startDate);
-          date.setDate(date.getDate() + i);
+        // Create a map to aggregate attendance by date
+        const dateMap = new Map<string, { Present: number; Absent: number; Excused: number; Late: number }>();
+        
+        // Process all attendance records
+        attendanceData.forEach(record => {
+          const dateStr = record.date;
           
-          // Format date string
-          const formatDateString = (date: Date) => {
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-          };
+          if (!dateMap.has(dateStr)) {
+            dateMap.set(dateStr, {
+              Present: 0,
+              Absent: 0,
+              Excused: 0,
+              Late: 0
+            });
+          }
           
-          const dateStr = formatDateString(date);
+          const dateStats = dateMap.get(dateStr)!;
           
-          // Create display format for chart x-axis (DD Day)
-          const dayNum = date.getDate().toString().padStart(2, '0');
-          const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
-          const dayStr = `${dayNum} ${dayOfWeek}`;
+          // Map the status properly
+          if (record.status === 'present') {
+            dateStats.Present++;
+          } else if (record.status === 'absent' && record.excuse_reason) {
+            dateStats.Excused++;
+          } else if (record.status === 'absent') {
+            dateStats.Absent++;
+          } else if (record.status === 'excused') {
+            dateStats.Excused++;
+          } else if (record.status === 'late') {
+            dateStats.Late++;
+          }
+        });
+        
+        // Convert the map to an array of chart data objects
+        let formattedData: DailyAttendance[] = Array.from(dateMap.entries()).map(([dateStr, counts]) => {
+          // Parse the date to create a proper display format
+          const dateParts = dateStr.split('-');
+          if (dateParts.length === 3) {
+            const year = parseInt(dateParts[0]);
+            const month = parseInt(dateParts[1]) - 1; // JS months are 0-based
+            const day = parseInt(dateParts[2]);
+            
+            const date = new Date(year, month, day);
+            const dayNum = date.getDate().toString().padStart(2, '0');
+            const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+            
+            return {
+              name: `${dayNum} ${dayOfWeek}`,
+              date: dateStr,
+              Present: counts.Present,
+              Absent: counts.Absent,
+              Excused: counts.Excused,
+              Late: counts.Late
+            };
+          }
           
-          dateMap[dateStr] = {
-            name: dayStr,
+          // Fallback for any invalid dates
+          return {
+            name: dateStr,
             date: dateStr,
-            Present: 0,
-            Absent: 0,
-            Excused: 0,
-            Late: 0
+            Present: counts.Present,
+            Absent: counts.Absent,
+            Excused: counts.Excused,
+            Late: counts.Late
           };
+        });
+        
+        // Sort by date (most recent first)
+        formattedData.sort((a, b) => a.date.localeCompare(b.date));
+        
+        // Take only the latest 'days' entries if we have more than we need
+        if (formattedData.length > days) {
+          formattedData = formattedData.slice(-days);
         }
         
-        // Fill in the actual attendance data
-        if (attendanceData && attendanceData.length > 0) {
-          // Create a map of all dates in the data for easier lookup
-          const allDatesMap = new Map();
-          
-          // Group records by date for statistical counting
-          attendanceData.forEach(record => {
-            const dateStr = record.date;
-            if (!allDatesMap.has(dateStr)) {
-              allDatesMap.set(dateStr, {
-                Present: 0,
-                Absent: 0,
-                Excused: 0,
-                Late: 0
-              });
-            }
-            
-            const dateStats = allDatesMap.get(dateStr);
-            
-            // Determine the status for this record
-            let status = 'Absent'; // Default status
-            
-            if (record.status === 'present') {
-              status = 'Present';
-            } else if (record.status === 'absent' && record.excuse_reason) {
-              status = 'Excused';
-            } else if (record.status === 'absent') {
-              status = 'Absent';
-            } else if (record.status === 'excused') {
-              status = 'Excused';
-            } else if (record.status === 'late') {
-              status = 'Late';
-            }
-            
-            // Increment the counter for this status
-            dateStats[status]++;
-          });
-          
-          // Now populate our date range with the actual data
-          // or create new entries for dates that aren't in our initial range
-          allDatesMap.forEach((stats, dateStr) => {
-            // For dates within our display range, update the existing entry
-            if (dateMap[dateStr]) {
-              dateMap[dateStr].Present = stats.Present;
-              dateMap[dateStr].Absent = stats.Absent;
-              dateMap[dateStr].Excused = stats.Excused;
-              dateMap[dateStr].Late = stats.Late;
-            } 
-            // For historical dates outside our range, add them only if they have data
-            else if (stats.Present > 0 || stats.Absent > 0 || stats.Excused > 0 || stats.Late > 0) {
-              try {
-                // Parse the date string to create a proper date object
-                const [year, month, day] = dateStr.split('-').map(Number);
-                const date = new Date(year, month - 1, day);
-                
-                // Create a new entry for this historical date
-                const dayNum = date.getDate().toString().padStart(2, '0');
-                const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
-                const dayStr = `${dayNum} ${dayOfWeek}`;
-                
-                dateMap[dateStr] = {
-                  name: dayStr,
-                  date: dateStr,
-                  Present: stats.Present,
-                  Absent: stats.Absent,
-                  Excused: stats.Excused,
-                  Late: stats.Late
-                };
-              } catch (e) {
-                console.error('Error parsing date:', e, dateStr);
-              }
-            }
-          });
-        }
-        
-        // Convert the map to an array and sort by date for the chart
-        const resultData = Object.values(dateMap)
-          .sort((a, b) => a.date.localeCompare(b.date))
-          // Take only the last 'days' entries if we have more than we need
-          .slice(-days);
-          
-        console.log('Prepared chart data:', resultData);
-        setChartData(resultData);
+        console.log('Prepared chart data:', formattedData);
+        setChartData(formattedData);
       } catch (error) {
         console.error('Error preparing chart data:', error);
         toast.error('Error loading attendance chart');

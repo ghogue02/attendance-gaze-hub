@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { UserCheck, UserX, Clock, CalendarIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -11,26 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Skeleton } from './ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-
-export type BuilderStatus = 'present' | 'absent' | 'excused' | 'pending';
-
-export interface Builder {
-  id: string;
-  name: string;
-  builderId: string;
-  status: BuilderStatus;
-  timeRecorded?: string;
-  image?: string;
-  excuseReason?: string;
-}
-
-interface AttendanceRecord {
-  id: string;
-  date: string;
-  status: BuilderStatus;
-  timeRecorded?: string;
-  excuseReason?: string;
-}
+import { BuilderStatus, Builder, AttendanceRecord } from './builder/types';
 
 interface BuilderCardProps {
   builder: Builder;
@@ -54,6 +34,8 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
         return 'bg-blue-50 text-blue-600 border-blue-200';
       case 'pending':
         return 'bg-yellow-50 text-yellow-600 border-yellow-200';
+      case 'late':
+        return 'bg-blue-50 text-blue-600 border-blue-200';
       default:
         return 'bg-gray-50 text-gray-600 border-gray-200';
     }
@@ -67,6 +49,7 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
       case 'excused':
         return <UserX className="w-4 h-4" />;
       case 'pending':
+      case 'late':
         return <Clock className="w-4 h-4" />;
       default:
         return <Clock className="w-4 h-4" />;
@@ -132,7 +115,6 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
     fetchAttendanceHistory();
   };
 
-  // Format date string from YYYY-MM-DD format to MMM D, YYYY display format
   const formatDate = (dateStr: string) => {
     try {
       if (!dateStr) return '';
@@ -224,7 +206,6 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
         </div>
       </motion.div>
 
-      {/* Excuse dialog */}
       <Dialog open={isExcuseDialogOpen} onOpenChange={setIsExcuseDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -247,7 +228,6 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Attendance History Dialog */}
       <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>

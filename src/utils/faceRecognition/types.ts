@@ -1,5 +1,5 @@
 
-import { Builder, BuilderStatus } from '@/components/BuilderCard';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 
 export interface RecognitionResult {
   success: boolean;

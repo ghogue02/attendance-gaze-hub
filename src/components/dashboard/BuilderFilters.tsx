@@ -7,7 +7,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { BuilderStatus } from "@/components/BuilderCard";
+import { BuilderStatus } from "@/components/builder/types";
 import { Search } from "lucide-react";
 
 interface BuilderFiltersProps {
@@ -49,6 +49,7 @@ const BuilderFilters = ({
           <SelectItem value="absent">Absent</SelectItem>
           <SelectItem value="excused">Excused Absence</SelectItem>
           <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="late">Late</SelectItem>
         </SelectContent>
       </Select>
     </div>

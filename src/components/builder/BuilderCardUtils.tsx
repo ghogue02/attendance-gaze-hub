@@ -12,6 +12,8 @@ export const getStatusColor = (status: BuilderStatus) => {
       return 'bg-blue-50 text-blue-600 border-blue-200';
     case 'pending':
       return 'bg-yellow-50 text-yellow-600 border-yellow-200';
+    case 'late':
+      return 'bg-blue-50 text-blue-600 border-blue-200';
     default:
       return 'bg-gray-50 text-gray-600 border-gray-200';
   }
@@ -25,6 +27,7 @@ export const getStatusIcon = (status: BuilderStatus) => {
     case 'excused':
       return <UserX className="w-4 h-4" />;
     case 'pending':
+    case 'late':
       return <Clock className="w-4 h-4" />;
     default:
       return <Clock className="w-4 h-4" />;

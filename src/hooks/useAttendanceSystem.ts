@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 
 export const useAttendanceSystem = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);

@@ -1,3 +1,4 @@
+
 import { Builder, BuilderStatus } from '@/components/BuilderCard';
 import { RecognitionResult } from './types';
 import { 
@@ -10,7 +11,8 @@ import {
   updateRecognitionHistory,
   selectStudentForRecognition
 } from './recognitionUtils';
-import { markAttendance } from './attendance';
+// Import markAttendance from the correct location
+import { markAttendance } from '@/utils/attendance/markAttendance';
 
 // Function to recognize a face image against registered face data
 export const recognizeFace = async (imageData: string, passive = false): Promise<RecognitionResult> => {

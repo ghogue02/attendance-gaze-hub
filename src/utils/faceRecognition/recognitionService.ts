@@ -3,7 +3,8 @@
 import { detectFaces, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory, manageRecognitionHistory } from './recognitionUtils';
 import { getRecognitionSettings } from './setup';
 import { Builder } from '@/components/BuilderCard';
-import { markAttendance } from './attendance';
+// Fix the import path to use the correct location
+import { markAttendance } from '@/utils/attendance/markAttendance';
 import { RecognitionResult } from './types';
 import { toast } from '@/hooks/use-toast';
 

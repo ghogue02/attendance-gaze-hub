@@ -1,6 +1,6 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 
 interface AttendancePieChartProps {
   builders: Builder[];

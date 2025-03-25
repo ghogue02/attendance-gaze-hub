@@ -44,16 +44,16 @@ export const updateBuilderAvatar = async (
     }
     
     console.log('Found student record:', studentCheck.first_name, studentCheck.last_name);
-    console.log('Updating student record with new image');
     
-    // Update the student record with the new image
-    const { error: updateError } = await supabase
+    // Update the student record with the new image - explicitly specify the table and column
+    const { data: updateData, error: updateError } = await supabase
       .from('students')
       .update({ 
         image_url: imageData,
         last_face_update: new Date().toISOString()
       })
-      .eq('id', studentId);
+      .eq('id', studentId)
+      .select();
       
     if (updateError) {
       console.error('Error updating student record:', updateError);
@@ -61,37 +61,30 @@ export const updateBuilderAvatar = async (
       return false;
     }
     
-    // Verify the update was successful
-    const { data: verifyData, error: verifyError } = await supabase
-      .from('students')
-      .select('image_url')
-      .eq('id', studentId)
-      .maybeSingle();
-      
-    if (verifyError || !verifyData?.image_url) {
-      console.error('Error verifying student record update:', verifyError);
-      toast.error('Failed to verify profile image update');
+    if (!updateData || updateData.length === 0) {
+      console.error('No rows were updated');
+      toast.error('No student record was updated');
       return false;
     }
     
-    console.log('Student record updated successfully');
+    console.log('Student record updated successfully:', updateData);
     
     // Also update the face_registrations table to ensure consistent images
-    // This is done asynchronously, we don't wait for it
-    supabase
+    const { error: faceRegError } = await supabase
       .from('face_registrations')
       .insert({
         student_id: studentId,
         face_data: imageData,
         angle_index: 0 // Default angle index
-      })
-      .then(({ error }) => {
-        if (error) {
-          console.error('Error updating face registration:', error);
-        } else {
-          console.log('Face registration updated successfully');
-        }
       });
+      
+    if (faceRegError) {
+      console.error('Error updating face registration:', faceRegError);
+      // Continue anyway, as the profile update succeeded
+      console.log('Face registration failed but profile was updated successfully');
+    } else {
+      console.log('Face registration updated successfully');
+    }
     
     return true;
   } catch (error) {

@@ -9,15 +9,17 @@ interface CapturePhotoProps {
   selectedBuilder: Builder | null;
   onCapture: () => void;
   error?: string | null;
+  processing?: boolean;
 }
 
 const CapturePhoto = ({
   isCapturing,
   selectedBuilder,
   onCapture,
-  error = null
+  error = null,
+  processing = false
 }: CapturePhotoProps) => {
-  const isReady = isCapturing && selectedBuilder;
+  const isReady = isCapturing && selectedBuilder && !processing;
   
   return (
     <div className="flex flex-col space-y-4">
@@ -66,8 +68,14 @@ const CapturePhoto = ({
         className="flex items-center justify-center gap-2 w-full py-6"
         variant={isReady ? "default" : "outline"}
       >
-        <Camera size={20} />
-        Take Photo
+        {processing ? (
+          <span>Processing...</span>
+        ) : (
+          <>
+            <Camera size={20} />
+            Take Photo
+          </>
+        )}
       </Button>
     </div>
   );

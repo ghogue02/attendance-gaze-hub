@@ -65,14 +65,17 @@ const SimpleAttendanceCamera = ({
     try {
       setError(null);
       setProcessing(true);
+      
+      // Show processing toast
+      toast.loading('Capturing image...', { id: 'profile-update' });
+      
       console.log('Starting attendance capture process for:', selectedBuilder.name);
       
       // Capture image data
       const imageData = captureImageData();
       if (!imageData) {
         setError('Failed to capture image');
-        toast.error('Failed to capture image');
-        setProcessing(false);
+        toast.error('Failed to capture image', { id: 'profile-update' });
         return;
       }
       
@@ -81,13 +84,11 @@ const SimpleAttendanceCamera = ({
       // Validate image size
       if (imageData.length > 5000000) {  // ~5MB
         setError('Image too large. Please try again with a lower resolution.');
-        toast.error('Image too large');
-        setProcessing(false);
+        toast.error('Image too large', { id: 'profile-update' });
         return;
       }
       
-      // Show processing toast
-      const processingToast = toast.loading('Processing your image...', { id: 'profile-update' });
+      toast.loading('Updating profile...', { id: 'profile-update' });
       
       // STEP 1: First update the builder's avatar image in Supabase
       console.log(`Updating profile image for builder ID: ${selectedBuilder.id}`);
@@ -98,47 +99,30 @@ const SimpleAttendanceCamera = ({
         console.error(errorMsg);
         toast.error(errorMsg, { id: 'profile-update' });
         setError(errorMsg);
-        setProcessing(false);
         return;
       }
       
       console.log('Builder avatar updated successfully');
       toast.success('Profile image saved successfully', { id: 'profile-update' });
       
-      // STEP 2: Verify the image was actually saved in Supabase
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('students')
-        .select('image_url')
-        .eq('id', selectedBuilder.id)
-        .maybeSingle();
-        
-      if (verifyError || !verifyData?.image_url) {
-        const errorMsg = 'Could not verify image was saved properly';
-        console.error('Image verification failed:', verifyError || 'No image URL found');
-        toast.error(errorMsg);
-        setError(errorMsg);
-        setProcessing(false);
-        return;
-      }
-      
-      console.log(`Image verified in database: ${verifyData.image_url.length} bytes`);
-      
-      // STEP 3: Mark attendance in Supabase
+      // STEP 2: Mark attendance in Supabase
       console.log(`Marking attendance for builder ID: ${selectedBuilder.id}`);
+      toast.loading('Recording attendance...', { id: 'attendance-update' });
+      
       const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present');
       
       if (!attendanceSuccess) {
         const errorMsg = 'Failed to record attendance';
         console.error(errorMsg);
-        toast.error(errorMsg);
+        toast.error(errorMsg, { id: 'attendance-update' });
         setError(errorMsg);
-        setProcessing(false);
-        return;
+        // Continue anyway since image was updated successfully
+      } else {
+        console.log('Attendance marked successfully');
+        toast.success('Attendance recorded successfully', { id: 'attendance-update' });
       }
       
-      console.log('Attendance marked successfully');
-      
-      // STEP 4: Create updated builder object with new image and status
+      // STEP 3: Create updated builder object with new image and status
       const updatedBuilder: Builder = {
         ...selectedBuilder,
         image: imageData,
@@ -152,7 +136,7 @@ const SimpleAttendanceCamera = ({
       
       // Notify the parent component
       onAttendanceMarked(updatedBuilder);
-      toast.success(`Attendance marked for ${updatedBuilder.name}`);
+      toast.success(`Welcome, ${updatedBuilder.name}!`);
       
     } catch (error) {
       const errorMsg = 'An error occurred while marking attendance';
@@ -197,6 +181,7 @@ const SimpleAttendanceCamera = ({
         selectedBuilder={selectedBuilder}
         onCapture={handleCaptureAttendance}
         error={error}
+        processing={processing}
       />
     </div>
   );

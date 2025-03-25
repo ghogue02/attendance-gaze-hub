@@ -12,7 +12,6 @@ export const updateBuilderAvatar = async (
 ): Promise<boolean> => {
   try {
     console.log(`Starting avatar update for student ${studentId}`);
-    console.log(`Image data size: ${imageData.length} chars`);
     
     if (!studentId) {
       console.error('Missing required parameter: studentId');
@@ -32,9 +31,17 @@ export const updateBuilderAvatar = async (
       return false;
     }
     
-    // NOTE: We'll use separate calls with error handling for better debugging
+    // Verify that the image data is not too large (Supabase has a limit)
+    const sizeInBytes = Math.ceil((imageData.length * 3) / 4);
+    const sizeInMB = sizeInBytes / (1024 * 1024);
     
-    // 1. First update the student record with the new image
+    if (sizeInMB > 6) {
+      console.error(`Image too large: ${sizeInMB.toFixed(2)}MB (maximum 6MB)`);
+      toast.error('Image too large. Please use a smaller image or reduce quality.');
+      return false;
+    }
+    
+    // 1. Update the student record with the new image
     console.log('Updating student record with new image');
     const { data: updateData, error: updateError } = await supabase
       .from('students')
@@ -47,7 +54,17 @@ export const updateBuilderAvatar = async (
       
     if (updateError) {
       console.error('Error updating student record:', updateError);
-      toast.error('Failed to update profile image in database');
+      
+      // More specific error messages
+      if (updateError.code === '23505') {
+        toast.error('Database conflict error. Please try again.');
+      } else if (updateError.code === '23503') {
+        toast.error('Student record not found.');
+      } else if (updateError.code === '22001') {
+        toast.error('Image data too large for database. Try reducing quality.');
+      } else {
+        toast.error(`Database error: ${updateError.message}`);
+      }
       return false;
     }
     
@@ -83,19 +100,25 @@ export const updateBuilderAvatar = async (
       } else if (registrations && registrations.length > 0) {
         console.log(`Found ${registrations.length} face registrations to update`);
         
-        // Update all face registrations with the new image
-        const { error: updateRegError } = await supabase
-          .from('face_registrations')
-          .update({ face_data: imageData })
-          .eq('student_id', studentId);
+        // Update face registrations in smaller batches to prevent timeouts
+        const batchSize = 5;
+        for (let i = 0; i < registrations.length; i += batchSize) {
+          const batch = registrations.slice(i, i + batchSize);
+          const ids = batch.map(reg => reg.id);
           
-        if (updateRegError) {
-          console.error('Error updating face registrations:', updateRegError);
-          toast.error('Failed to update face recognition data');
-          // Continue anyway, this is not critical for attendance
-        } else {
-          console.log('Face registrations updated successfully');
+          console.log(`Updating batch ${i/batchSize + 1} of face registrations (${ids.length} items)`);
+          
+          const { error: updateRegError } = await supabase
+            .from('face_registrations')
+            .update({ face_data: imageData })
+            .in('id', ids);
+            
+          if (updateRegError) {
+            console.error(`Error updating face registrations batch ${i/batchSize + 1}:`, updateRegError);
+          }
         }
+        
+        console.log('Face registrations update completed');
       } else {
         console.log('No existing face registrations found for this student');
         
@@ -103,22 +126,26 @@ export const updateBuilderAvatar = async (
         console.log('Creating new face registrations from this image');
         
         // Store multiple copies of the face data for better recognition
-        const registrationPromises = [];
-        for (let i = 0; i < 5; i++) {
-          registrationPromises.push(
-            supabase
-              .from('face_registrations')
-              .insert({
-                student_id: studentId,
-                face_data: imageData,
-                angle_index: i
-              })
-          );
-        }
-        
+        // Use a single insert with multiple rows for better performance
         try {
-          await Promise.all(registrationPromises);
-          console.log('Created 5 new face registration entries');
+          const newRegistrations = [];
+          for (let i = 0; i < 5; i++) {
+            newRegistrations.push({
+              student_id: studentId,
+              face_data: imageData,
+              angle_index: i
+            });
+          }
+          
+          const { error: insertError } = await supabase
+            .from('face_registrations')
+            .insert(newRegistrations);
+            
+          if (insertError) {
+            console.error('Error creating face registrations:', insertError);
+          } else {
+            console.log('Created 5 new face registration entries');
+          }
         } catch (regError) {
           console.error('Error creating face registrations:', regError);
           // Continue anyway since the profile image was updated

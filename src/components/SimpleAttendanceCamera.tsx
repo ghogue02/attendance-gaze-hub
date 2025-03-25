@@ -67,17 +67,21 @@ const SimpleAttendanceCamera = ({
       
       console.log(`Captured image data (${imageData.length} bytes) for ${selectedBuilder.name}`);
       
+      // Show processing toast
+      const processingToast = toast.loading('Processing your image...', { id: 'profile-update' });
+      
       // STEP 1: First update the builder's avatar image in Supabase
       console.log(`Updating profile image for builder ID: ${selectedBuilder.id}`);
       const imageUpdateSuccess = await updateBuilderAvatar(selectedBuilder.id, imageData);
       
       if (!imageUpdateSuccess) {
         console.error('Failed to update builder avatar in Supabase');
-        toast.error('Failed to save profile image');
+        toast.error('Failed to save profile image', { id: 'profile-update' });
         return;
       }
       
       console.log('Builder avatar updated successfully');
+      toast.success('Profile image saved successfully', { id: 'profile-update' });
       
       // STEP 2: Verify the image was actually saved in Supabase
       const { data: verifyData, error: verifyError } = await supabase
@@ -88,7 +92,7 @@ const SimpleAttendanceCamera = ({
         
       if (verifyError || !verifyData?.image_url) {
         console.error('Image verification failed:', verifyError || 'No image URL found');
-        toast.error('Failed to verify image was saved');
+        toast.error('Could not verify image was saved properly');
         return;
       }
       

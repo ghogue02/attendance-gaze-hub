@@ -5,6 +5,7 @@ import { Builder } from '@/components/BuilderCard';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface BuildersListProps {
   builders: Builder[];
@@ -26,11 +27,14 @@ export const BuildersList = ({
   onClearSearch
 }: BuildersListProps) => {
   const [builderImages, setBuilderImages] = useState<{[key: string]: string}>({});
+  const [imageLoadErrors, setImageLoadErrors] = useState<{[key: string]: boolean}>({});
 
   // Fetch up-to-date builder images when the component mounts or when registrationStatus changes
   useEffect(() => {
     const fetchBuilderImages = async () => {
       const images: {[key: string]: string} = {};
+      const errors: {[key: string]: boolean} = {};
+      
       for (const builder of filteredBuilders) {
         try {
           // Get the most recent image from the students table
@@ -44,6 +48,7 @@ export const BuildersList = ({
             images[builder.id] = data.image_url;
           } else if (error) {
             console.error('Error fetching student image:', error);
+            errors[builder.id] = true;
             
             // Fallback: try to get image from face_registrations if not in students table
             const { data: faceData, error: faceError } = await supabase
@@ -56,17 +61,30 @@ export const BuildersList = ({
               
             if (!faceError && faceData?.face_data) {
               images[builder.id] = faceData.face_data;
+              errors[builder.id] = false;
             }
           }
         } catch (error) {
           console.error('Error fetching builder image:', error);
+          errors[builder.id] = true;
         }
       }
       setBuilderImages(images);
+      setImageLoadErrors(errors);
     };
 
     fetchBuilderImages();
   }, [filteredBuilders, registrationStatus]);
+
+  const handleImageError = (builderId: string) => {
+    console.error('Failed to load image for builder:', builderId);
+    setImageLoadErrors(prev => ({...prev, [builderId]: true}));
+    
+    // Only show toast for the first few errors to avoid spamming
+    if (Object.values(imageLoadErrors).filter(Boolean).length < 3) {
+      toast.error('Could not load profile image');
+    }
+  };
 
   if (loading) {
     return (
@@ -102,14 +120,12 @@ export const BuildersList = ({
         <div key={builder.id} className="glass-card p-4">
           <div className="flex items-center gap-4 mb-4">
             <Avatar className="h-16 w-16 border-2 border-white/20">
-              {builderImages[builder.id] ? (
+              {builderImages[builder.id] && !imageLoadErrors[builder.id] ? (
                 <AvatarImage 
                   src={builderImages[builder.id]} 
                   alt={builder.name} 
                   className="object-cover"
-                  onError={() => {
-                    console.error('Failed to load image for builder:', builder.id);
-                  }}
+                  onError={() => handleImageError(builder.id)}
                 />
               ) : (
                 <AvatarFallback className="text-lg">

@@ -29,7 +29,7 @@ export const updateBuilderAvatar = async (
     // First, verify the student exists
     const { data: student, error: fetchError } = await supabase
       .from('students')
-      .select('id, first_name, last_name')
+      .select('id, first_name, last_name, email, student_id')
       .eq('id', studentId)
       .single();
       
@@ -66,13 +66,17 @@ export const updateBuilderAvatar = async (
     if (!updateResult.data || updateResult.data.length === 0) {
       console.error('No rows were updated in students table');
       
-      // Try again with upsert as a fallback
+      // Try again with upsert as a fallback, but include all required fields
       const upsertResult = await supabase
         .from('students')
         .upsert({
           id: studentId,
+          first_name: student.first_name,
+          last_name: student.last_name,
+          email: student.email,
           image_url: imageData,
-          last_face_update: new Date().toISOString()
+          last_face_update: new Date().toISOString(),
+          student_id: student.student_id
         }, { onConflict: 'id' })
         .select();
         

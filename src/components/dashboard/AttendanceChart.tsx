@@ -174,7 +174,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
     };
     
     fetchHistoricalData();
-  }, [days, builders, dateRange]);
+  }, [days, builders, dateRange]); // Added builders and dateRange to dependencies
 
   return (
     <div className="glass-card p-6 w-full h-80">

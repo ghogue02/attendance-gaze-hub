@@ -1,7 +1,7 @@
 
 import { FC } from 'react';
 
-interface ProcessingOverlayProps {
+export interface ProcessingOverlayProps {
   show: boolean;
   message: string | null;
 }

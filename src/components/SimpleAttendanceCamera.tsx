@@ -22,6 +22,7 @@ const SimpleAttendanceCamera = ({
   selectedBuilder = null
 }: SimpleAttendanceCameraProps) => {
   const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
   
   const {
     videoRef,
@@ -63,6 +64,7 @@ const SimpleAttendanceCamera = ({
 
     try {
       setError(null);
+      setProcessing(true);
       console.log('Starting attendance capture process for:', selectedBuilder.name);
       
       // Capture image data
@@ -70,10 +72,19 @@ const SimpleAttendanceCamera = ({
       if (!imageData) {
         setError('Failed to capture image');
         toast.error('Failed to capture image');
+        setProcessing(false);
         return;
       }
       
       console.log(`Captured image data (${imageData.length} bytes) for ${selectedBuilder.name}`);
+      
+      // Validate image size
+      if (imageData.length > 5000000) {  // ~5MB
+        setError('Image too large. Please try again with a lower resolution.');
+        toast.error('Image too large');
+        setProcessing(false);
+        return;
+      }
       
       // Show processing toast
       const processingToast = toast.loading('Processing your image...', { id: 'profile-update' });
@@ -87,6 +98,7 @@ const SimpleAttendanceCamera = ({
         console.error(errorMsg);
         toast.error(errorMsg, { id: 'profile-update' });
         setError(errorMsg);
+        setProcessing(false);
         return;
       }
       
@@ -105,6 +117,7 @@ const SimpleAttendanceCamera = ({
         console.error('Image verification failed:', verifyError || 'No image URL found');
         toast.error(errorMsg);
         setError(errorMsg);
+        setProcessing(false);
         return;
       }
       
@@ -119,6 +132,7 @@ const SimpleAttendanceCamera = ({
         console.error(errorMsg);
         toast.error(errorMsg);
         setError(errorMsg);
+        setProcessing(false);
         return;
       }
       
@@ -145,6 +159,8 @@ const SimpleAttendanceCamera = ({
       console.error('Error in attendance capture:', error);
       toast.error(errorMsg);
       setError(errorMsg);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -180,6 +196,7 @@ const SimpleAttendanceCamera = ({
         isCapturing={isCapturing}
         selectedBuilder={selectedBuilder}
         onCapture={handleCaptureAttendance}
+        error={error}
       />
     </div>
   );

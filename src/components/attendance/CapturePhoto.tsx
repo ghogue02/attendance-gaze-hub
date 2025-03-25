@@ -1,18 +1,21 @@
 
-import { Camera } from 'lucide-react';
+import { Camera, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/builder/types';
+import { useState } from 'react';
 
 interface CapturePhotoProps {
   isCapturing: boolean;
   selectedBuilder: Builder | null;
   onCapture: () => void;
+  error?: string | null;
 }
 
 const CapturePhoto = ({
   isCapturing,
   selectedBuilder,
-  onCapture
+  onCapture,
+  error = null
 }: CapturePhotoProps) => {
   const isReady = isCapturing && selectedBuilder;
   
@@ -38,6 +41,14 @@ const CapturePhoto = ({
             <p className="font-medium">{selectedBuilder.name}</p>
             <p className="text-sm text-muted-foreground">ID: {selectedBuilder.builderId}</p>
           </div>
+        </div>
+      )}
+      
+      {/* Error message */}
+      {error && (
+        <div className="bg-destructive/10 p-3 rounded-lg flex items-start gap-2 text-destructive">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <p className="text-sm">{error}</p>
         </div>
       )}
       

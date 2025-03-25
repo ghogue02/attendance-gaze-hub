@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -46,12 +45,11 @@ const Header = () => {
               Pursuit System
             </span>
             <span className="text-xs text-foreground/70 hidden sm:inline-block">
-              Builder Tracking
+              Attendance Tracker
             </span>
           </div>
         </Link>
 
-        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-4">
           {navLinks.map((link) => (
             <Button
@@ -69,7 +67,6 @@ const Header = () => {
           ))}
         </nav>
 
-        {/* Mobile Menu Button */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="p-2 md:hidden rounded-full hover:bg-secondary transition-colors"
@@ -79,7 +76,6 @@ const Header = () => {
         </button>
       </div>
 
-      {/* Mobile Menu */}
       {isMobile && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}

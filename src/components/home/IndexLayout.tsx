@@ -22,7 +22,7 @@ const IndexLayout = ({ children }: IndexLayoutProps) => {
         >
           <div className="flex flex-col items-center">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-center bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
-              Builder Tracking
+              Attendance Tracker
             </h1>
           </div>
         </motion.div>

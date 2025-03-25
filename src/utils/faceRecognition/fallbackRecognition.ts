@@ -1,7 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { registerFaceWithoutDetection } from './registration';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { FaceRegistrationResult, RecognitionResult } from './types';
 
 /**

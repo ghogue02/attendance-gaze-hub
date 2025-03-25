@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { Check, AlertCircle, Clock } from 'lucide-react';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';

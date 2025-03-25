@@ -1,6 +1,7 @@
 
 import { motion } from 'framer-motion';
-import BuilderCard, { Builder, BuilderStatus } from '@/components/BuilderCard';
+import BuilderCard from '@/components/builder/BuilderCard';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 
 interface BuildersListProps {
   isLoading: boolean;

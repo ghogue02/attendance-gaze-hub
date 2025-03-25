@@ -1,5 +1,5 @@
 
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 
 export interface RegistrationCaptureProps {
   builder: Builder;

@@ -1,5 +1,5 @@
+import { Builder, BuilderStatus } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Builder, BuilderStatus } from '@/components/BuilderCard';
 import { FaceDetectionResult } from './types';
 
 declare global {

@@ -1,6 +1,6 @@
 
 import { useEffect } from 'react';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { useAttendanceCapture } from '@/hooks/useAttendanceCapture';
 import CameraViewport from './CameraViewport';
 import CaptureButton from './CaptureButton';

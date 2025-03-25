@@ -1,4 +1,5 @@
-import { Builder } from '@/components/BuilderCard';
+
+import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { RecognitionResult } from './types';
 

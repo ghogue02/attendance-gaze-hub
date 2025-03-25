@@ -1,7 +1,6 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Builder } from './BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { useCamera } from '@/hooks/camera';
 import { processRecognition } from '@/utils/faceRecognition/recognitionService';
 import { processSimplifiedRecognition } from '@/utils/faceRecognition/simplifiedRecognitionService';
@@ -87,10 +86,8 @@ const AttendanceCamera = ({
     }
   });
   
-  // Regular health checks
   useEffect(() => {
     if (isCameraActive && isCapturing) {
-      // Set up health check interval
       healthCheckIntervalRef.current = setInterval(() => {
         const isHealthy = checkCameraHealth();
         if (!isHealthy) {
@@ -114,7 +111,6 @@ const AttendanceCamera = ({
       setInitializingModels(true);
       
       if (!useSimplifiedRecognition) {
-        // Only load facenet models if we're using the complex recognition
         const { initModels } = await import('@/utils/faceRecognition/browser-facenet');
         const success = await initModels();
         
@@ -170,9 +166,7 @@ const AttendanceCamera = ({
       console.log("Capturing image in active mode");
     }
     
-    // Choose which recognition method to use
     if (useSimplifiedRecognition) {
-      // Use simplified recognition for better reliability
       processSimplifiedRecognition(imageData, {
         isPassive: false,
         debugMode: debugMode,
@@ -203,7 +197,6 @@ const AttendanceCamera = ({
         }
       });
     } else {
-      // Use the standard recognition
       processRecognition(imageData, {
         isPassive: false,
         debugMode: debugMode,
@@ -272,9 +265,7 @@ const AttendanceCamera = ({
       console.log(`Passive scan #${scanCount + 1} - processing image`);
     }
     
-    // Choose which recognition method to use
     if (useSimplifiedRecognition) {
-      // Use simplified recognition for better reliability
       processSimplifiedRecognition(imageData, {
         isPassive: true,
         debugMode: debugMode,
@@ -322,7 +313,6 @@ const AttendanceCamera = ({
         }
       });
     } else {
-      // Use the standard recognition
       processRecognition(imageData, {
         isPassive: true,
         debugMode: debugMode,

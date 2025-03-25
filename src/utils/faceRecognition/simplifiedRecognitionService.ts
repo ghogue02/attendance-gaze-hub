@@ -1,4 +1,5 @@
-import { Builder } from '@/components/BuilderCard';
+
+import { Builder } from '@/components/builder/types';
 import { simplifiedRecognize, recordAttendance } from './simplifiedRecognition';
 
 // Options for the recognition process

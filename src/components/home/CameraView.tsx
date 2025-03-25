@@ -2,7 +2,7 @@
 import { Camera, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AttendanceCamera from '@/components/AttendanceCamera';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 
 interface CameraViewProps {
   isCameraActive: boolean;

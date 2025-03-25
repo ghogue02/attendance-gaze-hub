@@ -1,10 +1,9 @@
-
 /**
  * Browser-compatible FaceNet implementation using TensorFlow.js
  * This provides similar functionality to node-facenet but works in browser environments
  */
 import * as tf from '@tensorflow/tfjs';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 
 // Define a type that combines GraphModel and LayersModel properties

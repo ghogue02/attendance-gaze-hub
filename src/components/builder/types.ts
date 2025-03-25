@@ -9,7 +9,7 @@ export interface Builder {
   timeRecorded?: string;
   image?: string;
   excuseReason?: string;
-  notes?: string; // Adding notes field
+  notes?: string; // Added notes field
 }
 
 export interface AttendanceRecord {
@@ -18,6 +18,7 @@ export interface AttendanceRecord {
   status: BuilderStatus;
   timeRecorded?: string;
   excuseReason?: string;
+  notes?: string; // Added notes field
 }
 
 export interface BuilderCardProps {

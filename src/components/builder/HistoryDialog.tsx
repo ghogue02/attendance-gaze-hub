@@ -23,6 +23,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [editStatus, setEditStatus] = useState<BuilderStatus>('present');
+  const [editExcuseReason, setEditExcuseReason] = useState('');
   const [editNotes, setEditNotes] = useState('');
 
   useEffect(() => {
@@ -59,7 +60,8 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
           timeRecorded: record.time_recorded 
             ? new Date(record.time_recorded).toLocaleTimeString() 
             : undefined,
-          excuseReason: record.excuse_reason
+          excuseReason: record.excuse_reason,
+          notes: record.notes
         };
       });
 
@@ -75,12 +77,14 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
   const startEditing = (record: AttendanceRecord) => {
     setEditingRecord(record);
     setEditStatus(record.status);
-    setEditNotes(record.excuseReason || '');
+    setEditExcuseReason(record.excuseReason || '');
+    setEditNotes(record.notes || '');
   };
 
   const cancelEditing = () => {
     setEditingRecord(null);
     setEditStatus('present');
+    setEditExcuseReason('');
     setEditNotes('');
   };
 
@@ -91,13 +95,14 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
     try {
       // For database, we need to handle 'excused' status by setting status to 'absent' with excuse_reason
       const dbStatus = editStatus === 'excused' ? 'absent' : editStatus;
-      const dbExcuseReason = editStatus === 'excused' ? editNotes : null;
+      const dbExcuseReason = editStatus === 'excused' ? editExcuseReason : null;
       
       const { error } = await supabase
         .from('attendance')
         .update({
           status: dbStatus,
           excuse_reason: dbExcuseReason,
+          notes: editNotes,
           time_recorded: new Date().toISOString()
         })
         .eq('id', editingRecord.id);
@@ -117,7 +122,8 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
             ? {
                 ...record,
                 status: editStatus,
-                excuseReason: editStatus === 'excused' ? editNotes : undefined,
+                excuseReason: editStatus === 'excused' ? editExcuseReason : undefined,
+                notes: editNotes,
                 timeRecorded: new Date().toLocaleTimeString()
               }
             : record
@@ -172,7 +178,18 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
                       </span>
                     </TableCell>
                     <TableCell className="max-w-[250px] break-words">
-                      {record.excuseReason || '—'}
+                      {record.excuseReason ? (
+                        <div>
+                          <p className="font-medium text-xs">Excuse:</p>
+                          <p className="text-sm">{record.excuseReason}</p>
+                        </div>
+                      ) : null}
+                      {record.notes ? (
+                        <div className="mt-1">
+                          <p className="font-medium text-xs">Notes:</p>
+                          <p className="text-sm">{record.notes}</p>
+                        </div>
+                      ) : record.excuseReason ? null : '—'}
                     </TableCell>
                     <TableCell>
                       <Button 
@@ -205,6 +222,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
                   <SelectItem value="present">Present</SelectItem>
                   <SelectItem value="absent">Absent</SelectItem>
                   <SelectItem value="excused">Excused</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -213,13 +231,23 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Excuse Reason:</label>
                 <Textarea 
-                  value={editNotes} 
-                  onChange={(e) => setEditNotes(e.target.value)}
+                  value={editExcuseReason} 
+                  onChange={(e) => setEditExcuseReason(e.target.value)}
                   placeholder="Enter reason for excused absence"
                   className="min-h-[80px]"
                 />
               </div>
             )}
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Attendance Notes:</label>
+              <Textarea 
+                value={editNotes} 
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Enter any notes about this attendance record"
+                className="min-h-[80px]"
+              />
+            </div>
             
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={cancelEditing} disabled={isLoading}>

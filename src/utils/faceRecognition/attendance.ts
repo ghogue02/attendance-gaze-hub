@@ -46,7 +46,8 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       attendanceMap.set(record.student_id, {
         status: record.status,
         timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString() : undefined,
-        excuseReason: record.excuse_reason
+        excuseReason: record.excuse_reason,
+        notes: record.notes
       });
     });
     
@@ -70,7 +71,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         timeRecorded: attendanceRecord?.timeRecorded,
         image: student.image_url,
         excuseReason: attendanceRecord?.excuseReason,
-        notes: student.notes
+        notes: attendanceRecord?.notes || student.notes
       };
     });
     

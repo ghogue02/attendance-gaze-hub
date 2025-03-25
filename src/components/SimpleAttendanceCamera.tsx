@@ -5,9 +5,8 @@ import { useCamera } from '@/hooks/camera/useCamera';
 import { toast } from 'sonner';
 import CapturePhoto from './attendance/CapturePhoto';
 import CameraDisplay from './attendance/CameraDisplay';
-import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
+import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateBuilderAvatar';
 import { markAttendance } from '@/utils/attendance/markAttendance';
-import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle } from 'lucide-react';
 
 interface SimpleAttendanceCameraProps {
@@ -41,14 +40,12 @@ const SimpleAttendanceCamera = ({
     }
   });
 
-  // Log whenever the component renders with updated props
   useEffect(() => {
     console.log('SimpleAttendanceCamera rendering with:', {
       isCameraActive,
       selectedBuilder: selectedBuilder?.id
     });
     
-    // Clear any previous errors when props change
     setError(null);
     
     return () => {
@@ -67,15 +64,16 @@ const SimpleAttendanceCamera = ({
       setProcessing(true);
       
       // Show processing toast
-      toast.loading('Capturing image...', { id: 'profile-update' });
+      const toastId = 'attendance-process';
+      toast.loading('Capturing image...', { id: toastId });
       
       console.log('Starting attendance capture process for:', selectedBuilder.name);
       
-      // Capture image data
+      // Step 1: Capture image data
       const imageData = captureImageData();
       if (!imageData) {
         setError('Failed to capture image');
-        toast.error('Failed to capture image', { id: 'profile-update' });
+        toast.error('Failed to capture image', { id: toastId });
         return;
       }
       
@@ -84,45 +82,44 @@ const SimpleAttendanceCamera = ({
       // Validate image size
       if (imageData.length > 5000000) {  // ~5MB
         setError('Image too large. Please try again with a lower resolution.');
-        toast.error('Image too large', { id: 'profile-update' });
+        toast.error('Image too large', { id: toastId });
         return;
       }
       
-      toast.loading('Updating profile...', { id: 'profile-update' });
+      toast.loading('Updating profile...', { id: toastId });
       
-      // STEP 1: First update the builder's avatar image in Supabase
+      // Step 2: Update the builder's avatar image in Supabase
       console.log(`Updating profile image for builder ID: ${selectedBuilder.id}`);
       const imageUpdateSuccess = await updateBuilderAvatar(selectedBuilder.id, imageData);
       
       if (!imageUpdateSuccess) {
-        const errorMsg = 'Failed to update profile image in database';
+        const errorMsg = 'Failed to update profile image. Please try again.';
         console.error(errorMsg);
-        toast.error(errorMsg, { id: 'profile-update' });
+        toast.error(errorMsg, { id: toastId });
         setError(errorMsg);
         return;
       }
       
       console.log('Builder avatar updated successfully');
-      toast.success('Profile image saved successfully', { id: 'profile-update' });
+      toast.success('Profile image saved successfully', { id: toastId });
       
-      // STEP 2: Mark attendance in Supabase
+      // Step 3: Mark attendance in Supabase
       console.log(`Marking attendance for builder ID: ${selectedBuilder.id}`);
-      toast.loading('Recording attendance...', { id: 'attendance-update' });
+      toast.loading('Recording attendance...', { id: toastId });
       
       const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present');
       
       if (!attendanceSuccess) {
         const errorMsg = 'Failed to record attendance';
         console.error(errorMsg);
-        toast.error(errorMsg, { id: 'attendance-update' });
-        setError(errorMsg);
+        toast.error(errorMsg, { id: toastId });
         // Continue anyway since image was updated successfully
       } else {
         console.log('Attendance marked successfully');
-        toast.success('Attendance recorded successfully', { id: 'attendance-update' });
+        toast.success('Attendance recorded!', { id: toastId });
       }
       
-      // STEP 3: Create updated builder object with new image and status
+      // Step 4: Create updated builder object with new image and status
       const updatedBuilder: Builder = {
         ...selectedBuilder,
         image: imageData,
@@ -139,10 +136,10 @@ const SimpleAttendanceCamera = ({
       toast.success(`Welcome, ${updatedBuilder.name}!`);
       
     } catch (error) {
-      const errorMsg = 'An error occurred while marking attendance';
       console.error('Error in attendance capture:', error);
-      toast.error(errorMsg);
-      setError(errorMsg);
+      const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setError(`Error: ${errorMsg}`);
+      toast.error('Failed to process attendance');
     } finally {
       setProcessing(false);
     }

@@ -67,7 +67,7 @@ const SimpleAttendanceCamera = ({
         return;
       }
       
-      console.log('Image captured successfully, processing attendance...');
+      console.log('Image captured successfully, size:', imageData.length, 'chars');
       
       let builder: Builder;
       
@@ -75,7 +75,20 @@ const SimpleAttendanceCamera = ({
         // Use the pre-selected builder
         builder = selectedBuilder;
         
-        // First mark attendance with explicit "present" status to ensure it's recorded
+        // First update the builder's profile image with the captured image
+        // This needs to happen before marking attendance to ensure image is saved
+        console.log('Updating profile image for student:', builder.id);
+        const imageUpdateSuccess = await updateBuilderAvatar(builder.id, imageData);
+        
+        if (!imageUpdateSuccess) {
+          console.error('Error updating profile image');
+          toast.error('Error updating your profile image');
+          // Continue since we still want to mark attendance
+        } else {
+          console.log('Profile image updated successfully');
+        }
+        
+        // Then mark attendance with explicit "present" status
         console.log('Marking attendance for student:', builder.id);
         const attendanceResult = await markAttendance(builder.id, 'present');
         
@@ -86,18 +99,6 @@ const SimpleAttendanceCamera = ({
           return;
         } else {
           console.log('Attendance marked successfully');
-        }
-        
-        // Then update the builder's profile image with the captured image
-        console.log('Updating profile image for student:', builder.id);
-        const imageUpdateSuccess = await updateBuilderAvatar(builder.id, imageData);
-        
-        if (!imageUpdateSuccess) {
-          console.error('Error updating profile image');
-          toast.error('Error updating your profile image');
-          // Continue since attendance was already marked
-        } else {
-          console.log('Profile image updated successfully');
         }
         
         // Update the builder object with the new image and status
@@ -134,7 +135,19 @@ const SimpleAttendanceCamera = ({
           return;
         }
         
-        // First mark attendance with explicit "present" status
+        // First update the builder's profile image with the captured image
+        console.log('Updating profile image for student:', builderData.id);
+        const imageUpdateSuccess = await updateBuilderAvatar(builderData.id, imageData);
+        
+        if (!imageUpdateSuccess) {
+          console.error('Error updating profile image');
+          toast.error('Error updating your profile image');
+          // Continue since we still want to mark attendance
+        } else {
+          console.log('Profile image updated successfully');
+        }
+        
+        // Then mark attendance with explicit "present" status
         console.log('Marking attendance for student:', builderData.id);
         const attendanceResult = await markAttendance(builderData.id, 'present');
         
@@ -143,18 +156,6 @@ const SimpleAttendanceCamera = ({
           toast.error('Failed to mark attendance');
           setProcessing(false);
           return;
-        }
-        
-        // Then update the builder's profile image with the captured image
-        console.log('Updating profile image for student:', builderData.id);
-        const imageUpdateSuccess = await updateBuilderAvatar(builderData.id, imageData);
-        
-        if (!imageUpdateSuccess) {
-          console.error('Error updating profile image');
-          toast.error('Error updating your profile image');
-          // Continue since attendance was already marked
-        } else {
-          console.log('Profile image updated successfully');
         }
         
         // Create builder object from the database result

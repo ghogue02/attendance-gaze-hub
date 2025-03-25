@@ -5,7 +5,8 @@ import { Builder } from './builder/types';
 import { Button } from './ui/button';
 import { useCamera } from '@/hooks/camera';
 import { updateBuilderAvatar } from '@/utils/faceRecognition';
-import { markAttendance } from '@/utils/faceRecognition';
+// Import markAttendance directly from attendance utils to avoid ambiguity
+import { markAttendance } from '@/utils/attendance/markAttendance';
 import { toast } from 'sonner';
 
 interface PhotoCaptureProps {

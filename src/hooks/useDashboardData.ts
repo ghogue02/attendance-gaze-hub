@@ -1,7 +1,9 @@
 
 import { useState, useEffect } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
-import { getAllBuilders, markAttendance } from '@/utils/faceRecognition';
+import { getAllBuilders } from '@/utils/faceRecognition';
+// Import markAttendance directly from attendance utils to avoid ambiguity
+import { markAttendance } from '@/utils/attendance/markAttendance';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 

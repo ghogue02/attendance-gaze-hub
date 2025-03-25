@@ -1,5 +1,5 @@
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -12,8 +12,7 @@ import {
 } from 'recharts';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, subDays } from 'date-fns';
 import { toast } from 'sonner';
 
 interface AttendanceChartProps {
@@ -34,27 +33,41 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Calculate date range once
+  const dateRange = useMemo(() => {
+    const endDate = new Date();
+    const startDate = subDays(endDate, days - 1);
+    return {
+      start: startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      end: endDate.toISOString().split('T')[0]
+    };
+  }, [days]);
+  
   useEffect(() => {
     const fetchHistoricalData = async () => {
       setIsLoading(true);
       
       try {
-        // Calculate the date range - we want the most recent days
-        const endDate = new Date(); // Today
+        // If no builders are provided, show nothing
+        if (!builders || builders.length === 0) {
+          setChartData([]);
+          setIsLoading(false);
+          return;
+        }
+
+        // Extract builder IDs for filtering
+        const builderIds = builders.map(b => b.id);
         
-        // Format date for logging
-        const formatDateForLog = (date: Date) => {
-          return date.toISOString().split('T')[0];
-        };
+        console.log(`Fetching attendance for ${builderIds.length} builders between ${dateRange.start} and ${dateRange.end}`);
         
-        console.log(`Fetching attendance chart data with end date: ${formatDateForLog(endDate)}`);
-        
-        // Fetch ALL attendance data without limiting to a date range
-        // This ensures we get all historical data including imported records
+        // Query with filters applied at the database level
         const { data: attendanceData, error } = await supabase
           .from('attendance')
           .select('*')
-          .order('date', { ascending: false });
+          .in('student_id', builderIds)
+          .gte('date', dateRange.start)
+          .lte('date', dateRange.end)
+          .order('date', { ascending: true });
           
         if (error) {
           console.error('Error fetching historical attendance:', error);
@@ -74,11 +87,27 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
         // Create a map to aggregate attendance by date
         const dateMap = new Map<string, { Present: number; Absent: number; Excused: number; Late: number }>();
         
+        // Initialize the dateMap with all dates in the range (to ensure we have entries even for days with no attendance)
+        const currentDate = new Date(dateRange.start);
+        const endDate = new Date(dateRange.end);
+        
+        while (currentDate <= endDate) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          dateMap.set(dateStr, {
+            Present: 0,
+            Absent: 0,
+            Excused: 0,
+            Late: 0
+          });
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
         // Process all attendance records
         attendanceData.forEach(record => {
           const dateStr = record.date;
           
           if (!dateMap.has(dateStr)) {
+            // This should not happen with our date filtering, but just in case
             dateMap.set(dateStr, {
               Present: 0,
               Absent: 0,
@@ -89,30 +118,23 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
           
           const dateStats = dateMap.get(dateStr)!;
           
-          // Map the status properly
+          // Map the status properly (simplified logic based on the current status field)
           if (record.status === 'present') {
             dateStats.Present++;
-          } else if (record.status === 'absent' && record.excuse_reason) {
+          } else if (record.status === 'late') {
+            dateStats.Late++;
+          } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
             dateStats.Excused++;
           } else if (record.status === 'absent') {
             dateStats.Absent++;
-          } else if (record.status === 'excused') {
-            dateStats.Excused++;
-          } else if (record.status === 'late') {
-            dateStats.Late++;
           }
         });
         
         // Convert the map to an array of chart data objects
-        let formattedData: DailyAttendance[] = Array.from(dateMap.entries()).map(([dateStr, counts]) => {
+        const formattedData: DailyAttendance[] = Array.from(dateMap.entries()).map(([dateStr, counts]) => {
           // Parse the date to create a proper display format
-          const dateParts = dateStr.split('-');
-          if (dateParts.length === 3) {
-            const year = parseInt(dateParts[0]);
-            const month = parseInt(dateParts[1]) - 1; // JS months are 0-based
-            const day = parseInt(dateParts[2]);
-            
-            const date = new Date(year, month, day);
+          try {
+            const date = parseISO(dateStr);
             const dayNum = date.getDate().toString().padStart(2, '0');
             const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
             
@@ -124,26 +146,22 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
               Excused: counts.Excused,
               Late: counts.Late
             };
+          } catch (e) {
+            // Fallback for any invalid dates
+            console.error('Error parsing date:', e, dateStr);
+            return {
+              name: dateStr,
+              date: dateStr,
+              Present: counts.Present,
+              Absent: counts.Absent,
+              Excused: counts.Excused,
+              Late: counts.Late
+            };
           }
-          
-          // Fallback for any invalid dates
-          return {
-            name: dateStr,
-            date: dateStr,
-            Present: counts.Present,
-            Absent: counts.Absent,
-            Excused: counts.Excused,
-            Late: counts.Late
-          };
         });
         
-        // Sort by date (most recent first)
+        // Sort by date (ascending)
         formattedData.sort((a, b) => a.date.localeCompare(b.date));
-        
-        // Take only the latest 'days' entries if we have more than we need
-        if (formattedData.length > days) {
-          formattedData = formattedData.slice(-days);
-        }
         
         console.log('Prepared chart data:', formattedData);
         setChartData(formattedData);
@@ -156,7 +174,7 @@ const AttendanceChart = ({ builders, days = 7 }: AttendanceChartProps) => {
     };
     
     fetchHistoricalData();
-  }, [days]);
+  }, [days, builders, dateRange]);
 
   return (
     <div className="glass-card p-6 w-full h-80">

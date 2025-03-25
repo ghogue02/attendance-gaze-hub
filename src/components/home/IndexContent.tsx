@@ -1,6 +1,6 @@
 
 import { motion } from 'framer-motion';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import CameraSection from './CameraSection';
 import { AttendanceSection } from './AttendanceSection';
 

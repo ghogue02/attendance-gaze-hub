@@ -123,6 +123,7 @@ export type Database = {
           image_url: string | null
           last_face_update: string | null
           last_name: string
+          notes: string | null
           student_id: string | null
           updated_at: string | null
         }
@@ -134,6 +135,7 @@ export type Database = {
           image_url?: string | null
           last_face_update?: string | null
           last_name: string
+          notes?: string | null
           student_id?: string | null
           updated_at?: string | null
         }
@@ -145,6 +147,7 @@ export type Database = {
           image_url?: string | null
           last_face_update?: string | null
           last_name?: string
+          notes?: string | null
           student_id?: string | null
           updated_at?: string | null
         }

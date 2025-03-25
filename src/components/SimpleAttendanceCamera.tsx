@@ -121,17 +121,25 @@ const SimpleAttendanceCamera = ({
         toast.success('Attendance recorded!', { id: toastId });
       }
       
-      // Fetch the updated image URL from the database
-      const { data: studentData } = await supabase
-        .from('students')
-        .select('image_url')
-        .eq('id', selectedBuilder.id)
-        .single();
+      // Try fetching the updated image URL from the database or use the captured data
+      let imageUrl = null;
+      try {
+        const { data: studentData } = await supabase
+          .from('students')
+          .select('image_url')
+          .eq('id', selectedBuilder.id)
+          .single();
+        
+        imageUrl = studentData?.image_url;
+      } catch (err) {
+        console.warn('Could not fetch updated image URL', err);
+        // Continue with the captured image data as fallback
+      }
       
       // Step 4: Create updated builder object with new image and status
       const updatedBuilder: Builder = {
         ...selectedBuilder,
-        image: studentData?.image_url || imageData, // Use the URL if available, otherwise fallback to base64
+        image: imageUrl || imageData, // Use the URL if available, otherwise fallback to base64
         status: 'present',
         timeRecorded: new Date().toLocaleTimeString([], {
           hour: '2-digit',

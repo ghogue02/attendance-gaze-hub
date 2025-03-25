@@ -70,6 +70,25 @@ export const updateBuilderAvatar = async (
     const filename = `avatar-${studentId}-${Date.now()}.${mimeType.split('/')[1] || 'jpg'}`;
     console.log(`Uploading image to avatars/${filename}`);
     
+    // Create avatars bucket if it doesn't exist
+    const { data: buckets } = await supabase
+      .storage
+      .listBuckets();
+      
+    const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+    
+    if (!avatarBucketExists) {
+      console.log('Creating avatars bucket...');
+      const { error: createBucketError } = await supabase
+        .storage
+        .createBucket('avatars', { public: true });
+        
+      if (createBucketError) {
+        console.error('Error creating avatars bucket:', createBucketError);
+        // Continue anyway, maybe we don't have permissions but the bucket exists
+      }
+    }
+    
     // Direct upload to the bucket since we have the proper policies now
     const { data: uploadData, error: uploadError } = await supabase
       .storage
@@ -82,7 +101,23 @@ export const updateBuilderAvatar = async (
     if (uploadError) {
       console.error('Error uploading to storage:', uploadError);
       toast.error(`Failed to upload image: ${uploadError.message}`);
-      return false;
+      
+      // Fallback to storing in face_registrations
+      const { error: faceRegError } = await supabase
+        .from('face_registrations')
+        .insert({
+          student_id: studentId,
+          face_data: imageData,
+          angle_index: 0 // Default angle
+        });
+        
+      if (faceRegError) {
+        console.error('Also failed to update face_registrations:', faceRegError);
+        return false;
+      }
+      
+      console.log('Stored image in face_registrations table as fallback');
+      return true;
     }
     
     console.log('Image uploaded successfully to path:', uploadData.path);

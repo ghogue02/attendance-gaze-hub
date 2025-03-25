@@ -19,7 +19,7 @@ const AttendanceOptions = ({
           className="flex-1 flex items-center justify-center gap-2"
         >
           <Camera size={20} />
-          Start Attendance Camera
+          Take Attendance Photo
         </Button>
       </div>
     </div>

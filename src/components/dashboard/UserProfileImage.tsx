@@ -42,8 +42,7 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           .maybeSingle();
           
         console.log("Student data from database:", studentData);
-        console.log("Image data exists:", !!studentData?.image_url);
-        console.log("Image data length:", studentData?.image_url?.length || 0);
+        console.log("Image URL exists:", !!studentData?.image_url);
           
         if (!studentError && studentData?.image_url) {
           console.log(`Found image in students table for ID ${userId}`);
@@ -53,7 +52,7 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
         }
       }
       
-      // If that fails, try face_registrations table
+      // If that fails, try face_registrations table 
       if (userId) {
         const { data, error } = await supabase
           .from('face_registrations')
@@ -65,11 +64,15 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           
         console.log("Face registration data:", data);
         console.log("Face data exists:", !!data?.face_data);
-        console.log("Face data length:", data?.face_data?.length || 0);
           
         if (!error && data?.face_data) {
           console.log(`Found face data by ID ${userId}`);
-          setImageUrl(data.face_data);
+          // Check if the face_data is a URL or base64
+          if (data.face_data.startsWith('http')) {
+            setImageUrl(data.face_data);
+          } else {
+            setImageUrl(data.face_data);
+          }
           setIsLoading(false);
           return;
         }
@@ -105,7 +108,12 @@ const UserProfileImage = ({ userName = 'Greg Hogue', className = '', userId }: U
           
         if (!error && data?.face_data) {
           console.log('Found face data for Greg');
-          setImageUrl(data.face_data);
+          // Check if the face_data is a URL or base64
+          if (data.face_data.startsWith('http')) {
+            setImageUrl(data.face_data);
+          } else {
+            setImageUrl(data.face_data);
+          }
           setIsLoading(false);
           return;
         }

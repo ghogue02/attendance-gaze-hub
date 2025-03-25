@@ -8,6 +8,7 @@ import CameraDisplay from './attendance/CameraDisplay';
 import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateBuilderAvatar';
 import { markAttendance } from '@/utils/attendance/markAttendance';
 import { AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SimpleAttendanceCameraProps {
   onAttendanceMarked: (builder: Builder) => void;
@@ -120,10 +121,17 @@ const SimpleAttendanceCamera = ({
         toast.success('Attendance recorded!', { id: toastId });
       }
       
+      // Fetch the updated image URL from the database
+      const { data: studentData } = await supabase
+        .from('students')
+        .select('image_url')
+        .eq('id', selectedBuilder.id)
+        .single();
+      
       // Step 4: Create updated builder object with new image and status
       const updatedBuilder: Builder = {
         ...selectedBuilder,
-        image: imageData,
+        image: studentData?.image_url || imageData, // Use the URL if available, otherwise fallback to base64
         status: 'present',
         timeRecorded: new Date().toLocaleTimeString([], {
           hour: '2-digit',

@@ -37,3 +37,6 @@ export { getAllBuilders, markAttendance } from './attendance';
 // Add the simplified recognition utilities
 export { simplifiedRecognize, recordAttendance as recordSimplifiedAttendance } from './simplifiedRecognition';
 export { processSimplifiedRecognition } from './simplifiedRecognitionService';
+
+// Export the updated avatar function
+export { updateBuilderAvatar } from './registration/updateBuilderAvatar';

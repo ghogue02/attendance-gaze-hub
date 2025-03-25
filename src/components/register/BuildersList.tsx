@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Check, AlertCircle, Clock } from 'lucide-react';
 import { Builder } from '@/components/BuilderCard';

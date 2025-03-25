@@ -53,7 +53,7 @@ export const AttendanceSection = ({
               variant="outline"
               className="flex items-center justify-center gap-2"
             >
-              Start New Session
+              Next Builder
             </Button>
           </div>
         ) : (

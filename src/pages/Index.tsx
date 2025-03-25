@@ -3,7 +3,6 @@ import { useAttendanceSystem } from '@/hooks/useAttendanceSystem';
 import { useEffect, useState } from 'react';
 import IndexLayout from '@/components/home/IndexLayout';
 import IndexContent from '@/components/home/IndexContent';
-import AttendanceOptions from '@/components/home/AttendanceOptions';
 import { getBuilders } from '@/utils/builders/getBuilders';
 import { Builder } from '@/components/BuilderCard';
 import { useQuery } from '@tanstack/react-query';
@@ -48,10 +47,6 @@ const Index = () => {
         handleSelectBuilder={handleSelectBuilder}
         startAttendance={startAttendance}
         reset={reset}
-      />
-      <AttendanceOptions
-        startAttendance={startAttendance}
-        isBuilderSelected={!!selectedBuilder}
       />
     </IndexLayout>
   );

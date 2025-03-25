@@ -7,6 +7,7 @@ import { markAttendance } from '@/utils/attendance/markAttendance';
 import { Builder } from '@/components/BuilderCard';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
 
 interface SimpleAttendanceCameraProps {
   onAttendanceMarked: (builder: Builder) => void;
@@ -73,13 +74,13 @@ const SimpleAttendanceCamera = ({
         builder = selectedBuilder;
         
         // Update the builder's profile image with the captured image
-        const { error: updateError } = await supabase
-          .from('students')
-          .update({ image_url: imageData })
-          .eq('id', builder.id);
-          
-        if (updateError) {
-          console.error('Error updating profile image:', updateError);
+        const success = await updateBuilderAvatar(builder.id, imageData);
+        
+        if (!success) {
+          console.error('Error updating profile image');
+          toast.error('Error updating your profile image');
+        } else {
+          toast.success('Profile image updated successfully');
         }
         
         // Mark attendance
@@ -120,13 +121,13 @@ const SimpleAttendanceCamera = ({
         }
         
         // Update the builder's profile image with the captured image
-        const { error: updateError } = await supabase
-          .from('students')
-          .update({ image_url: imageData })
-          .eq('id', builderData.id);
-          
-        if (updateError) {
-          console.error('Error updating profile image:', updateError);
+        const success = await updateBuilderAvatar(builderData.id, imageData);
+        
+        if (!success) {
+          console.error('Error updating profile image');
+          toast.error('Error updating your profile image');
+        } else {
+          toast.success('Profile image updated successfully');
         }
         
         // Mark attendance

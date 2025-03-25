@@ -44,7 +44,7 @@ export const RecognitionResult = ({
           onClick={reset}
           className="py-4 flex items-center justify-center gap-2 mx-auto md:mx-0"
         >
-          Record Another Attendance
+          Next Builder
         </Button>
       )}
     </div>

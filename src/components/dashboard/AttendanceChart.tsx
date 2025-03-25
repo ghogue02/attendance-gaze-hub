@@ -10,10 +10,10 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
 interface AttendanceChartProps {

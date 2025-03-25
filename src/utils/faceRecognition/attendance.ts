@@ -54,12 +54,19 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     const builders: Builder[] = students.map(student => {
       const attendanceRecord = attendanceMap.get(student.id);
       
+      // Default to 'pending' if no attendance record exists for today
+      let status = attendanceRecord?.status || 'pending';
+      
+      // If attendance record is 'absent' but has excuse_reason, mark as 'excused'
+      if (status === 'absent' && attendanceRecord?.excuseReason) {
+        status = 'excused';
+      }
+      
       return {
         id: student.id,
         name: `${student.first_name} ${student.last_name || ''}`.trim(),
         builderId: student.student_id || '',
-        // Default to 'pending' if no attendance record exists for today
-        status: attendanceRecord?.status || 'pending',
+        status: status,
         timeRecorded: attendanceRecord?.timeRecorded,
         image: student.image_url,
         excuseReason: attendanceRecord?.excuseReason

@@ -56,11 +56,12 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
         });
         
         // Fetch ALL attendance data without any filtering or date constraints
-        // to make sure we get the complete history
+        // Order by date DESC to get the most recent records first
         const { data, error } = await supabase
           .from('attendance')
           .select('*')
-          .order('date', { ascending: false });
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false });
           
         if (error) {
           console.error('Error fetching attendance history:', error);
@@ -97,15 +98,12 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
             status = 'excused';
           }
           
-          // Use the date string directly from the database
-          const dateStr = record.date;
-          
           return {
             id: record.id,
             name: builder?.name || `Unknown (ID: ${record.student_id.substring(0, 8)}...)`,
             builderId: builder?.builderId || '',
             status,
-            date: dateStr,
+            date: record.date,
             timeRecorded: record.time_recorded 
               ? new Date(record.time_recorded).toLocaleTimeString() 
               : undefined,

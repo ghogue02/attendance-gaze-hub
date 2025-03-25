@@ -225,7 +225,7 @@ const AttendanceCapture = ({
         onRetry={handleRetryCamera}
       />
       
-      {processing && <ProcessingOverlay message={statusMessage || 'Processing...'} />}
+      {processing && <ProcessingOverlay show={processing} message={statusMessage || 'Processing...'} />}
       
       <div className="flex justify-center">
         <CaptureButton 

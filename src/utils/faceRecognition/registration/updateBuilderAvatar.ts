@@ -16,62 +16,92 @@ export const updateBuilderAvatar = async (
     
     if (!studentId) {
       console.error('Student ID is required');
+      toast.error('Student ID is required');
       return false;
     }
     
     if (!imageData || !imageData.startsWith('data:image/')) {
       console.error('Invalid image data format');
+      toast.error('Invalid image format');
       return false;
     }
     
-    // First, fetch the student record to verify it exists
+    // First, verify the student exists
     const { data: student, error: fetchError } = await supabase
       .from('students')
       .select('id, first_name, last_name')
       .eq('id', studentId)
       .single();
       
-    if (fetchError || !student) {
-      console.error('Error fetching student:', fetchError || 'Student not found');
+    if (fetchError) {
+      console.error('Error fetching student:', fetchError);
+      toast.error(`Database error: ${fetchError.message}`);
+      return false;
+    }
+    
+    if (!student) {
+      console.error('Student not found');
+      toast.error('Student record not found');
       return false;
     }
     
     console.log('Found student record:', student.first_name, student.last_name);
     
-    // Update the student record with the image data - using update() instead of upsert()
-    const { data, error } = await supabase
+    // Update the student record with the image data - upsert with explicit returning
+    const updateResult = await supabase
       .from('students')
-      .update({ 
+      .update({
         image_url: imageData,
         last_face_update: new Date().toISOString()
       })
       .eq('id', studentId)
       .select();
       
-    if (error) {
-      console.error('Error updating student image:', error);
+    if (updateResult.error) {
+      console.error('Error updating student image:', updateResult.error);
+      toast.error(`Failed to update image: ${updateResult.error.message}`);
       return false;
     }
     
-    if (!data || data.length === 0) {
+    if (!updateResult.data || updateResult.data.length === 0) {
       console.error('No rows were updated in students table');
-      return false;
+      
+      // Try again with upsert as a fallback
+      const upsertResult = await supabase
+        .from('students')
+        .upsert({
+          id: studentId,
+          image_url: imageData,
+          last_face_update: new Date().toISOString()
+        }, { onConflict: 'id' })
+        .select();
+        
+      if (upsertResult.error || !upsertResult.data || upsertResult.data.length === 0) {
+        console.error('Error in fallback upsert:', upsertResult.error || 'No data returned');
+        toast.error('Failed to update profile image');
+        return false;
+      }
+      
+      console.log('Profile updated via fallback upsert');
+    } else {
+      console.log('Student image updated successfully:', updateResult.data[0].id);
     }
-    
-    console.log('Student image updated successfully:', data[0].id);
     
     // Now update the face registration
     const { error: faceRegError } = await supabase
       .from('face_registrations')
-      .insert({
+      .upsert({
         student_id: studentId,
         face_data: imageData,
         angle_index: 0
+      }, {
+        onConflict: 'student_id,angle_index'
       });
       
     if (faceRegError) {
       console.error('Error updating face registration:', faceRegError);
       // Continue anyway as the profile was updated
+      console.log('Face registration failed but profile was updated');
     } else {
       console.log('Face registration created successfully');
     }
@@ -79,6 +109,7 @@ export const updateBuilderAvatar = async (
     return true;
   } catch (error) {
     console.error('Error in updateBuilderAvatar:', error);
+    toast.error('An unexpected error occurred');
     return false;
   }
 };

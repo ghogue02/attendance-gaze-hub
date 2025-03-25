@@ -97,6 +97,7 @@ const SimpleAttendanceCamera = ({
         console.error(errorMsg);
         toast.error(errorMsg, { id: toastId });
         setError(errorMsg);
+        setProcessing(false);
         return;
       }
       

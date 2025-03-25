@@ -46,14 +46,6 @@ const CapturePhoto = ({
         </div>
       )}
       
-      {/* Error message */}
-      {error && (
-        <div className="bg-destructive/10 p-3 rounded-lg flex items-start gap-2 text-destructive">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-      
       {/* Instructions */}
       <p className="text-center text-sm text-muted-foreground">
         {selectedBuilder 
@@ -64,7 +56,7 @@ const CapturePhoto = ({
       {/* Capture button */}
       <Button
         onClick={onCapture}
-        disabled={!isReady}
+        disabled={!isReady || processing}
         className="flex items-center justify-center gap-2 w-full py-6"
         variant={isReady ? "default" : "outline"}
       >

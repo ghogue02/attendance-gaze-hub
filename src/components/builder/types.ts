@@ -9,6 +9,7 @@ export interface Builder {
   timeRecorded?: string;
   image?: string;
   excuseReason?: string;
+  notes?: string; // Adding notes field
 }
 
 export interface AttendanceRecord {

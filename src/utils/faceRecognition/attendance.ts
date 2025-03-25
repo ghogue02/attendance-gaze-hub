@@ -69,7 +69,8 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         status: status,
         timeRecorded: attendanceRecord?.timeRecorded,
         image: student.image_url,
-        excuseReason: attendanceRecord?.excuseReason
+        excuseReason: attendanceRecord?.excuseReason,
+        notes: student.notes
       };
     });
     

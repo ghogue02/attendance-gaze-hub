@@ -105,10 +105,11 @@ const SimpleAttendanceCamera = ({
       console.log('Builder avatar updated successfully');
       toast.success('Profile image saved successfully', { id: toastId });
       
-      // Step 3: Mark attendance in Supabase
-      console.log(`Marking attendance for builder ID: ${selectedBuilder.id}`);
+      // Step 3: Mark attendance in Supabase with explicit "present" status
+      console.log(`Marking attendance for builder ID: ${selectedBuilder.id} as present`);
       toast.loading('Recording attendance...', { id: toastId });
       
+      // Ensure the attendance is marked with explicit "present" status
       const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present');
       
       if (!attendanceSuccess) {
@@ -117,11 +118,11 @@ const SimpleAttendanceCamera = ({
         toast.error(errorMsg, { id: toastId });
         // Continue anyway since image was updated successfully
       } else {
-        console.log('Attendance marked successfully');
+        console.log('Attendance marked successfully in database');
         toast.success('Attendance recorded!', { id: toastId });
       }
       
-      // Try fetching the updated image URL from the database or use the captured data
+      // Try fetching the updated image URL from the database
       let imageUrl = null;
       try {
         const { data: studentData } = await supabase
@@ -131,6 +132,7 @@ const SimpleAttendanceCamera = ({
           .single();
         
         imageUrl = studentData?.image_url;
+        console.log('Retrieved updated image URL:', imageUrl);
       } catch (err) {
         console.warn('Could not fetch updated image URL', err);
         // Continue with the captured image data as fallback
@@ -148,9 +150,14 @@ const SimpleAttendanceCamera = ({
         })
       };
       
+      console.log('Updated builder object:', updatedBuilder.id, updatedBuilder.status);
+      
       // Notify the parent component
       onAttendanceMarked(updatedBuilder);
       toast.success(`Welcome, ${updatedBuilder.name}!`);
+      
+      // Force a delay to allow the database update to be reflected in other components
+      await new Promise(resolve => setTimeout(resolve, 500));
       
     } catch (error) {
       console.error('Error in attendance capture:', error);

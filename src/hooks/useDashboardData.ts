@@ -16,29 +16,35 @@ export const useDashboardData = () => {
   useEffect(() => {
     loadBuilders();
     
-    // Subscribe to attendance changes
+    // Subscribe to attendance changes with improved handling
     const attendanceChannel = supabase
       .channel('dashboard-attendance-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'attendance' }, 
-        () => {
-          console.log('Attendance change detected, refreshing dashboard data');
+        (payload) => {
+          console.log('Attendance change detected:', payload);
+          // Force immediate refresh when attendance changes
           loadBuilders();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Attendance subscription status:', status);
+      });
       
-    // Subscribe to student profile changes  
+    // Subscribe to student profile changes with improved handling
     const profileChannel = supabase
       .channel('dashboard-profile-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'students' }, 
-        () => {
-          console.log('Student profile change detected, refreshing dashboard data');
+        (payload) => {
+          console.log('Student profile change detected:', payload);
+          // Force immediate refresh when profiles change
           loadBuilders();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Profile subscription status:', status);
+      });
     
     return () => {
       supabase.removeChannel(attendanceChannel);
@@ -85,7 +91,7 @@ export const useDashboardData = () => {
       const success = await markAttendance(builderId, status, excuseReason);
       
       if (success) {
-        // Update local state
+        // Update local state immediately
         setBuilders(prevBuilders => 
           prevBuilders.map(builder => 
             builder.id === builderId
@@ -102,8 +108,8 @@ export const useDashboardData = () => {
         const statusText = status === 'excused' ? 'Excused absence' : `Attendance marked as ${status}`;
         toast.success(statusText);
         
-        // Force refresh to ensure data is up to date
-        setTimeout(loadBuilders, 500);
+        // Force reload after a short delay to ensure data is up to date
+        setTimeout(loadBuilders, 300);
       } else {
         toast.error('Failed to update attendance');
       }

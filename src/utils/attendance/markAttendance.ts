@@ -62,6 +62,19 @@ export const markAttendance = async (
       }
       
       console.log('Attendance record updated successfully with timestamp:', timestamp);
+      
+      // Force a publish to other clients that are subscribed
+      try {
+        // This is just an extra update to ensure the realtime subscribers get notified
+        await supabase
+          .from('attendance')
+          .update({ updated_at: timestamp })
+          .eq('id', existingAttendance.id);
+      } catch (e) {
+        // We can ignore this error as it's just a helper update
+        console.log('Helper update completed');
+      }
+      
       return true;
     }
     

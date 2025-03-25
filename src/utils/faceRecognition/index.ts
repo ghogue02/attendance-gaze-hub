@@ -1,6 +1,10 @@
 
-// Export only the simplified photo capture utilities
-export { updateBuilderAvatar } from './registration/updateBuilderAvatar';
-export { markAttendance } from './attendance';
-export { getAllBuilders } from './attendance';
-export { checkFaceRegistrationStatus } from './registration/checkStatus';
+// Re-export all functions from submodules
+export * from './recognition';
+export * from './recognitionUtils';
+export * from './setup';
+export * from './attendance';
+export * from './simplifiedRecognition';
+export * from './simplifiedRecognitionService';
+export * from './registration/index';
+export * from './aiEnhancement';

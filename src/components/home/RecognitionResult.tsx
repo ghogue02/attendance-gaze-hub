@@ -2,7 +2,8 @@
 import { CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import BuilderCard, { Builder } from '@/components/BuilderCard';
+import BuilderCard from '@/components/builder/BuilderCard';
+import { Builder } from '@/components/builder/types';
 
 interface RecognitionResultProps {
   detectedBuilder: Builder;

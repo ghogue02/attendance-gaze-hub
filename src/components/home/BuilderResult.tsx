@@ -1,6 +1,6 @@
 
 import { motion } from 'framer-motion';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import UserProfileImage from '@/components/dashboard/UserProfileImage';
 
 interface BuilderResultProps {

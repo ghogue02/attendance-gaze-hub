@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import IndexLayout from '@/components/home/IndexLayout';
 import IndexContent from '@/components/home/IndexContent';
 import { getBuilders } from '@/utils/builders/getBuilders';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { useQuery } from '@tanstack/react-query';
 
 const Index = () => {

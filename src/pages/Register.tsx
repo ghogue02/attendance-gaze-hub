@@ -5,7 +5,7 @@ import { Search } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import FaceRegistration from '@/components/face-registration';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import { getAllBuilders, checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';

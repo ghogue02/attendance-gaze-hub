@@ -1,7 +1,7 @@
 
 import { motion } from 'framer-motion';
 import { Camera } from 'lucide-react';
-import { Builder } from '@/components/BuilderCard';
+import { Builder } from '@/components/builder/types';
 import SimpleAttendanceCamera from '@/components/SimpleAttendanceCamera';
 import BuilderResult from './BuilderResult';
 

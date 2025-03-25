@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
-import { Builder, BuilderStatus } from '@/components/BuilderCard';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 import { getAllBuilders, markAttendance } from '@/utils/faceRecognition';
 import { toast } from 'sonner';
 

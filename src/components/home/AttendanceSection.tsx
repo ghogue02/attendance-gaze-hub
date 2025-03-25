@@ -1,10 +1,8 @@
-
 import { Camera, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
-import { Label } from '@/components/ui/label';
 
 interface AttendanceSectionProps {
   isCameraActive: boolean;
@@ -126,7 +124,7 @@ export const AttendanceSection = ({
               </>
             ) : (
               <p className="text-muted-foreground text-sm">
-                Camera is active. Position yourself in the frame...
+                Position yourself in the frame...
               </p>
             )}
           </div>

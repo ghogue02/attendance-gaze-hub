@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, ChevronRight, Home, LayoutDashboard, Camera } from 'lucide-react';
+import { Menu, X, ChevronRight, Home, LayoutDashboard } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 
@@ -38,15 +38,15 @@ const Header = () => {
     <header className={headerClasses}>
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-6">
         <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
-          <div className="w-10 h-10 rounded-xl bg-primary/90 flex items-center justify-center text-white font-bold shadow-sm">
-            PAS
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold shadow-sm">
+            PS
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-lg text-foreground leading-tight hidden sm:inline-block">
-              Pursuit AI-Native
+              Pursuit System
             </span>
             <span className="text-xs text-foreground/70 hidden sm:inline-block">
-              Attendance System
+              Builder Tracking
             </span>
           </div>
         </Link>

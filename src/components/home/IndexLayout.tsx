@@ -1,8 +1,8 @@
 
+import { Camera } from 'lucide-react';
 import Header from '@/components/Header';
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
-import { Camera } from 'lucide-react';
 
 interface IndexLayoutProps {
   children: ReactNode;
@@ -21,11 +21,8 @@ const IndexLayout = ({ children }: IndexLayoutProps) => {
           className="mb-8"
         >
           <div className="flex flex-col items-center">
-            <div className="w-16 h-16 mb-4 bg-primary/10 rounded-full flex items-center justify-center">
-              <Camera size={28} className="text-primary" />
-            </div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-center bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
-              Attendance System
+              Builder Tracking
             </h1>
           </div>
         </motion.div>

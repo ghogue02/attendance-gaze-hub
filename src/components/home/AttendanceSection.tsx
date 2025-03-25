@@ -1,3 +1,4 @@
+
 import { Camera, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/BuilderCard';
@@ -26,8 +27,7 @@ export const AttendanceSection = ({
 
   const filteredBuilders = searchQuery 
     ? builders.filter(builder => 
-        builder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        builder.builderId.toLowerCase().includes(searchQuery.toLowerCase())
+        builder.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
 
@@ -61,7 +61,7 @@ export const AttendanceSection = ({
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
                   <Input
                     id="builder-search"
-                    placeholder="Search by name or builder ID"
+                    placeholder="Search by name"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
@@ -74,22 +74,19 @@ export const AttendanceSection = ({
                       filteredBuilders.map(builder => (
                         <div 
                           key={builder.id}
-                          className="p-2 hover:bg-secondary cursor-pointer flex items-center justify-between"
+                          className="p-2 hover:bg-secondary cursor-pointer flex items-center gap-2"
                           onClick={() => handleSelectBuilder(builder)}
                         >
-                          <div className="flex items-center gap-2">
-                            {builder.image ? (
-                              <div className="w-8 h-8 rounded-full overflow-hidden">
-                                <img src={builder.image} alt={builder.name} className="w-full h-full object-cover" />
-                              </div>
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                                {builder.name.charAt(0)}
-                              </div>
-                            )}
-                            <span>{builder.name}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{builder.builderId}</span>
+                          {builder.image ? (
+                            <div className="w-8 h-8 rounded-full overflow-hidden">
+                              <img src={builder.image} alt={builder.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                              {builder.name.charAt(0)}
+                            </div>
+                          )}
+                          <span>{builder.name}</span>
                         </div>
                       ))
                     ) : (
@@ -108,7 +105,6 @@ export const AttendanceSection = ({
                       </div>
                       <div>
                         <div className="font-medium">{selectedBuilder.name}</div>
-                        <div className="text-xs text-muted-foreground">{selectedBuilder.builderId}</div>
                       </div>
                     </div>
                     <Button 

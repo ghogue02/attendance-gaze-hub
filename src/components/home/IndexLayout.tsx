@@ -2,6 +2,7 @@
 import Header from '@/components/Header';
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { Camera } from 'lucide-react';
 
 interface IndexLayoutProps {
   children: ReactNode;

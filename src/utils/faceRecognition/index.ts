@@ -3,4 +3,4 @@
 export { updateBuilderAvatar } from './registration/updateBuilderAvatar';
 export { markAttendance } from './attendance';
 export { getAllBuilders } from './attendance';
-
+export { checkFaceRegistrationStatus } from './registration/checkStatus';

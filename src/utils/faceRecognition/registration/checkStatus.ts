@@ -26,14 +26,14 @@ export const checkFaceRegistrationStatus = async (studentId: string): Promise<{
     }
     
     const registrationCount = count || 0;
-    const isComplete = registrationCount >= 5; // We consider 5+ registrations as complete
+    const isComplete = registrationCount >= 1; // We now consider 1+ photo as complete
     
     return {
       completed: isComplete,
       count: registrationCount,
       message: isComplete 
-        ? 'Face registration complete' 
-        : `${registrationCount}/5 face images registered`
+        ? 'Photo registration complete' 
+        : `${registrationCount}/1 photo registered`
     };
   } catch (error) {
     console.error('Exception checking registration status:', error);

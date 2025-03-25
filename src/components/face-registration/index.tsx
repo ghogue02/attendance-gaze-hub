@@ -1,10 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
-import { Builder } from '../BuilderCard';
+import { Builder } from '../builder/types';
 import { checkFaceRegistrationStatus } from '@/utils/faceRecognition';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
-import { SimplifiedCapture } from './SimplifiedCapture';
+import { PhotoCapture } from '../PhotoCapture';
 import { Button } from '../ui/button';
 
 interface FaceRegistrationProps {
@@ -48,20 +48,18 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
     }
   };
 
-  const handleRegistrationComplete = (success: boolean) => {
-    console.log("Registration completed with success:", success);
-    if (success) {
-      setRegistrationComplete(true);
-      
-      // Allow a moment to see the success message
-      setTimeout(() => {
-        if (onComplete) {
-          console.log("Calling onComplete callback");
-          onComplete();
-        }
-        handleComplete();
-      }, 1500);
-    }
+  const handleSuccess = (updatedBuilder: Builder) => {
+    console.log("Registration completed successfully");
+    setRegistrationComplete(true);
+    
+    // Allow a moment to see the success message
+    setTimeout(() => {
+      if (onComplete) {
+        console.log("Calling onComplete callback");
+        onComplete();
+      }
+      handleComplete();
+    }, 1500);
   };
 
   const handleStartOver = () => {
@@ -84,8 +82,8 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
           <DialogTitle>Face Registration</DialogTitle>
           <DialogDescription>
             {isUpdateMode 
-              ? "Update your face registration to improve recognition accuracy" 
-              : "Register your face to enable face recognition for attendance"}
+              ? "Update your photo to improve your profile" 
+              : "Register your photo to enable attendance tracking"}
           </DialogDescription>
         </DialogHeader>
         
@@ -96,7 +94,7 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
             </div>
             <h3 className="text-xl font-medium mb-2">Registration Complete!</h3>
             <p className="text-muted-foreground mb-6">
-              Your face has been successfully registered.
+              Your photo has been successfully registered.
             </p>
             <Button onClick={handleComplete}>
               Done
@@ -109,23 +107,22 @@ const FaceRegistration = ({ builder, open, onOpenChange, onComplete }: FaceRegis
             </div>
             <h3 className="text-xl font-medium mb-2">Update Registration</h3>
             <p className="text-muted-foreground mb-6">
-              You've already completed face registration, but you can update your face data
-              to improve recognition accuracy.
+              You've already completed registration, but you can update your photo
+              if needed.
             </p>
             <div className="flex justify-center gap-4">
               <Button variant="outline" onClick={handleComplete}>
                 Cancel
               </Button>
               <Button onClick={handleStartOver}>
-                Re-register Face
+                Update Photo
               </Button>
             </div>
           </div>
         ) : (
-          <SimplifiedCapture 
+          <PhotoCapture 
             builder={builder}
-            onRegistrationComplete={handleRegistrationComplete}
-            isUpdateMode={isUpdateMode}
+            onSuccess={handleSuccess}
           />
         )}
       </DialogContent>

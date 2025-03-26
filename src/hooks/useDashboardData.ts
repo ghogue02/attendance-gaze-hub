@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { getAllBuilders } from '@/utils/faceRecognition';
 // Import markAttendance directly from attendance utils to avoid ambiguity
@@ -14,6 +14,22 @@ export const useDashboardData = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
   const [selectedDate] = useState(new Date().toLocaleDateString());
+
+  // Memoize the loadBuilders function to prevent infinite loops
+  const loadBuilders = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getAllBuilders();
+      console.log('Loaded builders:', data);
+      setBuilders(data);
+      setFilteredBuilders(data);
+    } catch (error) {
+      console.error('Error loading builders:', error);
+      toast.error('Failed to load builder data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadBuilders();
@@ -52,7 +68,7 @@ export const useDashboardData = () => {
       supabase.removeChannel(attendanceChannel);
       supabase.removeChannel(profileChannel);
     };
-  }, []);
+  }, [loadBuilders]);
 
   useEffect(() => {
     // Apply filters when builders, search query, or status filter changes
@@ -73,25 +89,10 @@ export const useDashboardData = () => {
     setFilteredBuilders(results);
   }, [builders, searchQuery, statusFilter]);
 
-  const loadBuilders = async () => {
-    setIsLoading(true);
-    try {
-      const data = await getAllBuilders();
-      console.log('Loaded builders:', data);
-      setBuilders(data);
-      setFilteredBuilders(data);
-    } catch (error) {
-      console.error('Error loading builders:', error);
-      toast.error('Failed to load builder data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleMarkAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
     try {
       // Pass only the required parameters to markAttendance
-      const success = await markAttendance(builderId, status);
+      const success = await markAttendance(builderId, status, excuseReason);
       
       if (success) {
         // Update local state immediately

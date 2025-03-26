@@ -14,10 +14,11 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     const today = new Date().toISOString().split('T')[0];
     console.log('Fetching attendance for date:', today);
     
-    // First, fetch all students
+    // First, fetch all students with better ordering - by last_name, then first_name
     const { data: students, error: studentsError } = await supabase
       .from('students')
       .select('*')
+      .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
       
     if (studentsError) {
@@ -63,9 +64,12 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         status = 'excused';
       }
       
+      // Create a formatted display name that handles multiple last names properly
+      const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
+      
       return {
         id: student.id,
-        name: `${student.first_name} ${student.last_name || ''}`.trim(),
+        name: fullName,
         builderId: student.student_id || '',
         status: status,
         timeRecorded: attendanceRecord?.timeRecorded,
@@ -75,6 +79,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       };
     });
     
+    // Log the builders we're returning
     console.log('Processed builders with attendance status:', builders.map(b => ({ 
       id: b.id, 
       name: b.name, 

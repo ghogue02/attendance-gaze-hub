@@ -6,11 +6,13 @@ import { toast } from 'sonner';
  * Marks attendance for a student
  * @param studentId The ID of the student
  * @param status The attendance status (present, absent, late)
+ * @param excuseReason Optional reason for excused absence
  * @returns The result of the operation
  */
 export const markAttendance = async (
   studentId: string,
-  status: string = 'present'
+  status: string = 'present',
+  excuseReason?: string
 ): Promise<boolean> => {
   try {
     console.log(`Marking attendance for student ID: ${studentId} with status: ${status}`);
@@ -28,7 +30,7 @@ export const markAttendance = async (
     
     const { data: existingAttendance, error: checkError } = await supabase
       .from('attendance')
-      .select('id, status')
+      .select('id, status, excuse_reason')
       .eq('student_id', studentId)
       .eq('date', today)
       .maybeSingle();
@@ -47,12 +49,22 @@ export const markAttendance = async (
     if (existingAttendance) {
       console.log(`Updating existing attendance record (ID: ${existingAttendance.id}) from status: ${existingAttendance.status} to: ${status}`);
       
+      const updateData: any = {
+        status,
+        time_recorded: timestamp
+      };
+      
+      // Only set excuse_reason if it's provided or if status is 'excused'
+      if (excuseReason !== undefined) {
+        updateData.excuse_reason = excuseReason;
+      } else if (status !== 'excused' && existingAttendance.excuse_reason) {
+        // Clear excuse reason if changing away from excused status
+        updateData.excuse_reason = null;
+      }
+      
       const { error: updateError } = await supabase
         .from('attendance')
-        .update({
-          status,
-          time_recorded: timestamp
-        })
+        .update(updateData)
         .eq('id', existingAttendance.id);
         
       if (updateError) {
@@ -81,14 +93,21 @@ export const markAttendance = async (
     // Otherwise, insert new attendance record
     console.log(`Creating new attendance record for student ${studentId} with status: ${status}`);
     
+    const insertData: any = {
+      student_id: studentId,
+      status,
+      date: today,
+      time_recorded: timestamp
+    };
+    
+    // Add excuse reason if provided for a new record
+    if (excuseReason !== undefined) {
+      insertData.excuse_reason = excuseReason;
+    }
+    
     const { data: insertData, error: insertError } = await supabase
       .from('attendance')
-      .insert({
-        student_id: studentId,
-        status,
-        date: today,
-        time_recorded: timestamp
-      })
+      .insert(insertData)
       .select('id');
       
     if (insertError) {

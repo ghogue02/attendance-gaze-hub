@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Builder, AttendanceRecord } from './types';
+import { Builder, AttendanceRecord, BuilderStatus } from './types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
@@ -42,7 +42,10 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
       }
 
       const history: AttendanceRecord[] = data.map(record => {
-        let status: Builder['status'] = record.status;
+        // Convert string status to BuilderStatus type
+        let status: BuilderStatus = record.status as BuilderStatus;
+        
+        // Handle excused absences
         if (record.excuse_reason && record.status === 'absent') {
           status = 'excused';
         }

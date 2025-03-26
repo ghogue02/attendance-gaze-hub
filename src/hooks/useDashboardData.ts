@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { getAllBuilders } from '@/utils/faceRecognition';
 // Import markAttendance directly from attendance utils to avoid ambiguity
@@ -13,6 +13,7 @@ export const useDashboardData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
+  const subscribedRef = useRef(false);
   
   // Get today's date in a localized format
   const today = useMemo(() => new Date(), []);
@@ -20,56 +21,80 @@ export const useDashboardData = () => {
 
   // Memoize the loadBuilders function with useCallback
   const loadBuilders = useCallback(async () => {
+    console.log('Loading builders data...');
     setIsLoading(true);
     try {
-      console.log('Loading builders with today\'s date:', today.toISOString().split('T')[0]);
       const data = await getAllBuilders();
       console.log('Loaded builders:', data.length);
       setBuilders(data);
-      setFilteredBuilders(data);
+      
+      // Apply existing filters to the new data
+      let filtered = [...data];
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(builder => 
+          builder.name.toLowerCase().includes(query) || 
+          (builder.builderId && builder.builderId.toLowerCase().includes(query))
+        );
+      }
+      
+      if (statusFilter !== 'all') {
+        filtered = filtered.filter(builder => builder.status === statusFilter);
+      }
+      
+      setFilteredBuilders(filtered);
     } catch (error) {
       console.error('Error loading builders:', error);
       toast.error('Failed to load builder data');
     } finally {
       setIsLoading(false);
     }
-  }, [today]);
+  }, [searchQuery, statusFilter]);
 
+  // Set up subscriptions only once
   useEffect(() => {
-    loadBuilders();
+    if (subscribedRef.current) return;
     
-    // Subscribe to attendance changes with improved handling
+    console.log('Setting up Supabase subscriptions');
+    subscribedRef.current = true;
+    
+    // Subscribe to attendance changes
     const attendanceChannel = supabase
       .channel('dashboard-attendance-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'attendance' }, 
-        () => {
-          console.log('Attendance change detected, refreshing data');
+        (payload) => {
+          console.log('Attendance change detected:', payload.eventType);
           loadBuilders();
         }
       )
       .subscribe();
       
-    // Subscribe to student profile changes with improved handling
+    // Subscribe to student profile changes
     const profileChannel = supabase
       .channel('dashboard-profile-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'students' }, 
-        () => {
-          console.log('Student profile change detected, refreshing data');
+        (payload) => {
+          console.log('Student profile change detected:', payload.eventType);
           loadBuilders();
         }
       )
       .subscribe();
     
+    // Initial load
+    loadBuilders();
+    
     return () => {
+      console.log('Cleaning up Supabase subscriptions');
       supabase.removeChannel(attendanceChannel);
       supabase.removeChannel(profileChannel);
+      subscribedRef.current = false;
     };
   }, [loadBuilders]);
 
+  // Apply filters when search or status filter changes
   useEffect(() => {
-    // Apply filters when builders, search query, or status filter changes
     if (!builders.length) return;
     
     let results = [...builders];
@@ -95,7 +120,7 @@ export const useDashboardData = () => {
       const success = await markAttendance(builderId, status, excuseReason);
       
       if (success) {
-        // Update local state immediately for a more responsive UI
+        // Update will happen via the subscription, but update local state immediately for responsiveness
         setBuilders(prevBuilders => 
           prevBuilders.map(builder => 
             builder.id === builderId

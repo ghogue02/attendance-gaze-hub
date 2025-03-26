@@ -1,5 +1,5 @@
 
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
@@ -21,6 +21,9 @@ const HistoryTab = memo(({ builders }: HistoryTabProps) => {
     setError(message);
   }, []);
   
+  // Memoize the builders array to prevent unnecessary re-renders
+  const memoizedBuilders = useMemo(() => builders, [builders]);
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -36,7 +39,7 @@ const HistoryTab = memo(({ builders }: HistoryTabProps) => {
       
       <AttendanceHistory 
         key={refreshKey}
-        builders={builders} 
+        builders={memoizedBuilders} 
         onError={handleError}
       />
     </div>

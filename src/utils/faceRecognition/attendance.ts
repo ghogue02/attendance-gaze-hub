@@ -80,11 +80,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     });
     
     // Log the builders we're returning
-    console.log('Processed builders with attendance status:', builders.map(b => ({ 
-      id: b.id, 
-      name: b.name, 
-      status: b.status 
-    })));
+    console.log('Processed builders with attendance status:', builders.length, 'Present:', builders.filter(b => b.status === 'present').length);
     
     return builders;
     

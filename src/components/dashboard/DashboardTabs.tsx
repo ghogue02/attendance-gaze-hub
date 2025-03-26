@@ -45,7 +45,7 @@ const DashboardTabs = memo(({
         <TabsTrigger value="analytics">Analytics</TabsTrigger>
       </TabsList>
       
-      <TabsContent value="builders" forceMount={true} className={activeTab !== 'builders' ? 'hidden' : ''}>
+      <TabsContent value="builders" className={activeTab !== 'builders' ? 'hidden' : ''}>
         <BuildersTab 
           isLoading={isLoading}
           filteredBuilders={filteredBuilders}
@@ -58,13 +58,13 @@ const DashboardTabs = memo(({
         />
       </TabsContent>
       
-      <TabsContent value="history" forceMount={true} className={activeTab !== 'history' ? 'hidden' : ''}>
+      <TabsContent value="history" className={activeTab !== 'history' ? 'hidden' : ''}>
         <HistoryTab 
           builders={builders} 
         />
       </TabsContent>
       
-      <TabsContent value="analytics" forceMount={true} className={activeTab !== 'analytics' ? 'hidden' : ''}>
+      <TabsContent value="analytics" className={activeTab !== 'analytics' ? 'hidden' : ''}>
         <AnalyticsTab 
           builders={builders} 
         />

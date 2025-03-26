@@ -1,5 +1,5 @@
 
-import { useState, memo } from 'react';
+import { useState, memo, useCallback } from 'react';
 import Header from '@/components/Header';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
@@ -24,6 +24,10 @@ const Dashboard = memo(() => {
   } = useDashboardData();
   
   const [activeTab, setActiveTab] = useState<string>("builders");
+  
+  const handleSetActiveTab = useCallback((value: string) => {
+    setActiveTab(value);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
@@ -39,7 +43,7 @@ const Dashboard = memo(() => {
         
         <DashboardTabs
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleSetActiveTab}
           builders={builders}
           filteredBuilders={filteredBuilders}
           isLoading={isLoading}

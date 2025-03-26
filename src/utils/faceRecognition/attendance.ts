@@ -39,7 +39,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       return [];
     }
     
-    console.log(`Retrieved ${attendanceRecords?.length || 0} attendance records for today`);
+    console.log(`Retrieved ${attendanceRecords?.length || 0} attendance records for today (${today})`);
     
     // Create a map of student IDs to attendance records for faster lookup
     const attendanceMap = new Map();

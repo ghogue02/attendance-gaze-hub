@@ -1,6 +1,7 @@
 
 import { motion } from 'framer-motion';
 import { Builder } from '@/components/builder/types';
+import { useEffect } from 'react';
 
 interface StatisticsCardsProps {
   builders: Builder[];
@@ -16,13 +17,16 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   const attendanceRate = totalBuilders > 0 ? Math.round((presentCount / totalBuilders) * 100) : 0;
 
   // Debug output to detect issues with attendance statistics
-  console.log('Statistics calculation:', { 
-    totalBuilders, 
-    presentCount, 
-    absentCount, 
-    excusedCount, 
-    pendingCount 
-  });
+  useEffect(() => {
+    console.log('Statistics calculation:', { 
+      totalBuilders, 
+      presentCount, 
+      absentCount, 
+      excusedCount, 
+      pendingCount,
+      currentDate: new Date().toISOString().split('T')[0]
+    });
+  }, [totalBuilders, presentCount, absentCount, excusedCount, pendingCount]);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">

@@ -13,14 +13,18 @@ export const useDashboardData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
-  const [selectedDate] = useState(new Date().toLocaleDateString());
+  
+  // Get today's date in a localized format
+  const today = new Date();
+  const [selectedDate] = useState(today.toLocaleDateString());
 
   // Memoize the loadBuilders function to prevent infinite loops
   const loadBuilders = useCallback(async () => {
     setIsLoading(true);
     try {
+      console.log('Loading builders with today\'s date:', today.toISOString().split('T')[0]);
       const data = await getAllBuilders();
-      console.log('Loaded builders:', data);
+      console.log('Loaded builders:', data.length);
       setBuilders(data);
       setFilteredBuilders(data);
     } catch (error) {
@@ -29,7 +33,7 @@ export const useDashboardData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [today]);
 
   useEffect(() => {
     loadBuilders();
@@ -112,8 +116,8 @@ export const useDashboardData = () => {
         const statusText = status === 'excused' ? 'Excused absence' : `Attendance marked as ${status}`;
         toast.success(statusText);
         
-        // Force reload after a short delay to ensure data is up to date
-        setTimeout(loadBuilders, 300);
+        // Force reload to ensure data is up to date
+        loadBuilders();
       } else {
         toast.error('Failed to update attendance');
       }

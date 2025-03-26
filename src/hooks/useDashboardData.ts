@@ -17,7 +17,7 @@ export const useDashboardData = () => {
   // Get today's date in a localized format
   const selectedDate = useMemo(() => new Date().toLocaleDateString(), []);
 
-  // Stable function to load/refresh data
+  // Stable function to load/refresh data - no dependencies for stability
   const loadData = useCallback(async (showLoading = true) => {
     console.log('Executing loadData...');
     if (showLoading) setIsLoading(true);
@@ -25,7 +25,6 @@ export const useDashboardData = () => {
       const data = await getAllBuilders();
       console.log('loadData fetched builders:', data.length, 'Present:', data.filter(b => b.status === 'present').length);
       setBuilders(data);
-      // Filtering will happen in the dedicated useEffect below
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load builder data');
@@ -33,9 +32,9 @@ export const useDashboardData = () => {
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  }, []); // Empty dependency array - this function is stable
+  }, []); // Empty dependency array ensures this function is stable
 
-  // Effect for initial load and subscriptions
+  // Effect for initial load and subscriptions - only depends on stable loadData
   useEffect(() => {
     if (subscribedRef.current) return;
     
@@ -74,7 +73,7 @@ export const useDashboardData = () => {
       supabase.removeChannel(profileChannel);
       subscribedRef.current = false;
     };
-  }, [loadData]); // Depend only on the stable loadData function
+  }, [loadData]);
 
   // Effect for filtering - runs whenever raw data or filters change
   useEffect(() => {

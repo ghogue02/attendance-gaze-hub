@@ -46,7 +46,11 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     attendanceRecords?.forEach(record => {
       attendanceMap.set(record.student_id, {
         status: record.status,
-        timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString() : undefined,
+        timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }) : undefined,
         excuseReason: record.excuse_reason,
         notes: record.notes
       });

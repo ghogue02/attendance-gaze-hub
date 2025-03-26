@@ -10,8 +10,8 @@ import DashboardTabs from '@/components/dashboard/DashboardTabs';
 
 const Dashboard = memo(() => {
   const {
-    builders,
-    filteredBuilders,
+    builders, // Use this for StatisticsCards (raw data with status)
+    filteredBuilders, // Use this for BuildersList (filtered data)
     isLoading,
     searchQuery,
     statusFilter,

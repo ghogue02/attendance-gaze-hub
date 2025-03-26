@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Builder } from '@/components/builder/types';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
@@ -17,7 +16,7 @@ interface AttendanceRecord {
   date: string;
   studentName: string;
   studentId: string;
-  status: string;
+  status: BuilderStatus;
   timeRecorded: string | null;
   notes: string | null;
   excuseReason: string | null;
@@ -31,10 +30,8 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
     const fetchAttendanceHistory = async () => {
       setIsLoading(true);
       try {
-        // Get the current date in YYYY-MM-DD format to show today's records
         const today = new Date().toISOString().split('T')[0];
         
-        // Fetch all attendance records joined with student information
         const { data, error } = await supabase
           .from('attendance')
           .select(`
@@ -46,7 +43,7 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
             excuse_reason,
             students(id, first_name, last_name, student_id)
           `)
-          .neq('status', 'pending')  // Exclude pending records
+          .neq('status', 'pending')
           .order('date', { ascending: false })
           .order('time_recorded', { ascending: false });
           
@@ -56,15 +53,20 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
           return;
         }
         
-        // Format the records for display
         const formattedRecords: AttendanceRecord[] = data.map(record => {
           const student = record.students;
           const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
           
-          // Handle status display - if absent with excuse_reason, mark as excused
-          let statusDisplay = record.status;
-          if (record.status === 'absent' && record.excuse_reason) {
-            statusDisplay = 'excused';
+          let statusDisplay: BuilderStatus = 'absent';
+          
+          if (record.status === 'present') {
+            statusDisplay = 'present';
+          } else if (record.status === 'late') {
+            statusDisplay = 'late';
+          } else if (record.status === 'pending') {
+            statusDisplay = 'pending';
+          } else if (record.status === 'absent') {
+            statusDisplay = record.excuse_reason ? 'excused' : 'absent';
           }
           
           return {
@@ -97,7 +99,7 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
       if (parts.length !== 3) return dateStr;
       
       const year = parseInt(parts[0]);
-      const month = parseInt(parts[1]) - 1; // JS months are 0-based
+      const month = parseInt(parts[1]) - 1;
       const day = parseInt(parts[2]);
       
       const date = new Date(year, month, day);

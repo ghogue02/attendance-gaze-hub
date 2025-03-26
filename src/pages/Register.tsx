@@ -67,7 +67,9 @@ const Register = ({ faceRegistration }: RegisterProps) => {
   const loadBuilders = async () => {
     setLoading(true);
     try {
-      const allBuilders = await getAllBuilders();
+      // Get the current date in YYYY-MM-DD format
+      const today = new Date().toISOString().split('T')[0];
+      const allBuilders = await getAllBuilders(today);
       console.log("Loaded builders:", allBuilders.length);
       setBuilders(allBuilders);
       setFilteredBuilders(allBuilders);

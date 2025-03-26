@@ -26,7 +26,9 @@ const Home = () => {
     const loadBuilders = async () => {
       setLoading(true);
       try {
-        const data = await getAllBuilders();
+        // Get the current date in YYYY-MM-DD format
+        const today = new Date().toISOString().split('T')[0];
+        const data = await getAllBuilders(today);
         setBuilders(data);
       } catch (error) {
         console.error('Error loading builders:', error);

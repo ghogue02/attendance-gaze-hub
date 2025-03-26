@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { UserCheck, UserX, Clock, CalendarIcon } from 'lucide-react';
+import { UserCheck, UserX, Clock, CalendarIcon, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import UserProfileImage from './dashboard/UserProfileImage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
@@ -15,9 +15,10 @@ import { BuilderStatus, Builder, AttendanceRecord } from './builder/types';
 interface BuilderCardProps {
   builder: Builder;
   onVerify?: (builderId: string, status: BuilderStatus, reason?: string) => void;
+  onDeleteRequest?: () => void;
 }
 
-const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
+const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) => {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [excuseReason, setExcuseReason] = useState(builder.excuseReason || '');
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -175,34 +176,51 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
             )}
           </div>
           
-          {onVerify && (
-            <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-0" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="outline" 
-                size="sm"
-                className={`${builder.status === 'present' ? 'bg-green-100 text-green-700 border-green-300' : ''}`}
-                onClick={() => handleStatusChange('present')}
-              >
-                Present
-              </Button>
+          <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-0" onClick={(e) => e.stopPropagation()}>
+            {onVerify && (
+              <>
+                <Button
+                  variant="outline" 
+                  size="sm"
+                  className={`${builder.status === 'present' ? 'bg-green-100 text-green-700 border-green-300' : ''}`}
+                  onClick={() => handleStatusChange('present')}
+                >
+                  Present
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`${builder.status === 'excused' ? 'bg-blue-100 text-blue-700 border-blue-300' : ''}`}
+                  onClick={() => handleStatusChange('excused')}
+                >
+                  Excused
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`${builder.status === 'absent' ? 'bg-red-100 text-red-700 border-red-300' : ''}`}
+                  onClick={() => handleStatusChange('absent')}
+                >
+                  Absent
+                </Button>
+              </>
+            )}
+            
+            {onDeleteRequest && (
               <Button
                 variant="outline"
                 size="sm"
-                className={`${builder.status === 'excused' ? 'bg-blue-100 text-blue-700 border-blue-300' : ''}`}
-                onClick={() => handleStatusChange('excused')}
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteRequest();
+                }}
               >
-                Excused
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`${builder.status === 'absent' ? 'bg-red-100 text-red-700 border-red-300' : ''}`}
-                onClick={() => handleStatusChange('absent')}
-              >
-                Absent
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </motion.div>
 

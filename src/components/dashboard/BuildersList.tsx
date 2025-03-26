@@ -9,6 +9,7 @@ interface BuildersListProps {
   searchQuery: string;
   onClearFilters: () => void;
   onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
+  onDeleteRequest: (builderId: string, builderName: string) => void;
 }
 
 const BuildersList = ({ 
@@ -16,7 +17,8 @@ const BuildersList = ({
   filteredBuilders,
   searchQuery,
   onClearFilters,
-  onVerify
+  onVerify,
+  onDeleteRequest
 }: BuildersListProps) => {
   if (isLoading) {
     return (
@@ -59,7 +61,8 @@ const BuildersList = ({
         >
           <BuilderCard 
             builder={builder} 
-            onVerify={onVerify} 
+            onVerify={onVerify}
+            onDeleteRequest={() => onDeleteRequest(builder.id, builder.name)} 
           />
         </motion.div>
       ))}

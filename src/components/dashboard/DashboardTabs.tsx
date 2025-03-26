@@ -18,6 +18,7 @@ interface DashboardTabsProps {
   setStatusFilter: (status: BuilderStatus | 'all') => void;
   onClearFilters: () => void;
   onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
+  refreshData: () => void;
 }
 
 const DashboardTabs = memo(({
@@ -31,7 +32,8 @@ const DashboardTabs = memo(({
   setSearchQuery,
   setStatusFilter,
   onClearFilters,
-  onVerify
+  onVerify,
+  refreshData
 }: DashboardTabsProps) => {
   return (
     <Tabs 
@@ -55,6 +57,7 @@ const DashboardTabs = memo(({
           setStatusFilter={setStatusFilter}
           onClearFilters={onClearFilters}
           onVerify={onVerify}
+          refreshData={refreshData}
         />
       </TabsContent>
       

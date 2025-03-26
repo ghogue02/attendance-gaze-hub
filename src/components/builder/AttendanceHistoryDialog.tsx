@@ -19,6 +19,7 @@ interface AttendanceHistoryDialogProps {
 const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistoryDialogProps) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [attendanceRate, setAttendanceRate] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -63,12 +64,42 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
       });
 
       setAttendanceHistory(history);
+      
+      // Calculate attendance rate (excluding Fridays)
+      calculateAttendanceRate(history);
     } catch (error) {
       console.error('Error in fetchAttendanceHistory:', error);
       toast.error('Error loading attendance history');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const calculateAttendanceRate = (records: AttendanceRecord[]) => {
+    if (records.length === 0) {
+      setAttendanceRate(null);
+      return;
+    }
+
+    // Filter out Fridays from attendance records
+    const nonFridayRecords = records.filter(record => {
+      const date = new Date(record.date);
+      return date.getDay() !== 5; // 5 is Friday (0 is Sunday)
+    });
+
+    if (nonFridayRecords.length === 0) {
+      setAttendanceRate(null);
+      return;
+    }
+
+    // Count the number of days the builder was present or late
+    const presentCount = nonFridayRecords.filter(
+      record => record.status === 'present' || record.status === 'late'
+    ).length;
+
+    // Calculate the rate
+    const rate = (presentCount / nonFridayRecords.length) * 100;
+    setAttendanceRate(Math.round(rate));
   };
 
   return (
@@ -80,6 +111,20 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
             Attendance History for {builder.name}
           </DialogTitle>
         </DialogHeader>
+        
+        {attendanceRate !== null && (
+          <div className="mb-4 p-3 bg-muted/30 rounded-md">
+            <p className="font-medium text-center">
+              Overall Attendance Rate: 
+              <span className={`ml-2 ${attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                {attendanceRate}%
+              </span>
+            </p>
+            <p className="text-xs text-center text-muted-foreground mt-1">
+              Based on {attendanceHistory.length} class sessions (excluding Fridays)
+            </p>
+          </div>
+        )}
         
         {isLoading ? (
           <div className="space-y-2">

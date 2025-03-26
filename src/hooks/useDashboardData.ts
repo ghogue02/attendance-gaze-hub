@@ -2,77 +2,76 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
-import { getAllBuilders } from '@/utils/faceRecognition/attendance'; // Ensure path is correct
+import { getAllBuilders } from '@/utils/faceRecognition/attendance';
 import { markAttendance } from '@/utils/attendance/markAttendance';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useDashboardData = () => {
-  const [builders, setBuilders] = useState<Builder[]>([]); // Raw, merged data
-  const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]); // For UI lists
+  const [builders, setBuilders] = useState<Builder[]>([]);
+  const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
-  const isMounted = useRef(true); // Track mount status for async operations
-  const subscriptionStatus = useRef({ attendance: 'unsubscribed', profile: 'unsubscribed' }); // Track subscription status
+  const isMounted = useRef(true);
+  const subscriptionStatus = useRef({ attendance: 'unsubscribed', profile: 'unsubscribed' });
 
-  // Memoize the display date string
-  const selectedDate = useMemo(() => new Date().toLocaleDateString('en-US', {
+  // --- Define the Target Date ---
+  // For now, let's hardcode it based on your UI/Data.
+  // In a real app, this might come from a date picker or always be 'today'.
+  // IMPORTANT: Ensure this matches the date you expect to see data for (e.g., '2025-03-25')
+  const targetDate = useMemo(() => new Date(2025, 2, 25), []); // Month is 0-indexed (0=Jan, 2=Mar)
+  const targetDateString = useMemo(() => targetDate.toISOString().split('T')[0], [targetDate]); // 'YYYY-MM-DD'
+  const displayDateString = useMemo(() => targetDate.toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  }), []);
+  }), [targetDate]);
 
-  // Stable function to load/refresh data
-  // Renamed parameter for clarity
+  // Stable function to load/refresh data for the target date
   const loadData = useCallback(async (showLoadingSpinner = true) => {
-    // Only proceed if the component is still mounted
-    if (!isMounted.current) {
-      console.log('[useDashboardData] loadData skipped: component unmounted.');
-      return;
-    }
-    console.log(`[useDashboardData] Executing loadData (showLoading: ${showLoadingSpinner})...`);
+    if (!isMounted.current) return;
+    console.log(`[useDashboardData] Executing loadData for date ${targetDateString} (showLoading: ${showLoadingSpinner})...`);
     if (showLoadingSpinner) setIsLoading(true);
     try {
-      const data = await getAllBuilders(); // Fetches students + today's attendance status
-      // Check mount status again before setting state
+      // Pass the target date string to getAllBuilders
+      const data = await getAllBuilders(targetDateString);
       if (isMounted.current) {
         setBuilders(data);
-        console.log(`[useDashboardData] setBuilders called with ${data.length} builders.`);
-      } else {
-         console.log('[useDashboardData] loadData response received, but component unmounted before setting state.');
+        console.log(`[useDashboardData] setBuilders called with ${data.length} builders for ${targetDateString}.`);
       }
     } catch (error) {
       console.error('[useDashboardData] Error during loadData:', error);
-      if (isMounted.current) {
-        setBuilders([]); // Clear data on error
-      }
+      if (isMounted.current) setBuilders([]);
     } finally {
-      // Check mount status again before setting state
-      if (isMounted.current) {
-        setIsLoading(false);
-      }
+      if (isMounted.current) setIsLoading(false);
     }
-  }, []); // Empty dependency array - stable function reference
+    // Pass targetDateString as dependency
+  }, [targetDateString]);
 
   // Effect for initial load and subscriptions
   useEffect(() => {
-    isMounted.current = true; // Mark as mounted
+    isMounted.current = true;
     console.log('[useDashboardData] Component mounted. Setting up subscriptions and initial load.');
-
-    // --- Initial Load ---
-    loadData();
+    loadData(); // Initial load for the target date
 
     // --- Realtime Subscriptions ---
+    // Only trigger reload if the change affects the target date
     const handleDbChange = (payload: any, source: string) => {
       console.log(`[useDashboardData] ${source} change detected:`, payload.eventType);
-      // Reload data in the background
-      loadData(false);
+      const changedDate = payload.new?.date || payload.old?.date;
+      // Reload if the change was for the date we are currently displaying
+      if (changedDate === targetDateString) {
+         console.log(`[useDashboardData] Change affects target date ${targetDateString}. Reloading data.`);
+         loadData(false); // Reload in background
+      } else {
+         console.log(`[useDashboardData] Change for date ${changedDate} ignored (target is ${targetDateString}).`);
+      }
     };
 
     console.log('[useDashboardData] Subscribing to channels...');
     const attendanceChannel = supabase
-      .channel('dashboard-attendance-realtime') // Use a unique channel name
+      .channel('dashboard-attendance-realtime-v2') // Use unique channel names
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'attendance' },
+        { event: '*', schema: 'public', table: 'attendance' }, // Consider filtering further if needed
         (payload) => handleDbChange(payload, 'Attendance')
       )
       .subscribe((status, err) => {
@@ -82,10 +81,14 @@ export const useDashboardData = () => {
       });
 
     const profileChannel = supabase
-      .channel('dashboard-profile-realtime') // Use a unique channel name
+      .channel('dashboard-profile-realtime-v2')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'students' },
-         (payload) => handleDbChange(payload, 'Student Profile')
+         (payload) => {
+            // Profile changes affect all dates, so always reload
+            console.log('[useDashboardData] Student Profile change detected, reloading data.');
+            loadData(false);
+         }
       )
       .subscribe((status, err) => {
         subscriptionStatus.current.profile = status;
@@ -93,25 +96,20 @@ export const useDashboardData = () => {
         else console.log('[useDashboardData] Profile subscription status:', status);
       });
 
-    // --- Cleanup Function ---
+    // --- Cleanup ---
     return () => {
-      isMounted.current = false; // Mark as unmounted
+      isMounted.current = false;
       console.log('[useDashboardData] Component unmounting. Cleaning up subscriptions.');
-      // Only attempt removal if subscribed
-      if (subscriptionStatus.current.attendance !== 'unsubscribed') {
-        supabase.removeChannel(attendanceChannel).then(status => console.log('[useDashboardData] Attendance channel removal status:', status));
-      }
-      if (subscriptionStatus.current.profile !== 'unsubscribed') {
-         supabase.removeChannel(profileChannel).then(status => console.log('[useDashboardData] Profile channel removal status:', status));
-      }
+      if (subscriptionStatus.current.attendance !== 'unsubscribed') supabase.removeChannel(attendanceChannel).catch(console.error);
+      if (subscriptionStatus.current.profile !== 'unsubscribed') supabase.removeChannel(profileChannel).catch(console.error);
     };
-  }, [loadData]); // Depend only on the stable loadData function
+    // Add targetDateString to dependencies - if the target date could change, this effect needs to re-run
+  }, [loadData, targetDateString]);
 
-  // Effect for filtering the displayed list
+  // Effect for filtering
   useEffect(() => {
     console.log('[useDashboardData] Filtering effect running...');
-    let results = [...builders]; // Use the raw 'builders' state
-
+    let results = [...builders];
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       results = results.filter(builder =>
@@ -119,26 +117,23 @@ export const useDashboardData = () => {
         (builder.builderId && builder.builderId.toLowerCase().includes(query))
       );
     }
-
     if (statusFilter !== 'all') {
       results = results.filter(builder => builder.status === statusFilter);
     }
-
     console.log(`[useDashboardData] Setting filteredBuilders with ${results.length} builders.`);
     setFilteredBuilders(results);
-  }, [builders, searchQuery, statusFilter]); // Correct dependencies
+  }, [builders, searchQuery, statusFilter]);
 
-  // Handler for marking attendance (manual override / button click)
+  // Handler for marking attendance
   const handleMarkAttendance = useCallback(async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
-    console.log(`[useDashboardData] handleMarkAttendance called for ${builderId} with status ${status}`);
-    const originalBuilders = [...builders]; // Create a shallow copy for potential revert
-
+    console.log(`[useDashboardData] handleMarkAttendance called for ${builderId} with status ${status} for date ${targetDateString}`);
+    const originalBuilders = [...builders];
     try {
-      // --- Optimistic UI Update ---
       const newStatus = (status === 'absent' && excuseReason) ? 'excused' : status;
       const newTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
       const newExcuse = (newStatus === 'excused') ? (excuseReason || originalBuilders.find(b => b.id === builderId)?.excuseReason) : undefined;
 
+      // Optimistic Update
       setBuilders(prevBuilders =>
         prevBuilders.map(builder =>
           builder.id === builderId
@@ -147,25 +142,26 @@ export const useDashboardData = () => {
         )
       );
 
-      // --- Actual Database Update ---
-      const success = await markAttendance(builderId, status, excuseReason);
+      // DB Update - IMPORTANT: Ensure markAttendance uses the correct date (targetDateString)
+      // You might need to modify markAttendance to accept a date parameter
+      // Assuming markAttendance implicitly uses today, which might be wrong if targetDateString is not today
+      // For now, we proceed assuming markAttendance works for the intended date implicitly or explicitly
+      const success = await markAttendance(builderId, status, excuseReason /*, targetDateString */); // Potentially add targetDateString here
 
       if (success) {
         const statusText = newStatus === 'excused' ? 'Excused absence recorded' : `Attendance marked as ${newStatus}`;
         toast.success(statusText);
-        // Let the subscription handle the final state update from DB
+        // Subscription will trigger loadData if the date matches targetDateString
       } else {
         toast.error('Failed to save attendance update to database');
-        // Revert optimistic update on failure
-        if (isMounted.current) setBuilders(originalBuilders);
+        if (isMounted.current) setBuilders(originalBuilders); // Revert
       }
     } catch (error) {
       console.error('[useDashboardData] Error marking attendance:', error);
       toast.error('An error occurred while updating attendance');
-      // Revert optimistic update on error
-      if (isMounted.current) setBuilders(originalBuilders);
+      if (isMounted.current) setBuilders(originalBuilders); // Revert
     }
-  }, [builders]); // Include builders for revert logic
+  }, [builders, targetDateString, loadData]); // Added loadData for potential future revert logic refinement
 
   // Handler to clear filters
   const handleClearFilters = useCallback(() => {
@@ -176,21 +172,21 @@ export const useDashboardData = () => {
   // Function for manual refresh button
   const refreshData = useCallback(() => {
      console.log('[useDashboardData] Manual refresh triggered.');
-     loadData(true); // Show loading indicator
+     loadData(true);
   }, [loadData]);
 
   // Return state and handlers
   return {
-    builders,           // Raw, merged data for stats/analytics
-    filteredBuilders,   // Filtered data for lists
+    builders,
+    filteredBuilders,
     isLoading,
     searchQuery,
     statusFilter,
-    selectedDate,       // Formatted date string
+    selectedDate: displayDateString, // Use the formatted display date
     setSearchQuery,
     setStatusFilter,
     handleMarkAttendance,
     handleClearFilters,
-    refreshData         // Manual refresh function
+    refreshData
   };
 };

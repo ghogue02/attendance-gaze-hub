@@ -1,10 +1,9 @@
 // src/components/dashboard/DashboardHeader.tsx
+// (Content from previous correct answer - no changes needed here if already applied)
 
 import { useState } from 'react';
-import { Calendar, Download, RefreshCw } from 'lucide-react'; // Import RefreshCw
+import { Calendar, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-// Removed date-fns format as selectedDate is now pre-formatted string
-// import { format } from 'date-fns';
 import UserProfileImage from './UserProfileImage';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { toast } from 'sonner';
@@ -18,18 +17,18 @@ const DashboardHeader = ({ selectedDate, onRefresh }: DashboardHeaderProps) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefreshClick = () => {
-    if (isRefreshing) return; // Prevent multiple clicks
+    if (isRefreshing) return;
 
     setIsRefreshing(true);
-    console.log('[DashboardHeader] Refresh button clicked');
-    onRefresh(); // Call the function passed from the parent (which triggers loadData)
+    console.log('[DashboardHeader] Refresh button clicked, calling onRefresh...');
+    onRefresh(); // Call the function passed from the parent
 
-    // Simulate refresh duration - remove this if loadData handles its own loading state feedback well
-    // Or adjust timeout based on typical load time
+    // We can rely on the isLoading state from useDashboardData now,
+    // but a short local timeout prevents rapid clicking.
     setTimeout(() => {
       setIsRefreshing(false);
-      console.log('[DashboardHeader] Refresh state reset');
-    }, 1500); // Reset after 1.5 seconds
+      console.log('[DashboardHeader] Local refresh state reset.');
+    }, 1000); // Reset local button disabled state after 1s
   };
 
   const handleExport = () => {
@@ -51,7 +50,6 @@ const DashboardHeader = ({ selectedDate, onRefresh }: DashboardHeaderProps) => {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <div className="flex items-center text-muted-foreground text-sm mt-1">
             <Calendar className="h-4 w-4 mr-1.5" />
-            {/* Display the pre-formatted date string */}
             <span>{selectedDate}</span>
           </div>
         </div>
@@ -63,18 +61,17 @@ const DashboardHeader = ({ selectedDate, onRefresh }: DashboardHeaderProps) => {
         <Button
           variant="outline"
           onClick={handleExport}
-          className="hidden md:inline-flex" // Use inline-flex for button content alignment
+          className="hidden md:inline-flex"
         >
           <Download className="mr-2 h-4 w-4" />
           Export Report
         </Button>
 
-        {/* Refresh Button */}
         <Button
           variant="outline"
-          onClick={handleRefreshClick} // Use the dedicated handler
-          disabled={isRefreshing}
-          className="w-auto" // Let button size naturally
+          onClick={handleRefreshClick}
+          disabled={isRefreshing} // Disable based on local state to prevent rapid clicks
+          className="w-auto"
         >
           <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           {isRefreshing ? 'Refreshing...' : 'Refresh Data'}

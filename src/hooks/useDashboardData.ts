@@ -2,50 +2,61 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
-import { getAllBuilders } from '@/utils/faceRecognition/attendance'; // Adjusted path
+import { getAllBuilders } from '@/utils/faceRecognition/attendance'; // Ensure path is correct
 import { markAttendance } from '@/utils/attendance/markAttendance';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useDashboardData = () => {
-  // State for the raw, merged builder data (students + today's status)
-  const [builders, setBuilders] = useState<Builder[]>([]);
-  // State for the list displayed in the UI (after filtering)
-  const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]);
+  const [builders, setBuilders] = useState<Builder[]>([]); // Raw, merged data
+  const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]); // For UI lists
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
-  const subscribedRef = useRef(false); // To prevent setting up subscriptions multiple times
+  const isMounted = useRef(true); // Track mount status for async operations
+  const subscriptionStatus = useRef({ attendance: 'unsubscribed', profile: 'unsubscribed' }); // Track subscription status
 
-  // Memoize today's date string for display
+  // Memoize the display date string
   const selectedDate = useMemo(() => new Date().toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   }), []);
 
-  // Stable function to load/refresh data from the database
-  const loadData = useCallback(async (showLoadingIndicator = true) => {
-    console.log('[useDashboardData] Executing loadData...');
-    if (showLoadingIndicator) setIsLoading(true);
-    try {
-      // getAllBuilders now fetches students and merges today's attendance
-      const data = await getAllBuilders();
-      setBuilders(data); // Update the raw data state. Filtering happens in the next effect.
-    } catch (error) {
-      // Error is likely already logged/toasted in getAllBuilders
-      console.error('[useDashboardData] Error during loadData:', error);
-      setBuilders([]); // Clear data on error
-    } finally {
-      // Always turn off loading indicator, even if background refresh
-      setIsLoading(false);
+  // Stable function to load/refresh data
+  // Renamed parameter for clarity
+  const loadData = useCallback(async (showLoadingSpinner = true) => {
+    // Only proceed if the component is still mounted
+    if (!isMounted.current) {
+      console.log('[useDashboardData] loadData skipped: component unmounted.');
+      return;
     }
-  }, []); // Empty dependency array ensures this function reference is stable
+    console.log(`[useDashboardData] Executing loadData (showLoading: ${showLoadingSpinner})...`);
+    if (showLoadingSpinner) setIsLoading(true);
+    try {
+      const data = await getAllBuilders(); // Fetches students + today's attendance status
+      // Check mount status again before setting state
+      if (isMounted.current) {
+        setBuilders(data);
+        console.log(`[useDashboardData] setBuilders called with ${data.length} builders.`);
+      } else {
+         console.log('[useDashboardData] loadData response received, but component unmounted before setting state.');
+      }
+    } catch (error) {
+      console.error('[useDashboardData] Error during loadData:', error);
+      if (isMounted.current) {
+        setBuilders([]); // Clear data on error
+      }
+    } finally {
+      // Check mount status again before setting state
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
+    }
+  }, []); // Empty dependency array - stable function reference
 
-  // Effect for initial data load and setting up Supabase subscriptions
+  // Effect for initial load and subscriptions
   useEffect(() => {
-    // Prevent duplicate subscriptions on fast re-renders
-    if (subscribedRef.current) return;
-    subscribedRef.current = true;
-    console.log('[useDashboardData] Setting up Supabase subscriptions and initial load.');
+    isMounted.current = true; // Mark as mounted
+    console.log('[useDashboardData] Component mounted. Setting up subscriptions and initial load.');
 
     // --- Initial Load ---
     loadData();
@@ -53,55 +64,54 @@ export const useDashboardData = () => {
     // --- Realtime Subscriptions ---
     const handleDbChange = (payload: any, source: string) => {
       console.log(`[useDashboardData] ${source} change detected:`, payload.eventType);
-      // Reload data in the background without showing the main loading spinner
+      // Reload data in the background
       loadData(false);
     };
 
-    // Listen for changes in the attendance table
+    console.log('[useDashboardData] Subscribing to channels...');
     const attendanceChannel = supabase
-      .channel('dashboard-attendance-changes')
+      .channel('dashboard-attendance-realtime') // Use a unique channel name
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'attendance' },
         (payload) => handleDbChange(payload, 'Attendance')
       )
       .subscribe((status, err) => {
-        if (err) {
-          console.error('[useDashboardData] Attendance subscription error:', err);
-        } else {
-          console.log('[useDashboardData] Attendance subscription status:', status);
-        }
+        subscriptionStatus.current.attendance = status;
+        if (err) console.error('[useDashboardData] Attendance subscription error:', status, err);
+        else console.log('[useDashboardData] Attendance subscription status:', status);
       });
 
-    // Listen for changes in the students table (e.g., name, notes, image updates)
     const profileChannel = supabase
-      .channel('dashboard-profile-changes')
+      .channel('dashboard-profile-realtime') // Use a unique channel name
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'students' },
          (payload) => handleDbChange(payload, 'Student Profile')
       )
       .subscribe((status, err) => {
-         if (err) {
-          console.error('[useDashboardData] Profile subscription error:', err);
-        } else {
-          console.log('[useDashboardData] Profile subscription status:', status);
-        }
+        subscriptionStatus.current.profile = status;
+        if (err) console.error('[useDashboardData] Profile subscription error:', status, err);
+        else console.log('[useDashboardData] Profile subscription status:', status);
       });
 
     // --- Cleanup Function ---
     return () => {
-      console.log('[useDashboardData] Cleaning up Supabase subscriptions.');
-      supabase.removeChannel(attendanceChannel);
-      supabase.removeChannel(profileChannel);
-      subscribedRef.current = false; // Reset ref on unmount
+      isMounted.current = false; // Mark as unmounted
+      console.log('[useDashboardData] Component unmounting. Cleaning up subscriptions.');
+      // Only attempt removal if subscribed
+      if (subscriptionStatus.current.attendance !== 'unsubscribed') {
+        supabase.removeChannel(attendanceChannel).then(status => console.log('[useDashboardData] Attendance channel removal status:', status));
+      }
+      if (subscriptionStatus.current.profile !== 'unsubscribed') {
+         supabase.removeChannel(profileChannel).then(status => console.log('[useDashboardData] Profile channel removal status:', status));
+      }
     };
   }, [loadData]); // Depend only on the stable loadData function
 
-  // Effect for filtering the displayed list - runs whenever raw data or filters change
+  // Effect for filtering the displayed list
   useEffect(() => {
-    console.log('[useDashboardData] Applying filters...');
-    let results = [...builders]; // Start with the raw, merged data
+    console.log('[useDashboardData] Filtering effect running...');
+    let results = [...builders]; // Use the raw 'builders' state
 
-    // Apply search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       results = results.filter(builder =>
@@ -110,81 +120,77 @@ export const useDashboardData = () => {
       );
     }
 
-    // Apply status filter
     if (statusFilter !== 'all') {
       results = results.filter(builder => builder.status === statusFilter);
     }
 
-    console.log(`[useDashboardData] Filtered ${results.length} builders.`);
+    console.log(`[useDashboardData] Setting filteredBuilders with ${results.length} builders.`);
     setFilteredBuilders(results);
-  }, [builders, searchQuery, statusFilter]); // Re-run whenever these change
+  }, [builders, searchQuery, statusFilter]); // Correct dependencies
 
-  // Handler for marking attendance via dashboard buttons
+  // Handler for marking attendance (manual override / button click)
   const handleMarkAttendance = useCallback(async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
     console.log(`[useDashboardData] handleMarkAttendance called for ${builderId} with status ${status}`);
-    const originalBuilders = builders; // Keep original state for potential revert
+    const originalBuilders = [...builders]; // Create a shallow copy for potential revert
+
     try {
       // --- Optimistic UI Update ---
-      // Update the local state immediately for better perceived performance
+      const newStatus = (status === 'absent' && excuseReason) ? 'excused' : status;
+      const newTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      const newExcuse = (newStatus === 'excused') ? (excuseReason || originalBuilders.find(b => b.id === builderId)?.excuseReason) : undefined;
+
       setBuilders(prevBuilders =>
         prevBuilders.map(builder =>
           builder.id === builderId
-            ? {
-                ...builder,
-                // Determine the correct status based on input (especially for 'excused')
-                status: (status === 'absent' && excuseReason) ? 'excused' : status,
-                excuseReason: (status === 'excused' || (status === 'absent' && excuseReason)) ? (excuseReason || builder.excuseReason) : undefined, // Keep existing reason if marking excused without new one
-                timeRecorded: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) // Update time locally
-              }
+            ? { ...builder, status: newStatus, excuseReason: newExcuse, timeRecorded: newTime }
             : builder
         )
       );
-      // Note: The filtering useEffect will automatically update filteredBuilders
 
       // --- Actual Database Update ---
       const success = await markAttendance(builderId, status, excuseReason);
 
       if (success) {
-        const statusText = status === 'excused' ? 'Excused absence recorded' : `Attendance marked as ${status}`;
+        const statusText = newStatus === 'excused' ? 'Excused absence recorded' : `Attendance marked as ${newStatus}`;
         toast.success(statusText);
-        // Data will be refreshed via the subscription, no need to call loadData here
+        // Let the subscription handle the final state update from DB
       } else {
         toast.error('Failed to save attendance update to database');
         // Revert optimistic update on failure
-        setBuilders(originalBuilders);
+        if (isMounted.current) setBuilders(originalBuilders);
       }
     } catch (error) {
       console.error('[useDashboardData] Error marking attendance:', error);
       toast.error('An error occurred while updating attendance');
       // Revert optimistic update on error
-      setBuilders(originalBuilders);
+      if (isMounted.current) setBuilders(originalBuilders);
     }
-  }, [builders]); // Include builders in dependency for reverting
+  }, [builders]); // Include builders for revert logic
 
-  // Handler to clear search and status filters
+  // Handler to clear filters
   const handleClearFilters = useCallback(() => {
     setSearchQuery('');
     setStatusFilter('all');
   }, []);
 
-  // Function to manually trigger a data refresh (e.g., for a refresh button)
+  // Function for manual refresh button
   const refreshData = useCallback(() => {
      console.log('[useDashboardData] Manual refresh triggered.');
-     loadData(true); // Pass true to show the loading indicator
+     loadData(true); // Show loading indicator
   }, [loadData]);
 
-  // Return all the state and handlers needed by the Dashboard page
+  // Return state and handlers
   return {
-    builders, // The raw, merged data (for StatisticsCards, AnalyticsTab)
-    filteredBuilders, // Filtered data (for BuildersList in BuildersTab)
+    builders,           // Raw, merged data for stats/analytics
+    filteredBuilders,   // Filtered data for lists
     isLoading,
     searchQuery,
     statusFilter,
-    selectedDate, // The display date string
+    selectedDate,       // Formatted date string
     setSearchQuery,
     setStatusFilter,
     handleMarkAttendance,
     handleClearFilters,
-    refreshData // Expose the manual refresh function
+    refreshData         // Manual refresh function
   };
 };

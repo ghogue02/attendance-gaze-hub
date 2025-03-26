@@ -29,7 +29,6 @@ const Dashboard = () => {
   console.log(`[Dashboard Page] Rendering. isLoading: ${isLoading}, builders count: ${builders.length}, filtered count: ${filteredBuilders.length}`);
   console.log(`[Dashboard Page] Present count from builders state: ${builders.filter(b => b.status === 'present').length}`);
 
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <Header />

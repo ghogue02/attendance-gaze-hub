@@ -8,20 +8,24 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { BuilderStatus } from "@/components/builder/types";
-import { Search } from "lucide-react";
+import { Search, ArrowUpDown } from "lucide-react";
 
 interface BuilderFiltersProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   statusFilter: BuilderStatus | 'all';
   setStatusFilter: (status: BuilderStatus | 'all') => void;
+  sortOption: string;
+  setSortOption: (option: string) => void;
 }
 
 const BuilderFilters = ({
   searchQuery,
   setSearchQuery,
   statusFilter,
-  setStatusFilter
+  setStatusFilter,
+  sortOption,
+  setSortOption
 }: BuilderFiltersProps) => {
   return (
     <div className="flex flex-col md:flex-row gap-4 mb-6 mt-8">
@@ -50,6 +54,21 @@ const BuilderFilters = ({
           <SelectItem value="excused">Excused Absence</SelectItem>
           <SelectItem value="pending">Pending</SelectItem>
           <SelectItem value="late">Late</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select 
+        value={sortOption} 
+        onValueChange={setSortOption}
+      >
+        <SelectTrigger className="w-full md:w-[180px]">
+          <SelectValue placeholder="Sort by" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="name">Name (A-Z)</SelectItem>
+          <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+          <SelectItem value="attendance">Attendance % (High-Low)</SelectItem>
+          <SelectItem value="attendance-desc">Attendance % (Low-High)</SelectItem>
         </SelectContent>
       </Select>
     </div>

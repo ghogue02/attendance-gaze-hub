@@ -93,7 +93,7 @@ export const markAttendance = async (
     // Otherwise, insert new attendance record
     console.log(`Creating new attendance record for student ${studentId} with status: ${status}`);
     
-    const insertData: any = {
+    const newRecord: any = {
       student_id: studentId,
       status,
       date: today,
@@ -102,12 +102,12 @@ export const markAttendance = async (
     
     // Add excuse reason if provided for a new record
     if (excuseReason !== undefined) {
-      insertData.excuse_reason = excuseReason;
+      newRecord.excuse_reason = excuseReason;
     }
     
-    const { data: insertData, error: insertError } = await supabase
+    const { data: insertedRecord, error: insertError } = await supabase
       .from('attendance')
-      .insert(insertData)
+      .insert(newRecord)
       .select('id');
       
     if (insertError) {
@@ -116,7 +116,7 @@ export const markAttendance = async (
       return false;
     }
     
-    console.log('Attendance record created successfully with ID:', insertData?.[0]?.id);
+    console.log('Attendance record created successfully with ID:', insertedRecord?.[0]?.id);
     return true;
   } catch (error) {
     console.error('Error in markAttendance:', error);

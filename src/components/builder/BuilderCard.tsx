@@ -4,10 +4,10 @@ import { useState } from 'react';
 import UserProfileImage from '@/components/dashboard/UserProfileImage';
 import { Builder, BuilderCardProps } from './types';
 import ExcuseDialog from './ExcuseDialog';
-import HistoryDialog from './HistoryDialog';
 import BuilderStatusIndicator from './BuilderStatusIndicator';
 import BuilderStatusButtons from './BuilderStatusButtons';
 import BuilderNotesDialog from './BuilderNotesDialog';
+import AttendanceHistoryDialog from './AttendanceHistoryDialog';
 import { Button } from '@/components/ui/button';
 import { FileTextIcon, Trash2 } from 'lucide-react';
 
@@ -119,7 +119,7 @@ const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) =
         </div>
       </motion.div>
 
-      {/* Excuse dialog */}
+      {/* Dialogs */}
       <ExcuseDialog 
         isOpen={isExcuseDialogOpen}
         onClose={() => setIsExcuseDialogOpen(false)}
@@ -127,14 +127,12 @@ const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) =
         initialReason={excuseReason}
       />
 
-      {/* Attendance History Dialog */}
-      <HistoryDialog 
+      <AttendanceHistoryDialog 
         isOpen={isHistoryDialogOpen}
         onClose={() => setIsHistoryDialogOpen(false)}
         builder={builderData}
       />
       
-      {/* Builder Notes Dialog */}
       <BuilderNotesDialog
         isOpen={isNotesDialogOpen}
         onClose={() => setIsNotesDialogOpen(false)}

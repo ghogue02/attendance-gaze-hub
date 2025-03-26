@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,72 +27,74 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   
-  useEffect(() => {
-    const fetchAttendanceHistory = async () => {
-      setIsLoading(true);
-      try {
-        const today = new Date().toISOString().split('T')[0];
+  // Use useCallback to prevent the function from being recreated on each render
+  const fetchAttendanceHistory = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('attendance')
+        .select(`
+          id, 
+          date, 
+          status, 
+          time_recorded, 
+          notes, 
+          excuse_reason,
+          students(id, first_name, last_name, student_id)
+        `)
+        .neq('status', 'pending')
+        .order('date', { ascending: false })
+        .order('time_recorded', { ascending: false });
         
-        const { data, error } = await supabase
-          .from('attendance')
-          .select(`
-            id, 
-            date, 
-            status, 
-            time_recorded, 
-            notes, 
-            excuse_reason,
-            students(id, first_name, last_name, student_id)
-          `)
-          .neq('status', 'pending')
-          .order('date', { ascending: false })
-          .order('time_recorded', { ascending: false });
-          
-        if (error) {
-          console.error('Error fetching attendance history:', error);
-          onError('Failed to load attendance history');
-          return;
+      if (error) {
+        console.error('Error fetching attendance history:', error);
+        onError('Failed to load attendance history');
+        setIsLoading(false);
+        return;
+      }
+      
+      const formattedRecords: AttendanceRecord[] = data.map(record => {
+        const student = record.students;
+        const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
+        
+        let statusDisplay: BuilderStatus = 'absent';
+        
+        if (record.status === 'present') {
+          statusDisplay = 'present';
+        } else if (record.status === 'late') {
+          statusDisplay = 'late';
+        } else if (record.status === 'pending') {
+          statusDisplay = 'pending';
+        } else if (record.status === 'absent') {
+          statusDisplay = record.excuse_reason ? 'excused' : 'absent';
         }
         
-        const formattedRecords: AttendanceRecord[] = data.map(record => {
-          const student = record.students;
-          const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
-          
-          let statusDisplay: BuilderStatus = 'absent';
-          
-          if (record.status === 'present') {
-            statusDisplay = 'present';
-          } else if (record.status === 'late') {
-            statusDisplay = 'late';
-          } else if (record.status === 'pending') {
-            statusDisplay = 'pending';
-          } else if (record.status === 'absent') {
-            statusDisplay = record.excuse_reason ? 'excused' : 'absent';
-          }
-          
-          return {
-            id: record.id,
-            date: record.date,
-            studentName: fullName,
-            studentId: student.student_id || '',
-            status: statusDisplay,
-            timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString() : null,
-            notes: record.notes,
-            excuseReason: record.excuse_reason
-          };
-        });
-        
-        setAttendanceRecords(formattedRecords);
-      } catch (error) {
-        console.error('Error in fetchAttendanceHistory:', error);
-        onError('An error occurred while loading attendance history');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
+        return {
+          id: record.id,
+          date: record.date,
+          studentName: fullName,
+          studentId: student.student_id || '',
+          status: statusDisplay,
+          timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString() : null,
+          notes: record.notes,
+          excuseReason: record.excuse_reason
+        };
+      });
+      
+      setAttendanceRecords(formattedRecords);
+    } catch (error) {
+      console.error('Error in fetchAttendanceHistory:', error);
+      onError('An error occurred while loading attendance history');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onError]);
+  
+  useEffect(() => {
     fetchAttendanceHistory();
-  }, [builders, onError]);
+  }, [fetchAttendanceHistory]);
   
   const formatDate = (dateStr: string) => {
     try {

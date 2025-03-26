@@ -18,7 +18,7 @@ export const useDashboardData = () => {
   const today = new Date();
   const [selectedDate] = useState(today.toLocaleDateString());
 
-  // Memoize the loadBuilders function to prevent infinite loops
+  // Memoize the loadBuilders function with useCallback
   const loadBuilders = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -43,9 +43,8 @@ export const useDashboardData = () => {
       .channel('dashboard-attendance-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'attendance' }, 
-        (payload) => {
-          console.log('Attendance change detected:', payload);
-          // Force immediate refresh when attendance changes
+        () => {
+          console.log('Attendance change detected, refreshing data');
           loadBuilders();
         }
       )
@@ -58,9 +57,8 @@ export const useDashboardData = () => {
       .channel('dashboard-profile-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'students' }, 
-        (payload) => {
-          console.log('Student profile change detected:', payload);
-          // Force immediate refresh when profiles change
+        () => {
+          console.log('Student profile change detected, refreshing data');
           loadBuilders();
         }
       )
@@ -99,7 +97,7 @@ export const useDashboardData = () => {
       const success = await markAttendance(builderId, status, excuseReason);
       
       if (success) {
-        // Update local state immediately
+        // Update local state immediately for a more responsive UI
         setBuilders(prevBuilders => 
           prevBuilders.map(builder => 
             builder.id === builderId
@@ -115,9 +113,6 @@ export const useDashboardData = () => {
         
         const statusText = status === 'excused' ? 'Excused absence' : `Attendance marked as ${status}`;
         toast.success(statusText);
-        
-        // Force reload to ensure data is up to date
-        loadBuilders();
       } else {
         toast.error('Failed to update attendance');
       }

@@ -1,9 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
-import { toast } from 'sonner';
 
 interface HistoryTabProps {
   builders: Builder[];
@@ -17,11 +16,6 @@ const HistoryTab = ({ builders }: HistoryTabProps) => {
     setError(null);
     setRefreshKey(prev => prev + 1);
   };
-
-  useEffect(() => {
-    // Clear any previous errors when component mounts or refreshes
-    setError(null);
-  }, [refreshKey]);
   
   return (
     <div className="space-y-6">

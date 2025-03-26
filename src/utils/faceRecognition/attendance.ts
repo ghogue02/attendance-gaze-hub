@@ -19,7 +19,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     // --- 1. Fetch all students ---
     const { data: students, error: studentsError } = await supabase
       .from('students')
-      .select('id, first_name, last_name, student_id, image_url, notes')
+      .select('id, first_name, last_name, student_id, image_url, notes') // Select all needed fields
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
 
@@ -37,7 +37,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     // --- 2. Fetch today's attendance records ---
     const { data: attendanceRecords, error: attendanceError } = await supabase
       .from('attendance')
-      .select('student_id, status, time_recorded, excuse_reason, notes')
+      .select('student_id, status, time_recorded, excuse_reason, notes') // Select only needed fields
       .eq('date', today);
 
     if (attendanceError) {
@@ -51,7 +51,6 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     const attendanceMap = new Map<string, typeof attendanceRecords[0]>();
     attendanceRecords?.forEach(record => {
       if (record.student_id) {
-        // Store the record using the student_id as the key
         attendanceMap.set(record.student_id, record);
       }
     });
@@ -59,16 +58,15 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
 
     // --- 4. Map students to Builder objects, merging attendance ---
     let presentCountCheck = 0; // Counter for logging verification
-    const builders: Builder[] = students.map(student => {
-      // IMPORTANT: Look up using student.id which should match attendance.student_id (FK)
+    // Add 'index' as the second argument to the map callback
+    const builders: Builder[] = students.map((student, index) => {
       const attendanceRecord = attendanceMap.get(student.id);
-      let calculatedStatus: BuilderStatus = 'pending'; // Default if no record found
+      let calculatedStatus: BuilderStatus = 'pending';
       let timeRecorded: string | undefined = undefined;
       let excuseReason: string | undefined = undefined;
       let attendanceNotes: string | undefined = undefined;
 
       if (attendanceRecord) {
-        // If a record exists for today, determine status
         const recordStatus = attendanceRecord.status;
         excuseReason = attendanceRecord.excuse_reason || undefined;
         attendanceNotes = attendanceRecord.notes || undefined;
@@ -78,21 +76,20 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
 
         if (recordStatus === 'present') {
           calculatedStatus = 'present';
-          presentCountCheck++; // Increment check counter
+          presentCountCheck++;
         } else if (recordStatus === 'late') {
           calculatedStatus = 'late';
-        } else if (recordStatus === 'excused') { // Explicit 'excused' status
+        } else if (recordStatus === 'excused') {
           calculatedStatus = 'excused';
         } else if (recordStatus === 'absent') {
-          calculatedStatus = excuseReason ? 'excused' : 'absent'; // Convert absent->excused if reason exists
+          calculatedStatus = excuseReason ? 'excused' : 'absent';
         }
-        // Ignore 'pending' status from DB if found, default is 'pending' anyway if no record
       }
 
       const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
 
-      // Log status calculation for the first few students for debugging
-      if (builders.length < 5) {
+      // *** FIXED LINE: Use 'index' instead of 'builders.length' ***
+      if (index < 5) {
          console.log(`${functionName} Mapping student ${student.id} (${fullName}): Found attendance? ${!!attendanceRecord}. Calculated Status: ${calculatedStatus}`);
       }
 
@@ -104,22 +101,20 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         timeRecorded: timeRecorded,
         image: student.image_url || undefined,
         excuseReason: excuseReason,
-        notes: attendanceNotes || student.notes || undefined // Prioritize attendance notes
+        notes: attendanceNotes || student.notes || undefined
       };
     });
 
-    // Final verification log
     console.log(`${functionName} Finished mapping. Final present count check: ${presentCountCheck}. Total builders returned: ${builders.length}`);
-    if (presentCountCheck === 0 && attendanceRecords && attendanceRecords.length > 0) {
-        console.warn(`${functionName} Mismatch detected: Attendance records found, but present count check is zero. Check ID matching (student.id vs attendance.student_id) and status logic.`);
+    if (presentCountCheck === 0 && attendanceRecords && attendanceRecords.length > 0 && attendanceRecords.some(r => r.status === 'present')) {
+        console.warn(`${functionName} Mismatch detected: 'present' attendance records found, but present count check is zero. Check ID matching (student.id vs attendance.student_id) and status logic.`);
     }
-
 
     return builders;
 
   } catch (error) {
     console.error(`${functionName} Unexpected error:`, error);
     toast.error('An unexpected error occurred while fetching builder data.');
-    return [];
+    return []; // Return empty array on error
   }
 };

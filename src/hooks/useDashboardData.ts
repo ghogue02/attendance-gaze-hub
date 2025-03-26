@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { getAllBuilders } from '@/utils/faceRecognition';
 // Import markAttendance directly from attendance utils to avoid ambiguity
@@ -15,8 +15,8 @@ export const useDashboardData = () => {
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
   
   // Get today's date in a localized format
-  const today = new Date();
-  const [selectedDate] = useState(today.toLocaleDateString());
+  const today = useMemo(() => new Date(), []);
+  const selectedDate = useMemo(() => today.toLocaleDateString(), [today]);
 
   // Memoize the loadBuilders function with useCallback
   const loadBuilders = useCallback(async () => {
@@ -48,9 +48,7 @@ export const useDashboardData = () => {
           loadBuilders();
         }
       )
-      .subscribe((status) => {
-        console.log('Attendance subscription status:', status);
-      });
+      .subscribe();
       
     // Subscribe to student profile changes with improved handling
     const profileChannel = supabase
@@ -62,9 +60,7 @@ export const useDashboardData = () => {
           loadBuilders();
         }
       )
-      .subscribe((status) => {
-        console.log('Profile subscription status:', status);
-      });
+      .subscribe();
     
     return () => {
       supabase.removeChannel(attendanceChannel);
@@ -74,13 +70,15 @@ export const useDashboardData = () => {
 
   useEffect(() => {
     // Apply filters when builders, search query, or status filter changes
+    if (!builders.length) return;
+    
     let results = [...builders];
     
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       results = results.filter(builder => 
         builder.name.toLowerCase().includes(query) || 
-        builder.builderId.toLowerCase().includes(query)
+        (builder.builderId && builder.builderId.toLowerCase().includes(query))
       );
     }
     
@@ -91,7 +89,7 @@ export const useDashboardData = () => {
     setFilteredBuilders(results);
   }, [builders, searchQuery, statusFilter]);
 
-  const handleMarkAttendance = async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
+  const handleMarkAttendance = useCallback(async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
     try {
       // Pass only the required parameters to markAttendance
       const success = await markAttendance(builderId, status, excuseReason);
@@ -120,12 +118,12 @@ export const useDashboardData = () => {
       console.error('Error marking attendance:', error);
       toast.error('An error occurred while updating attendance');
     }
-  };
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setSearchQuery('');
     setStatusFilter('all');
-  };
+  }, []);
 
   return {
     builders,

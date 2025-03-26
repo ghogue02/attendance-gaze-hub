@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,15 +23,15 @@ interface AttendanceRecord {
   excuseReason: string | null;
 }
 
-const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
+const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   
-  // Use useCallback to prevent the function from being recreated on each render
+  // Use useCallback with an empty dependency array to ensure this function is stable
   const fetchAttendanceHistory = useCallback(async () => {
     setIsLoading(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // No need to calculate today's date here as we're fetching all records
       
       const { data, error } = await supabase
         .from('attendance')
@@ -59,6 +59,7 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
         const student = record.students;
         const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
         
+        // Convert string status to BuilderStatus type
         let statusDisplay: BuilderStatus = 'absent';
         
         if (record.status === 'present') {
@@ -69,6 +70,8 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
           statusDisplay = 'pending';
         } else if (record.status === 'absent') {
           statusDisplay = record.excuse_reason ? 'excused' : 'absent';
+        } else if (record.status === 'excused') {
+          statusDisplay = 'excused';
         }
         
         return {
@@ -92,11 +95,28 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
     }
   }, [onError]);
   
+  // Only fetch when component mounts, not on every builders change
   useEffect(() => {
     fetchAttendanceHistory();
+    
+    // Set up a subscription for attendance changes
+    const channel = supabase
+      .channel('history-attendance-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'attendance' }, 
+        () => {
+          console.log('Attendance changed, refreshing history');
+          fetchAttendanceHistory();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchAttendanceHistory]);
   
-  const formatDate = (dateStr: string) => {
+  const formatDate = useCallback((dateStr: string) => {
     try {
       const parts = dateStr.split('-');
       if (parts.length !== 3) return dateStr;
@@ -111,7 +131,7 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
       console.error('Error formatting date:', e);
       return dateStr;
     }
-  };
+  }, []);
   
   if (isLoading) {
     return (
@@ -176,6 +196,8 @@ const AttendanceHistory = ({ builders, onError }: AttendanceHistoryProps) => {
       </Table>
     </div>
   );
-};
+});
+
+AttendanceHistory.displayName = 'AttendanceHistory';
 
 export default AttendanceHistory;

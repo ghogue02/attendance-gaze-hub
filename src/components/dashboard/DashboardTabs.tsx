@@ -1,4 +1,5 @@
 
+import { memo } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import BuildersTab from './BuildersTab';
 import HistoryTab from './HistoryTab';
@@ -19,7 +20,7 @@ interface DashboardTabsProps {
   onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
 }
 
-const DashboardTabs = ({
+const DashboardTabs = memo(({
   activeTab,
   setActiveTab,
   builders,
@@ -44,7 +45,7 @@ const DashboardTabs = ({
         <TabsTrigger value="analytics">Analytics</TabsTrigger>
       </TabsList>
       
-      <TabsContent value="builders">
+      <TabsContent value="builders" forceMount={true} className={activeTab !== 'builders' ? 'hidden' : ''}>
         <BuildersTab 
           isLoading={isLoading}
           filteredBuilders={filteredBuilders}
@@ -57,19 +58,21 @@ const DashboardTabs = ({
         />
       </TabsContent>
       
-      <TabsContent value="history">
+      <TabsContent value="history" forceMount={true} className={activeTab !== 'history' ? 'hidden' : ''}>
         <HistoryTab 
           builders={builders} 
         />
       </TabsContent>
       
-      <TabsContent value="analytics">
+      <TabsContent value="analytics" forceMount={true} className={activeTab !== 'analytics' ? 'hidden' : ''}>
         <AnalyticsTab 
           builders={builders} 
         />
       </TabsContent>
     </Tabs>
   );
-};
+});
+
+DashboardTabs.displayName = 'DashboardTabs';
 
 export default DashboardTabs;

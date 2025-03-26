@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import Header from '@/components/Header';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
@@ -8,7 +8,7 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatisticsCards from '@/components/dashboard/StatisticsCards';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
 
-const Dashboard = () => {
+const Dashboard = memo(() => {
   const {
     builders,
     filteredBuilders,
@@ -53,6 +53,8 @@ const Dashboard = () => {
       </main>
     </div>
   );
-};
+});
+
+Dashboard.displayName = 'Dashboard';
 
 export default Dashboard;

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Builder } from '@/components/builder/types';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
@@ -8,14 +8,18 @@ interface HistoryTabProps {
   builders: Builder[];
 }
 
-const HistoryTab = ({ builders }: HistoryTabProps) => {
+const HistoryTab = memo(({ builders }: HistoryTabProps) => {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     setError(null);
     setRefreshKey(prev => prev + 1);
-  };
+  }, []);
+  
+  const handleError = useCallback((message: string) => {
+    setError(message);
+  }, []);
   
   return (
     <div className="space-y-6">
@@ -33,10 +37,12 @@ const HistoryTab = ({ builders }: HistoryTabProps) => {
       <AttendanceHistory 
         key={refreshKey}
         builders={builders} 
-        onError={(message) => setError(message)}
+        onError={handleError}
       />
     </div>
   );
-};
+});
+
+HistoryTab.displayName = 'HistoryTab';
 
 export default HistoryTab;

@@ -1,3 +1,4 @@
+
 // src/pages/Dashboard.tsx
 
 import { useState } from 'react';
@@ -55,6 +56,7 @@ const Dashboard = () => {
           setStatusFilter={setStatusFilter}
           onClearFilters={handleClearFilters}
           onVerify={handleMarkAttendance} // Use the handler from the hook
+          refreshData={refreshData}      // Pass the refresh function
         />
       </main>
     </div>

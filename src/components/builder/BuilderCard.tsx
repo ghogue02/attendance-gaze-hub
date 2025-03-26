@@ -9,9 +9,9 @@ import BuilderStatusIndicator from './BuilderStatusIndicator';
 import BuilderStatusButtons from './BuilderStatusButtons';
 import BuilderNotesDialog from './BuilderNotesDialog';
 import { Button } from '@/components/ui/button';
-import { FileTextIcon } from 'lucide-react';
+import { FileTextIcon, Trash2 } from 'lucide-react';
 
-const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
+const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) => {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [excuseReason, setExcuseReason] = useState(builder.excuseReason || '');
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -96,14 +96,26 @@ const BuilderCard = ({ builder, onVerify }: BuilderCardProps) => {
             )}
           </div>
           
-          {onVerify && (
-            <div onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+            {onVerify && (
               <BuilderStatusButtons 
                 currentStatus={builderData.status}
                 onStatusChange={handleStatusChange}
               />
-            </div>
-          )}
+            )}
+            
+            {onDeleteRequest && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                onClick={() => onDeleteRequest()}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            )}
+          </div>
         </div>
       </motion.div>
 

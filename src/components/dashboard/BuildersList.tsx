@@ -1,7 +1,9 @@
 
 import { motion } from 'framer-motion';
-import BuilderCard from '@/components/builder/BuilderCard';
 import { Builder, BuilderStatus } from '@/components/builder/types';
+import { DeleteBuilderDialog } from '@/components/builder/DeleteBuilderDialog';
+import { useState } from 'react';
+import { BuilderCard } from '@/components/builder';
 
 interface BuildersListProps {
   isLoading: boolean;

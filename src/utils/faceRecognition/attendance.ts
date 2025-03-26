@@ -1,105 +1,114 @@
+// src/utils/faceRecognition/attendance.ts
 
 import { supabase } from '@/integrations/supabase/client';
-import { Builder } from '@/components/builder/types';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
 
 /**
- * Gets all builders with their current attendance status for today
+ * Gets all builders (students) with their merged attendance status for today.
  */
 export const getAllBuilders = async (): Promise<Builder[]> => {
   try {
-    console.log('Fetching all builders with attendance status');
-    
+    console.log('[getAllBuilders] Fetching all students and today\'s attendance...');
+
     // Get the current date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
-    console.log('Fetching attendance for date:', today);
-    
-    // First, fetch all students with better ordering - by last_name, then first_name
+    console.log('[getAllBuilders] Target date:', today);
+
+    // 1. Fetch all students
     const { data: students, error: studentsError } = await supabase
       .from('students')
-      .select('*')
+      .select('id, first_name, last_name, student_id, image_url, notes') // Select all needed fields
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
-      
+
     if (studentsError) {
-      console.error('Error fetching students:', studentsError);
+      console.error('[getAllBuilders] Error fetching students:', studentsError);
+      toast.error(`Failed to fetch student list: ${studentsError.message}`);
       return [];
     }
-    
-    console.log(`Retrieved ${students.length} students from database`);
-    
-    // Then, fetch all attendance records for today
+    if (!students) {
+        console.warn('[getAllBuilders] No students found.');
+        return [];
+    }
+
+    console.log(`[getAllBuilders] Retrieved ${students.length} students.`);
+
+    // 2. Fetch all attendance records for today
     const { data: attendanceRecords, error: attendanceError } = await supabase
       .from('attendance')
-      .select('*')
+      .select('student_id, status, time_recorded, excuse_reason, notes') // Select only needed fields
       .eq('date', today);
-      
+
     if (attendanceError) {
-      console.error('Error fetching attendance:', attendanceError);
-      return [];
+      // Log the error but don't necessarily stop; we can still show students as pending
+      console.error('[getAllBuilders] Error fetching attendance:', attendanceError);
+      toast.warning(`Could not fetch today's attendance: ${attendanceError.message}`);
+      // Continue processing with students but no attendance data
     }
-    
-    console.log(`Retrieved ${attendanceRecords?.length || 0} attendance records for today (${today})`);
-    console.log('Attendance records data sample:', attendanceRecords?.[0]);
-    
-    // Create a map of student IDs to attendance records for faster lookup
+
+    console.log(`[getAllBuilders] Retrieved ${attendanceRecords?.length || 0} attendance records for today.`);
+
+    // 3. Create a map of student IDs to today's attendance records for efficient lookup
     const attendanceMap = new Map();
     attendanceRecords?.forEach(record => {
-      console.log(`Processing attendance record for student ${record.student_id}: status=${record.status}, time=${record.time_recorded}`);
-      
-      attendanceMap.set(record.student_id, {
-        status: record.status,
-        timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        }) : undefined,
-        excuseReason: record.excuse_reason,
-        notes: record.notes
-      });
+      // Store the latest record if multiple exist for the same student today (shouldn't happen with constraints)
+      attendanceMap.set(record.student_id, record);
     });
-    
-    // Map students to builders with their attendance status
+
+    // 4. Map students to the Builder type, merging attendance status
     const builders: Builder[] = students.map(student => {
       const attendanceRecord = attendanceMap.get(student.id);
-      
-      // Default to 'pending' if no attendance record exists for today
-      let status = attendanceRecord?.status || 'pending';
-      
-      // If attendance record is 'absent' but has excuse_reason, mark as 'excused'
-      if (status === 'absent' && attendanceRecord?.excuseReason) {
-        status = 'excused';
+      let calculatedStatus: BuilderStatus = 'pending'; // Default status
+      let timeRecorded: string | undefined = undefined;
+      let excuseReason: string | undefined = undefined;
+      let attendanceNotes: string | undefined = undefined;
+
+      if (attendanceRecord) {
+        const recordStatus = attendanceRecord.status;
+        excuseReason = attendanceRecord.excuse_reason || undefined;
+        attendanceNotes = attendanceRecord.notes || undefined;
+        timeRecorded = attendanceRecord.time_recorded
+          ? new Date(attendanceRecord.time_recorded).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+          : undefined;
+
+        // Determine the final status based on the record
+        if (recordStatus === 'present') {
+          calculatedStatus = 'present';
+        } else if (recordStatus === 'late') {
+          calculatedStatus = 'late';
+        } else if (recordStatus === 'excused') {
+          // Handle cases where status might already be 'excused'
+          calculatedStatus = 'excused';
+        } else if (recordStatus === 'absent') {
+          // If absent, check for an excuse reason to mark as 'excused'
+          calculatedStatus = excuseReason ? 'excused' : 'absent';
+        }
+        // 'pending' status from DB is overridden if a record exists, otherwise default is 'pending'
       }
-      
-      // Create a formatted display name that handles multiple last names properly
-      const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
-      
-      const builderObj = {
+
+      const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+
+      return {
         id: student.id,
-        name: fullName,
-        builderId: student.student_id || '',
-        status: status,
-        timeRecorded: attendanceRecord?.timeRecorded,
-        image: student.image_url,
-        excuseReason: attendanceRecord?.excuseReason,
-        notes: attendanceRecord?.notes || student.notes
+        name: fullName || 'Unnamed Builder',
+        builderId: student.student_id || 'N/A',
+        status: calculatedStatus,
+        timeRecorded: timeRecorded,
+        image: student.image_url || undefined,
+        excuseReason: excuseReason,
+        // Combine notes: prioritize attendance notes, fallback to student notes
+        notes: attendanceNotes || student.notes || undefined
       };
-      
-      return builderObj;
     });
-    
-    // Log the builders we're returning
-    console.log('Processed builders with attendance status:', builders.length);
-    console.log('Present:', builders.filter(b => b.status === 'present').length);
-    console.log('Absent:', builders.filter(b => b.status === 'absent').length);
-    console.log('Excused:', builders.filter(b => b.status === 'excused').length);
-    console.log('Pending:', builders.filter(b => b.status === 'pending').length);
-    
+
+    console.log(`[getAllBuilders] Processed ${builders.length} builders. Present count: ${builders.filter(b => b.status === 'present').length}`);
+
     return builders;
-    
+
   } catch (error) {
-    console.error('Error in getAllBuilders:', error);
-    toast.error('Failed to fetch builders data');
+    console.error('[getAllBuilders] Unexpected error:', error);
+    toast.error('An unexpected error occurred while fetching builder data.');
     return [];
   }
 };

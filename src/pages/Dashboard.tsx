@@ -1,64 +1,60 @@
+// src/pages/Dashboard.tsx
 
-import { useState, memo, useCallback } from 'react';
+import { useState } from 'react';
 import Header from '@/components/Header';
-import { useDashboardData } from '@/hooks/useDashboardData';
-
-// Import components
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatisticsCards from '@/components/dashboard/StatisticsCards';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
+import { useDashboardData } from '@/hooks/useDashboardData'; // Import the hook
 
-const Dashboard = memo(() => {
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState('builders');
+
+  // Use the central data hook
   const {
-    builders, // Use this for StatisticsCards (raw data with status)
-    filteredBuilders, // Use this for BuildersList (filtered data)
+    builders, // Use this raw, merged data for stats and potentially analytics/history
+    filteredBuilders, // Use this filtered data for the Builders list
     isLoading,
     searchQuery,
     statusFilter,
-    selectedDate,
+    selectedDate, // Get the display date from the hook
     setSearchQuery,
     setStatusFilter,
     handleMarkAttendance,
     handleClearFilters,
-    loadBuilders
+    refreshData // Get the manual refresh function
   } = useDashboardData();
-  
-  const [activeTab, setActiveTab] = useState<string>("builders");
-  
-  const handleSetActiveTab = useCallback((value: string) => {
-    setActiveTab(value);
-  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
+    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <Header />
-      
-      <main className="pt-24 pb-16 px-4 container max-w-6xl mx-auto">
-        <DashboardHeader 
-          selectedDate={selectedDate} 
-          onRefresh={loadBuilders} 
+      <main className="pt-24 pb-16 px-4 container max-w-7xl mx-auto">
+        {/* Pass selectedDate and refreshData to the header */}
+        <DashboardHeader
+          selectedDate={selectedDate}
+          onRefresh={refreshData}
         />
-        
+
+        {/* Pass the raw 'builders' data to StatisticsCards */}
         <StatisticsCards builders={builders} />
-        
+
+        {/* Pass necessary state and handlers to Tabs */}
         <DashboardTabs
           activeTab={activeTab}
-          setActiveTab={handleSetActiveTab}
-          builders={builders}
-          filteredBuilders={filteredBuilders}
+          setActiveTab={setActiveTab}
+          builders={builders} // Pass raw data for History/Analytics if needed
+          filteredBuilders={filteredBuilders} // Pass filtered data for BuildersTab
           isLoading={isLoading}
           searchQuery={searchQuery}
           statusFilter={statusFilter}
           setSearchQuery={setSearchQuery}
           setStatusFilter={setStatusFilter}
           onClearFilters={handleClearFilters}
-          onVerify={handleMarkAttendance}
+          onVerify={handleMarkAttendance} // Use handleMarkAttendance for verification
         />
       </main>
     </div>
   );
-});
-
-Dashboard.displayName = 'Dashboard';
+};
 
 export default Dashboard;

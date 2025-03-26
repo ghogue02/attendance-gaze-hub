@@ -1,160 +1,190 @@
+// src/hooks/useDashboardData.ts
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
-import { getAllBuilders } from '@/utils/faceRecognition';
+import { getAllBuilders } from '@/utils/faceRecognition/attendance'; // Adjusted path
 import { markAttendance } from '@/utils/attendance/markAttendance';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useDashboardData = () => {
+  // State for the raw, merged builder data (students + today's status)
   const [builders, setBuilders] = useState<Builder[]>([]);
+  // State for the list displayed in the UI (after filtering)
   const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
-  const subscribedRef = useRef(false);
-  
-  // Get today's date in a localized format
-  const selectedDate = useMemo(() => new Date().toLocaleDateString(), []);
+  const subscribedRef = useRef(false); // To prevent setting up subscriptions multiple times
 
-  // Create a stable loadData function with no dependencies
-  const loadData = useCallback(async (showLoading = true) => {
-    console.log('Executing loadData...');
-    if (showLoading) setIsLoading(true);
+  // Memoize today's date string for display
+  const selectedDate = useMemo(() => new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  }), []);
+
+  // Stable function to load/refresh data from the database
+  const loadData = useCallback(async (showLoadingIndicator = true) => {
+    console.log('[useDashboardData] Executing loadData...');
+    if (showLoadingIndicator) setIsLoading(true);
     try {
+      // getAllBuilders now fetches students and merges today's attendance
       const data = await getAllBuilders();
-      console.log('loadData fetched builders:', data.length, 'Present:', data.filter(b => b.status === 'present').length);
-      
-      // Set both builders and filteredBuilders initially
-      setBuilders(data);
+      setBuilders(data); // Update the raw data state. Filtering happens in the next effect.
     } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load builder data');
-      setBuilders([]);
+      // Error is likely already logged/toasted in getAllBuilders
+      console.error('[useDashboardData] Error during loadData:', error);
+      setBuilders([]); // Clear data on error
     } finally {
-      if (showLoading) setIsLoading(false);
+      // Always turn off loading indicator, even if background refresh
+      setIsLoading(false);
     }
-  }, []); // Empty dependency array ensures this function is stable
+  }, []); // Empty dependency array ensures this function reference is stable
 
-  // Set up subscriptions only once and handle data refreshing
+  // Effect for initial data load and setting up Supabase subscriptions
   useEffect(() => {
+    // Prevent duplicate subscriptions on fast re-renders
     if (subscribedRef.current) return;
-    
-    console.log('Setting up Supabase subscriptions and initial load');
     subscribedRef.current = true;
-    
-    // Initial load
+    console.log('[useDashboardData] Setting up Supabase subscriptions and initial load.');
+
+    // --- Initial Load ---
     loadData();
-    
-    // Setup subscriptions
+
+    // --- Realtime Subscriptions ---
     const handleDbChange = (payload: any, source: string) => {
-      console.log(`${source} change detected:`, payload.eventType, payload.new?.id || payload.old?.id);
-      // Reload data without showing the main loading indicator for smoother updates
+      console.log(`[useDashboardData] ${source} change detected:`, payload.eventType);
+      // Reload data in the background without showing the main loading spinner
       loadData(false);
     };
-    
+
+    // Listen for changes in the attendance table
     const attendanceChannel = supabase
       .channel('dashboard-attendance-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'attendance' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance' },
         (payload) => handleDbChange(payload, 'Attendance')
       )
-      .subscribe();
-      
+      .subscribe((status, err) => {
+        if (err) {
+          console.error('[useDashboardData] Attendance subscription error:', err);
+        } else {
+          console.log('[useDashboardData] Attendance subscription status:', status);
+        }
+      });
+
+    // Listen for changes in the students table (e.g., name, notes, image updates)
     const profileChannel = supabase
       .channel('dashboard-profile-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'students' }, 
-        (payload) => handleDbChange(payload, 'Student profile')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'students' },
+         (payload) => handleDbChange(payload, 'Student Profile')
       )
-      .subscribe();
-    
+      .subscribe((status, err) => {
+         if (err) {
+          console.error('[useDashboardData] Profile subscription error:', err);
+        } else {
+          console.log('[useDashboardData] Profile subscription status:', status);
+        }
+      });
+
+    // --- Cleanup Function ---
     return () => {
-      console.log('Cleaning up Supabase subscriptions');
+      console.log('[useDashboardData] Cleaning up Supabase subscriptions.');
       supabase.removeChannel(attendanceChannel);
       supabase.removeChannel(profileChannel);
-      subscribedRef.current = false;
+      subscribedRef.current = false; // Reset ref on unmount
     };
-  }, [loadData]);
+  }, [loadData]); // Depend only on the stable loadData function
 
-  // Apply filtering whenever the raw builders data or filter settings change
+  // Effect for filtering the displayed list - runs whenever raw data or filters change
   useEffect(() => {
-    console.log('Applying filters...');
-    if (!builders.length) return;
-    
-    let results = [...builders]; // Start with the raw data
-    
+    console.log('[useDashboardData] Applying filters...');
+    let results = [...builders]; // Start with the raw, merged data
+
+    // Apply search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      results = results.filter(builder => 
-        builder.name.toLowerCase().includes(query) || 
+      results = results.filter(builder =>
+        builder.name.toLowerCase().includes(query) ||
         (builder.builderId && builder.builderId.toLowerCase().includes(query))
       );
     }
-    
+
+    // Apply status filter
     if (statusFilter !== 'all') {
       results = results.filter(builder => builder.status === statusFilter);
     }
-    
-    console.log('Filtered results:', results.length);
-    setFilteredBuilders(results);
-  }, [builders, searchQuery, statusFilter]);
 
+    console.log(`[useDashboardData] Filtered ${results.length} builders.`);
+    setFilteredBuilders(results);
+  }, [builders, searchQuery, statusFilter]); // Re-run whenever these change
+
+  // Handler for marking attendance via dashboard buttons
   const handleMarkAttendance = useCallback(async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
+    console.log(`[useDashboardData] handleMarkAttendance called for ${builderId} with status ${status}`);
+    const originalBuilders = builders; // Keep original state for potential revert
     try {
-      // Optimistic UI Update for better responsiveness
-      setBuilders(prevBuilders => 
-        prevBuilders.map(builder => 
+      // --- Optimistic UI Update ---
+      // Update the local state immediately for better perceived performance
+      setBuilders(prevBuilders =>
+        prevBuilders.map(builder =>
           builder.id === builderId
-            ? { 
-                ...builder, 
+            ? {
+                ...builder,
+                // Determine the correct status based on input (especially for 'excused')
                 status: (status === 'absent' && excuseReason) ? 'excused' : status,
-                excuseReason: (status === 'excused' || (status === 'absent' && excuseReason)) ? excuseReason : undefined,
-                timeRecorded: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                excuseReason: (status === 'excused' || (status === 'absent' && excuseReason)) ? (excuseReason || builder.excuseReason) : undefined, // Keep existing reason if marking excused without new one
+                timeRecorded: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) // Update time locally
               }
             : builder
         )
       );
-      
-      // Actual DB Update
+      // Note: The filtering useEffect will automatically update filteredBuilders
+
+      // --- Actual Database Update ---
       const success = await markAttendance(builderId, status, excuseReason);
-      
+
       if (success) {
         const statusText = status === 'excused' ? 'Excused absence recorded' : `Attendance marked as ${status}`;
         toast.success(statusText);
-        // No need to call loadData here, the subscription will handle it
+        // Data will be refreshed via the subscription, no need to call loadData here
       } else {
-        toast.error('Failed to save attendance update');
-        loadData(false); // Force reload on failure
+        toast.error('Failed to save attendance update to database');
+        // Revert optimistic update on failure
+        setBuilders(originalBuilders);
       }
     } catch (error) {
-      console.error('Error marking attendance:', error);
+      console.error('[useDashboardData] Error marking attendance:', error);
       toast.error('An error occurred while updating attendance');
-      loadData(false); // Force reload on error
+      // Revert optimistic update on error
+      setBuilders(originalBuilders);
     }
-  }, [loadData]);
+  }, [builders]); // Include builders in dependency for reverting
 
+  // Handler to clear search and status filters
   const handleClearFilters = useCallback(() => {
     setSearchQuery('');
     setStatusFilter('all');
   }, []);
-  
-  // Function to manually refresh data
-  const loadBuilders = useCallback(() => {
-    loadData(true); // Show loading indicator on manual refresh
+
+  // Function to manually trigger a data refresh (e.g., for a refresh button)
+  const refreshData = useCallback(() => {
+     console.log('[useDashboardData] Manual refresh triggered.');
+     loadData(true); // Pass true to show the loading indicator
   }, [loadData]);
 
+  // Return all the state and handlers needed by the Dashboard page
   return {
-    builders,
-    filteredBuilders,
+    builders, // The raw, merged data (for StatisticsCards, AnalyticsTab)
+    filteredBuilders, // Filtered data (for BuildersList in BuildersTab)
     isLoading,
     searchQuery,
     statusFilter,
-    selectedDate,
+    selectedDate, // The display date string
     setSearchQuery,
     setStatusFilter,
     handleMarkAttendance,
     handleClearFilters,
-    loadBuilders
+    refreshData // Expose the manual refresh function
   };
 };

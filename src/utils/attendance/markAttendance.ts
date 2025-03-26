@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -7,12 +6,14 @@ import { toast } from 'sonner';
  * @param studentId The ID of the student
  * @param status The attendance status (present, absent, late)
  * @param excuseReason Optional reason for excused absence
+ * @param dateString Optional date string in YYYY-MM-DD format, defaults to today
  * @returns The result of the operation
  */
 export const markAttendance = async (
   studentId: string,
   status: string = 'present',
-  excuseReason?: string
+  excuseReason?: string,
+  dateString?: string
 ): Promise<boolean> => {
   try {
     console.log(`Marking attendance for student ID: ${studentId} with status: ${status}`);
@@ -23,16 +24,16 @@ export const markAttendance = async (
       return false;
     }
     
-    // Check if attendance has already been recorded for today
-    const today = new Date().toISOString().split('T')[0];
+    // Use provided date or default to today
+    const targetDate = dateString || new Date().toISOString().split('T')[0];
     
-    console.log(`Checking for existing attendance on date: ${today}`);
+    console.log(`Checking for existing attendance on date: ${targetDate}`);
     
     const { data: existingAttendance, error: checkError } = await supabase
       .from('attendance')
       .select('id, status, excuse_reason')
       .eq('student_id', studentId)
-      .eq('date', today)
+      .eq('date', targetDate)
       .maybeSingle();
       
     if (checkError) {
@@ -92,12 +93,12 @@ export const markAttendance = async (
     }
     
     // Otherwise, insert new attendance record
-    console.log(`Creating new attendance record for student ${studentId} with status: ${status}`);
+    console.log(`Creating new attendance record for student ${studentId} with status: ${status} for date ${targetDate}`);
     
     const newRecord: any = {
       student_id: studentId,
       status,
-      date: today,
+      date: targetDate,
       time_recorded: timestamp
     };
     

@@ -334,11 +334,12 @@ export const fetchStudentDetails = async (studentId: string): Promise<Builder | 
 export const recordAttendance = async (
   studentId: string,
   status: BuilderStatus = 'present',
-  timestamp: string = new Date().toISOString()
+  timestamp: string = new Date().toISOString(),
+  dateString?: string
 ): Promise<boolean> => {
   try {
-    // Get the date in YYYY-MM-DD format
-    const date = timestamp.split('T')[0];
+    // Get the date in YYYY-MM-DD format from timestamp or use provided dateString
+    const date = dateString || timestamp.split('T')[0];
     
     // Check if attendance has already been recorded today
     const { data: existingAttendance, error: checkError } = await supabase

@@ -1,3 +1,4 @@
+
 // src/hooks/useDashboardData.ts
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -16,11 +17,9 @@ export const useDashboardData = () => {
   const isMounted = useRef(true);
   const subscriptionStatus = useRef({ attendance: 'unsubscribed', profile: 'unsubscribed' });
 
-  // --- Define the Target Date ---
-  // For now, let's hardcode it based on your UI/Data.
-  // In a real app, this might come from a date picker or always be 'today'.
-  // IMPORTANT: Ensure this matches the date you expect to see data for (e.g., '2025-03-25')
-  const targetDate = useMemo(() => new Date(2025, 2, 25), []); // Month is 0-indexed (0=Jan, 2=Mar)
+  // --- Define the Current Date (March 26, 2025) ---
+  // Using the current date for the app: March 26, 2025
+  const targetDate = useMemo(() => new Date(2025, 2, 26), []); // Month is 0-indexed (0=Jan, 2=Mar), Day 26
   const targetDateString = useMemo(() => targetDate.toISOString().split('T')[0], [targetDate]); // 'YYYY-MM-DD'
   const displayDateString = useMemo(() => targetDate.toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -44,7 +43,6 @@ export const useDashboardData = () => {
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
-    // Pass targetDateString as dependency
   }, [targetDateString]);
 
   // Effect for initial load and subscriptions
@@ -103,7 +101,6 @@ export const useDashboardData = () => {
       if (subscriptionStatus.current.attendance !== 'unsubscribed') supabase.removeChannel(attendanceChannel).catch(console.error);
       if (subscriptionStatus.current.profile !== 'unsubscribed') supabase.removeChannel(profileChannel).catch(console.error);
     };
-    // Add targetDateString to dependencies - if the target date could change, this effect needs to re-run
   }, [loadData, targetDateString]);
 
   // Effect for filtering
@@ -142,11 +139,10 @@ export const useDashboardData = () => {
         )
       );
 
-      // DB Update - IMPORTANT: Ensure markAttendance uses the correct date (targetDateString)
-      // You might need to modify markAttendance to accept a date parameter
-      // Assuming markAttendance implicitly uses today, which might be wrong if targetDateString is not today
-      // For now, we proceed assuming markAttendance works for the intended date implicitly or explicitly
-      const success = await markAttendance(builderId, status, excuseReason /*, targetDateString */); // Potentially add targetDateString here
+      // Now let's make sure we pass the correct date parameter to markAttendance
+      // We need to modify the markAttendance function to accept a date
+      // For now, we'll pass targetDateString as a parameter
+      const success = await markAttendance(builderId, status, excuseReason, targetDateString);
 
       if (success) {
         const statusText = newStatus === 'excused' ? 'Excused absence recorded' : `Attendance marked as ${newStatus}`;
@@ -161,7 +157,7 @@ export const useDashboardData = () => {
       toast.error('An error occurred while updating attendance');
       if (isMounted.current) setBuilders(originalBuilders); // Revert
     }
-  }, [builders, targetDateString, loadData]); // Added loadData for potential future revert logic refinement
+  }, [builders, targetDateString, loadData]);
 
   // Handler to clear filters
   const handleClearFilters = useCallback(() => {

@@ -24,7 +24,8 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       excusedCount, 
       pendingCount,
       attendanceRate,
-      currentDate: new Date().toISOString().split('T')[0]
+      currentDate: new Date().toISOString().split('T')[0],
+      buildersSample: builders.slice(0, 2)
     });
     
     return {

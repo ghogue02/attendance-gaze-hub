@@ -44,6 +44,7 @@ export const markAttendance = async (
     // Create a proper ISO timestamp for the current time
     const now = new Date();
     const timestamp = now.toISOString();
+    console.log(`Using timestamp: ${timestamp} for attendance record`);
     
     // If attendance already exists, update it
     if (existingAttendance) {

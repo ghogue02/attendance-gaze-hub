@@ -17,24 +17,26 @@ export const useDashboardData = () => {
   // Get today's date in a localized format
   const selectedDate = useMemo(() => new Date().toLocaleDateString(), []);
 
-  // Stable function to load/refresh data - no dependencies for stability
+  // Create a stable loadData function with no dependencies
   const loadData = useCallback(async (showLoading = true) => {
     console.log('Executing loadData...');
     if (showLoading) setIsLoading(true);
     try {
       const data = await getAllBuilders();
       console.log('loadData fetched builders:', data.length, 'Present:', data.filter(b => b.status === 'present').length);
+      
+      // Set both builders and filteredBuilders initially
       setBuilders(data);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load builder data');
-      setBuilders([]); // Clear data on error
+      setBuilders([]);
     } finally {
       if (showLoading) setIsLoading(false);
     }
   }, []); // Empty dependency array ensures this function is stable
 
-  // Effect for initial load and subscriptions - only depends on stable loadData
+  // Set up subscriptions only once and handle data refreshing
   useEffect(() => {
     if (subscribedRef.current) return;
     
@@ -75,7 +77,7 @@ export const useDashboardData = () => {
     };
   }, [loadData]);
 
-  // Effect for filtering - runs whenever raw data or filters change
+  // Apply filtering whenever the raw builders data or filter settings change
   useEffect(() => {
     console.log('Applying filters...');
     if (!builders.length) return;
@@ -96,7 +98,7 @@ export const useDashboardData = () => {
     
     console.log('Filtered results:', results.length);
     setFilteredBuilders(results);
-  }, [builders, searchQuery, statusFilter]); // Correct dependencies
+  }, [builders, searchQuery, statusFilter]);
 
   const handleMarkAttendance = useCallback(async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
     try {
@@ -130,7 +132,7 @@ export const useDashboardData = () => {
       toast.error('An error occurred while updating attendance');
       loadData(false); // Force reload on error
     }
-  }, [loadData]); // Depend on stable loadData for potential reverts
+  }, [loadData]);
 
   const handleClearFilters = useCallback(() => {
     setSearchQuery('');
@@ -153,6 +155,6 @@ export const useDashboardData = () => {
     setStatusFilter,
     handleMarkAttendance,
     handleClearFilters,
-    loadBuilders // Expose as loadBuilders for backward compatibility
+    loadBuilders
   };
 };

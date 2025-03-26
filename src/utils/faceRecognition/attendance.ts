@@ -40,10 +40,13 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
     }
     
     console.log(`Retrieved ${attendanceRecords?.length || 0} attendance records for today (${today})`);
+    console.log('Attendance records data sample:', attendanceRecords?.[0]);
     
     // Create a map of student IDs to attendance records for faster lookup
     const attendanceMap = new Map();
     attendanceRecords?.forEach(record => {
+      console.log(`Processing attendance record for student ${record.student_id}: status=${record.status}, time=${record.time_recorded}`);
+      
       attendanceMap.set(record.student_id, {
         status: record.status,
         timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString([], {
@@ -71,7 +74,7 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
       // Create a formatted display name that handles multiple last names properly
       const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
       
-      return {
+      const builderObj = {
         id: student.id,
         name: fullName,
         builderId: student.student_id || '',
@@ -81,10 +84,16 @@ export const getAllBuilders = async (): Promise<Builder[]> => {
         excuseReason: attendanceRecord?.excuseReason,
         notes: attendanceRecord?.notes || student.notes
       };
+      
+      return builderObj;
     });
     
     // Log the builders we're returning
-    console.log('Processed builders with attendance status:', builders.length, 'Present:', builders.filter(b => b.status === 'present').length);
+    console.log('Processed builders with attendance status:', builders.length);
+    console.log('Present:', builders.filter(b => b.status === 'present').length);
+    console.log('Absent:', builders.filter(b => b.status === 'absent').length);
+    console.log('Excused:', builders.filter(b => b.status === 'excused').length);
+    console.log('Pending:', builders.filter(b => b.status === 'pending').length);
     
     return builders;
     

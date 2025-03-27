@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -136,5 +135,149 @@ export const markAttendance = async (
     console.error('Error in markAttendance:', error);
     toast.error('An unexpected error occurred while marking attendance');
     return false;
+  }
+};
+
+/**
+ * Process historical attendance for a date range:
+ * - Mark pending attendance as absent
+ * - Create absent records for students without attendance
+ * 
+ * @param startDate Start date in YYYY-MM-DD format
+ * @param endDate End date in YYYY-MM-DD format
+ * @returns Object with counts of updated and created records
+ */
+export const processHistoricalAttendance = async (
+  startDate: string,
+  endDate: string
+): Promise<{ updated: number, created: number }> => {
+  try {
+    console.log(`Processing historical attendance from ${startDate} to ${endDate}`);
+    
+    // Convert dates to Date objects for comparison
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    
+    // Ensure dates are valid
+    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+      throw new Error('Invalid date range');
+    }
+    
+    // Ensure end date is not in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (endDateObj > today) {
+      throw new Error('End date cannot be in the future');
+    }
+    
+    if (startDateObj > endDateObj) {
+      throw new Error('Start date cannot be after end date');
+    }
+    
+    // Get all students
+    const { data: students, error: studentsError } = await supabase
+      .from('students')
+      .select('id');
+      
+    if (studentsError) {
+      console.error('Error fetching students:', studentsError);
+      throw new Error('Failed to fetch students');
+    }
+    
+    if (!students || students.length === 0) {
+      console.log('No students found in the system');
+      return { updated: 0, created: 0 };
+    }
+    
+    console.log(`Found ${students.length} students to process`);
+    
+    // For each day in the range
+    let currentDate = new Date(startDateObj);
+    let totalUpdated = 0;
+    let totalCreated = 0;
+    
+    while (currentDate <= endDateObj) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      console.log(`Processing date: ${dateStr}`);
+      
+      // 1. Mark pending as absent
+      const { data: pendingAttendance, error: pendingError } = await supabase
+        .from('attendance')
+        .select('id')
+        .eq('date', dateStr)
+        .eq('status', 'pending');
+        
+      if (!pendingError && pendingAttendance && pendingAttendance.length > 0) {
+        console.log(`Found ${pendingAttendance.length} pending records for ${dateStr}`);
+        
+        const { error: updateError } = await supabase
+          .from('attendance')
+          .update({ 
+            status: 'absent',
+            time_recorded: new Date().toISOString(),
+            notes: 'Automatically marked as absent (historical data cleanup)'
+          })
+          .in('id', pendingAttendance.map(record => record.id));
+          
+        if (!updateError) {
+          totalUpdated += pendingAttendance.length;
+          console.log(`Updated ${pendingAttendance.length} pending records to absent for ${dateStr}`);
+        } else {
+          console.error(`Error updating pending records for ${dateStr}:`, updateError);
+        }
+      }
+      
+      // 2. Find students with no record and create absent records
+      // Get all students who have an attendance record for this date
+      const { data: attendanceRecords, error: recordsError } = await supabase
+        .from('attendance')
+        .select('student_id')
+        .eq('date', dateStr);
+        
+      if (recordsError) {
+        console.error(`Error fetching attendance records for ${dateStr}:`, recordsError);
+        // Continue to next date
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+      
+      // Find students without an attendance record
+      const studentsWithRecords = new Set(attendanceRecords.map(record => record.student_id));
+      const studentsWithoutRecords = students.filter(student => !studentsWithRecords.has(student.id));
+      
+      if (studentsWithoutRecords.length > 0) {
+        console.log(`Found ${studentsWithoutRecords.length} students without records for ${dateStr}`);
+        
+        // Create absent records for these students
+        const newAbsentRecords = studentsWithoutRecords.map(student => ({
+          student_id: student.id,
+          date: dateStr,
+          status: 'absent',
+          time_recorded: new Date().toISOString(),
+          notes: 'Automatically marked as absent (no attendance record)'
+        }));
+        
+        const { error: insertError } = await supabase
+          .from('attendance')
+          .insert(newAbsentRecords);
+          
+        if (!insertError) {
+          totalCreated += studentsWithoutRecords.length;
+          console.log(`Created ${studentsWithoutRecords.length} absent records for ${dateStr}`);
+        } else {
+          console.error(`Error creating absent records for ${dateStr}:`, insertError);
+        }
+      }
+      
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return { updated: totalUpdated, created: totalCreated };
+    
+  } catch (error) {
+    console.error('Error processing historical attendance:', error);
+    throw error;
   }
 };

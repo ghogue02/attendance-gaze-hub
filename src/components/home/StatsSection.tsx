@@ -1,21 +1,26 @@
-
-import { Users, CheckCircle } from 'lucide-react';
+import { Users, CheckCircle, Calendar } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 export const StatsSection = () => {
   const [stats, setStats] = useState({
     totalBuilders: 0,
     attendanceRate: 0
   });
+  const [isHistoricalDialogOpen, setIsHistoricalDialogOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Function to mark all pending students as absent
   const markPendingAsAbsent = async (date: string) => {
     try {
       console.log(`Checking for pending students on ${date} to mark as absent`);
       
-      // Find all students with pending status for the given date
       const { data: pendingAttendance, error: fetchError } = await supabase
         .from('attendance')
         .select('id, student_id')
@@ -34,7 +39,6 @@ export const StatsSection = () => {
       
       console.log(`Found ${pendingAttendance.length} pending students to mark as absent`);
       
-      // Update all pending records to absent
       const { error: updateError } = await supabase
         .from('attendance')
         .update({ 
@@ -67,7 +71,6 @@ export const StatsSection = () => {
       
       console.log(`Checking if we need to process pending attendance for ${yesterdayString}`);
       
-      // Check if we've already run this process for yesterday
       const storageKey = `attendance_processed_${yesterdayString}`;
       const alreadyProcessed = localStorage.getItem(storageKey);
       
@@ -76,10 +79,8 @@ export const StatsSection = () => {
         return;
       }
       
-      // Mark pending as absent for yesterday
       await markPendingAsAbsent(yesterdayString);
       
-      // Mark as processed in localStorage
       localStorage.setItem(storageKey, 'true');
       
     } catch (error) {
@@ -87,10 +88,136 @@ export const StatsSection = () => {
     }
   };
   
+  // New function to process historical data
+  const processHistoricalAttendance = async (startDateStr: string, endDateStr: string) => {
+    try {
+      setIsProcessing(true);
+      console.log(`Processing historical attendance from ${startDateStr} to ${endDateStr}`);
+      
+      const startDateObj = new Date(startDateStr);
+      const endDateObj = new Date(endDateStr);
+      
+      if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+        toast.error('Please enter valid date range');
+        return;
+      }
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (endDateObj > today) {
+        toast.error('End date cannot be in the future');
+        return;
+      }
+      
+      if (startDateObj > endDateObj) {
+        toast.error('Start date cannot be after end date');
+        return;
+      }
+      
+      const { data: students, error: studentsError } = await supabase
+        .from('students')
+        .select('id');
+        
+      if (studentsError) {
+        console.error('Error fetching students:', studentsError);
+        toast.error('Failed to fetch students');
+        return;
+      }
+      
+      if (!students || students.length === 0) {
+        toast.info('No students found in the system');
+        return;
+      }
+      
+      console.log(`Found ${students.length} students to process`);
+      
+      let currentDate = new Date(startDateObj);
+      let totalUpdated = 0;
+      let totalCreated = 0;
+      
+      while (currentDate <= endDateObj) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        console.log(`Processing date: ${dateStr}`);
+        
+        const { data: pendingAttendance, error: pendingError } = await supabase
+          .from('attendance')
+          .select('id')
+          .eq('date', dateStr)
+          .eq('status', 'pending');
+          
+        if (!pendingError && pendingAttendance && pendingAttendance.length > 0) {
+          console.log(`Found ${pendingAttendance.length} pending records for ${dateStr}`);
+          
+          const { error: updateError } = await supabase
+            .from('attendance')
+            .update({ 
+              status: 'absent',
+              time_recorded: new Date().toISOString(),
+              notes: 'Automatically marked as absent (historical data cleanup)'
+            })
+            .in('id', pendingAttendance.map(record => record.id));
+            
+          if (!updateError) {
+            totalUpdated += pendingAttendance.length;
+            console.log(`Updated ${pendingAttendance.length} pending records to absent for ${dateStr}`);
+          }
+        }
+        
+        const { data: attendanceRecords, error: recordsError } = await supabase
+          .from('attendance')
+          .select('student_id')
+          .eq('date', dateStr);
+          
+        if (recordsError) {
+          console.error(`Error fetching attendance records for ${dateStr}:`, recordsError);
+          currentDate.setDate(currentDate.getDate() + 1);
+          continue;
+        }
+        
+        const studentsWithRecords = new Set(attendanceRecords.map(record => record.student_id));
+        const studentsWithoutRecords = students.filter(student => !studentsWithRecords.has(student.id));
+        
+        if (studentsWithoutRecords.length > 0) {
+          console.log(`Found ${studentsWithoutRecords.length} students without records for ${dateStr}`);
+          
+          const newAbsentRecords = studentsWithoutRecords.map(student => ({
+            student_id: student.id,
+            date: dateStr,
+            status: 'absent',
+            time_recorded: new Date().toISOString(),
+            notes: 'Automatically marked as absent (no attendance record)'
+          }));
+          
+          const { error: insertError } = await supabase
+            .from('attendance')
+            .insert(newAbsentRecords);
+            
+          if (!insertError) {
+            totalCreated += studentsWithoutRecords.length;
+            console.log(`Created ${studentsWithoutRecords.length} absent records for ${dateStr}`);
+          } else {
+            console.error(`Error creating absent records for ${dateStr}:`, insertError);
+          }
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      toast.success(`Historical attendance processed: Updated ${totalUpdated} pending records and created ${totalCreated} absent records`);
+      setIsHistoricalDialogOpen(false);
+      
+    } catch (error) {
+      console.error('Error processing historical attendance:', error);
+      toast.error('Failed to process historical attendance');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Fetch total number of builders
         const { count: totalBuilders, error: buildersError } = await supabase
           .from('students')
           .select('*', { count: 'exact', head: true });
@@ -100,7 +227,6 @@ export const StatsSection = () => {
           return;
         }
         
-        // Fetch today's attendance
         const today = new Date().toISOString().split('T')[0];
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('attendance')
@@ -116,7 +242,6 @@ export const StatsSection = () => {
           record.status === 'present'
         ).length || 0;
         
-        // Calculate attendance rate
         const attendanceRate = totalBuilders ? 
           Math.round((presentCount / totalBuilders) * 100) : 0;
           
@@ -135,13 +260,10 @@ export const StatsSection = () => {
       }
     };
     
-    // Fetch stats initially
     fetchStats();
     
-    // Check for previous day's pending attendance
     checkPreviousDay();
     
-    // Set up a subscription to the attendance table
     const attendanceChannel = supabase
       .channel('attendance-changes')
       .on('postgres_changes', 
@@ -153,27 +275,23 @@ export const StatsSection = () => {
       )
       .subscribe();
       
-    // Refresh stats every minute as a fallback
     const refreshInterval = setInterval(fetchStats, 60000);
     
-    // Set up a daily check at midnight
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 1, 0); // Just after midnight
+    tomorrow.setHours(0, 0, 1, 0);
     
     const timeUntilMidnight = tomorrow.getTime() - now.getTime();
     
-    // Schedule the check for midnight
     const midnightCheck = setTimeout(() => {
       const today = new Date().toISOString().split('T')[0];
       markPendingAsAbsent(today);
       
-      // Reschedule for the next day
       const nextMidnightCheck = setInterval(() => {
         const currentDate = new Date().toISOString().split('T')[0];
         markPendingAsAbsent(currentDate);
-      }, 24 * 60 * 60 * 1000); // Check every 24 hours
+      }, 24 * 60 * 60 * 1000);
       
       return () => clearInterval(nextMidnightCheck);
     }, timeUntilMidnight);
@@ -184,6 +302,12 @@ export const StatsSection = () => {
       supabase.removeChannel(attendanceChannel);
     };
   }, []);
+
+  const getDefaultStartDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split('T')[0];
+  };
 
   return (
     <div className="flex space-x-4 justify-center md:justify-start">
@@ -202,6 +326,83 @@ export const StatsSection = () => {
         <span className="text-2xl font-bold">{stats.attendanceRate}%</span>
         <span className="text-xs text-muted-foreground">Attendance Today</span>
       </div>
+
+      <div className="glass-card p-4 flex-1 flex flex-col items-center">
+        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+          <Calendar size={20} />
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-xs"
+          onClick={() => {
+            setStartDate(getDefaultStartDate());
+            setEndDate(new Date().toISOString().split('T')[0]);
+            setIsHistoricalDialogOpen(true);
+          }}
+        >
+          Process Historical
+        </Button>
+        <span className="text-xs text-muted-foreground">Attendance</span>
+      </div>
+
+      <Dialog open={isHistoricalDialogOpen} onOpenChange={setIsHistoricalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Process Historical Attendance</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              This will mark all pending attendance as absent and create absent records for students with no attendance record for the specified date range.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="start-date" className="text-sm font-medium">
+                  Start Date
+                </label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="end-date" className="text-sm font-medium">
+                  End Date
+                </label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsHistoricalDialogOpen(false)}
+              disabled={isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => processHistoricalAttendance(startDate, endDate)}
+              disabled={isProcessing || !startDate || !endDate}
+            >
+              {isProcessing ? 'Processing...' : 'Process'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -113,7 +113,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           const dateStats = dateMap.get(dateStr)!;
           
           // Map the status properly
-          if (record.status === 'present') {
+          if (record.status === 'present' || record.status === 'late') {
             dateStats.Present++;
           } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
             dateStats.Excused++;

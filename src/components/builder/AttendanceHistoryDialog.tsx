@@ -5,10 +5,9 @@ import { Button } from '@/components/ui/button';
 import { CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, AttendanceRecord, BuilderStatus } from './types';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from 'sonner';
-import { formatDate, getStatusColor } from './BuilderCardUtils';
+import AttendanceHistoryTable from './AttendanceHistoryTable';
+import AttendanceEditForm from './AttendanceEditForm';
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -23,6 +22,10 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [attendanceRate, setAttendanceRate] = useState<number | null>(null);
+  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [editStatus, setEditStatus] = useState<BuilderStatus>('present');
+  const [editExcuseReason, setEditExcuseReason] = useState('');
+  const [editNotes, setEditNotes] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -100,6 +103,71 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     setAttendanceRate(Math.round(rate));
   };
 
+  const startEditing = (record: AttendanceRecord) => {
+    setEditingRecord(record);
+    setEditStatus(record.status);
+    setEditExcuseReason(record.excuseReason || '');
+    setEditNotes(record.notes || '');
+  };
+
+  const cancelEditing = () => {
+    setEditingRecord(null);
+    setEditStatus('present');
+    setEditExcuseReason('');
+    setEditNotes('');
+  };
+
+  const saveAttendanceChanges = async () => {
+    if (!editingRecord) return;
+    
+    setIsLoading(true);
+    try {
+      // For database, we need to handle 'excused' status by setting status to 'absent' with excuse_reason
+      const dbStatus = editStatus === 'excused' ? 'absent' : editStatus;
+      const dbExcuseReason = editStatus === 'excused' ? editExcuseReason : null;
+      
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          status: dbStatus,
+          excuse_reason: dbExcuseReason,
+          notes: editNotes,
+          time_recorded: new Date().toISOString()
+        })
+        .eq('id', editingRecord.id);
+
+      if (error) {
+        console.error('Error updating attendance record:', error);
+        toast.error('Failed to update attendance');
+        return;
+      }
+      
+      toast.success('Attendance record updated');
+      
+      // Update local state
+      setAttendanceHistory(prev => 
+        prev.map(record => 
+          record.id === editingRecord.id
+            ? {
+                ...record,
+                status: editStatus,
+                excuseReason: editStatus === 'excused' ? editExcuseReason : undefined,
+                notes: editNotes,
+                timeRecorded: new Date().toLocaleTimeString()
+              }
+            : record
+        )
+      );
+      
+      cancelEditing();
+    } catch (error) {
+      console.error('Error in saveAttendanceChanges:', error);
+      toast.error('Error updating attendance');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
@@ -124,41 +192,25 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
           </div>
         )}
         
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        ) : attendanceHistory.length === 0 ? (
-          <p className="text-center py-6 text-muted-foreground">No attendance records found for this builder.</p>
-        ) : (
-          <div className="overflow-y-auto max-h-[400px]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {attendanceHistory.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{formatDate(record.date)}</TableCell>
-                    <TableCell>
-                      <span className={`font-medium capitalize ${getStatusColor(record.status).split(' ')[1]}`}>
-                        {record.status === 'excused' ? 'Excused Absence' : record.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-[250px] break-words">
-                      {record.excuseReason || '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        <AttendanceHistoryTable 
+          attendanceHistory={attendanceHistory} 
+          isLoading={isLoading}
+          onEditRecord={startEditing}
+        />
+        
+        {editingRecord && (
+          <AttendanceEditForm
+            record={editingRecord}
+            editStatus={editStatus}
+            editExcuseReason={editExcuseReason}
+            editNotes={editNotes}
+            isLoading={isLoading}
+            onStatusChange={setEditStatus}
+            onExcuseReasonChange={setEditExcuseReason}
+            onNotesChange={setEditNotes}
+            onSave={saveAttendanceChanges}
+            onCancel={cancelEditing}
+          />
         )}
         
         <DialogFooter className="mt-4">

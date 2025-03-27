@@ -116,31 +116,34 @@ const Home = () => {
             </div>
             
             {/* Photo Capture Section */}
-            {selectedBuilder ? (
-              <div className="glass-card p-6 rounded-lg shadow-sm w-full">
-                <PhotoCapture
-                  builder={selectedBuilder}
-                  onSuccess={handleSuccess}
-                />
-                <Button 
-                  variant="ghost" 
-                  className="mt-4 mx-auto block" 
-                  onClick={() => setSelectedBuilder(null)}
-                >
-                  Select different builder
-                </Button>
+            <div className="glass-card p-6 rounded-lg shadow-sm w-full flex flex-col items-center">
+              <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Camera size={40} className="text-primary" />
               </div>
-            ) : (
-              <div className="glass-card p-6 rounded-lg shadow-sm w-full flex flex-col items-center">
-                <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <Camera size={40} className="text-primary" />
-                </div>
-                <h2 className="text-xl font-semibold mb-2 text-center">Photo Capture</h2>
-                <p className="text-muted-foreground text-center mb-2">
-                  Find your name, then take a photo
-                </p>
-              </div>
-            )}
+              <h2 className="text-xl font-semibold mb-2 text-center">Photo Capture</h2>
+              <p className="text-muted-foreground text-center mb-2">
+                {selectedBuilder ? 
+                  <>Take a photo to mark attendance</> : 
+                  <>Find your name, then take a photo</>
+                }
+              </p>
+              
+              {selectedBuilder && (
+                <>
+                  <PhotoCapture
+                    builder={selectedBuilder}
+                    onSuccess={handleSuccess}
+                  />
+                  <Button 
+                    variant="ghost" 
+                    className="mt-4" 
+                    onClick={() => setSelectedBuilder(null)}
+                  >
+                    Select different builder
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </main>

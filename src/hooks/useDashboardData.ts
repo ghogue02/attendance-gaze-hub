@@ -1,4 +1,3 @@
-
 // src/hooks/useDashboardData.ts
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -17,13 +16,13 @@ export const useDashboardData = () => {
   const isMounted = useRef(true);
   const subscriptionStatus = useRef({ attendance: 'unsubscribed', profile: 'unsubscribed' });
 
-  // --- Define the Current Date (March 26, 2025) ---
-  // Using the current date for the app: March 26, 2025
-  const targetDate = useMemo(() => new Date(2025, 2, 26), []); // Month is 0-indexed (0=Jan, 2=Mar), Day 26
-  const targetDateString = useMemo(() => targetDate.toISOString().split('T')[0], [targetDate]); // 'YYYY-MM-DD'
-  const displayDateString = useMemo(() => targetDate.toLocaleDateString('en-US', {
+  // --- Use the Current Date ---
+  // Get the current date instead of a hardcoded date
+  const currentDate = useMemo(() => new Date(), []);
+  const targetDateString = useMemo(() => currentDate.toISOString().split('T')[0], [currentDate]); // 'YYYY-MM-DD'
+  const displayDateString = useMemo(() => currentDate.toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  }), [targetDate]);
+  }), [currentDate]);
 
   // Stable function to load/refresh data for the target date
   const loadData = useCallback(async (showLoadingSpinner = true) => {

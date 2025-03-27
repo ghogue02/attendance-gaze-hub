@@ -1,12 +1,91 @@
+
 import { Users, CheckCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export const StatsSection = () => {
   const [stats, setStats] = useState({
     totalBuilders: 0,
     attendanceRate: 0
   });
+  
+  // Function to mark all pending students as absent
+  const markPendingAsAbsent = async (date: string) => {
+    try {
+      console.log(`Checking for pending students on ${date} to mark as absent`);
+      
+      // Find all students with pending status for the given date
+      const { data: pendingAttendance, error: fetchError } = await supabase
+        .from('attendance')
+        .select('id, student_id')
+        .eq('date', date)
+        .eq('status', 'pending');
+        
+      if (fetchError) {
+        console.error('Error fetching pending attendance:', fetchError);
+        return;
+      }
+      
+      if (!pendingAttendance || pendingAttendance.length === 0) {
+        console.log('No pending attendance records found for date:', date);
+        return;
+      }
+      
+      console.log(`Found ${pendingAttendance.length} pending students to mark as absent`);
+      
+      // Update all pending records to absent
+      const { error: updateError } = await supabase
+        .from('attendance')
+        .update({ 
+          status: 'absent',
+          time_recorded: new Date().toISOString(),
+          notes: 'Automatically marked as absent (end of day)'
+        })
+        .in('id', pendingAttendance.map(record => record.id));
+        
+      if (updateError) {
+        console.error('Error marking pending as absent:', updateError);
+        return;
+      }
+      
+      console.log(`Successfully marked ${pendingAttendance.length} students as absent`);
+      toast.success(`${pendingAttendance.length} pending students marked as absent`);
+      
+    } catch (error) {
+      console.error('Error in markPendingAsAbsent:', error);
+    }
+  };
+  
+  // Check if we need to mark students absent from previous day
+  const checkPreviousDay = async () => {
+    try {
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayString = yesterday.toISOString().split('T')[0];
+      
+      console.log(`Checking if we need to process pending attendance for ${yesterdayString}`);
+      
+      // Check if we've already run this process for yesterday
+      const storageKey = `attendance_processed_${yesterdayString}`;
+      const alreadyProcessed = localStorage.getItem(storageKey);
+      
+      if (alreadyProcessed) {
+        console.log(`Already processed pending attendance for ${yesterdayString}`);
+        return;
+      }
+      
+      // Mark pending as absent for yesterday
+      await markPendingAsAbsent(yesterdayString);
+      
+      // Mark as processed in localStorage
+      localStorage.setItem(storageKey, 'true');
+      
+    } catch (error) {
+      console.error('Error checking previous day attendance:', error);
+    }
+  };
   
   useEffect(() => {
     const fetchStats = async () => {
@@ -59,6 +138,9 @@ export const StatsSection = () => {
     // Fetch stats initially
     fetchStats();
     
+    // Check for previous day's pending attendance
+    checkPreviousDay();
+    
     // Set up a subscription to the attendance table
     const attendanceChannel = supabase
       .channel('attendance-changes')
@@ -74,8 +156,31 @@ export const StatsSection = () => {
     // Refresh stats every minute as a fallback
     const refreshInterval = setInterval(fetchStats, 60000);
     
+    // Set up a daily check at midnight
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 1, 0); // Just after midnight
+    
+    const timeUntilMidnight = tomorrow.getTime() - now.getTime();
+    
+    // Schedule the check for midnight
+    const midnightCheck = setTimeout(() => {
+      const today = new Date().toISOString().split('T')[0];
+      markPendingAsAbsent(today);
+      
+      // Reschedule for the next day
+      const nextMidnightCheck = setInterval(() => {
+        const currentDate = new Date().toISOString().split('T')[0];
+        markPendingAsAbsent(currentDate);
+      }, 24 * 60 * 60 * 1000); // Check every 24 hours
+      
+      return () => clearInterval(nextMidnightCheck);
+    }, timeUntilMidnight);
+    
     return () => {
       clearInterval(refreshInterval);
+      clearTimeout(midnightCheck);
       supabase.removeChannel(attendanceChannel);
     };
   }, []);

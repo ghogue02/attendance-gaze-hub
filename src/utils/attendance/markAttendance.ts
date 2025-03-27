@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -51,13 +52,19 @@ export const markAttendance = async (
     if (existingAttendance) {
       console.log(`Updating existing attendance record (ID: ${existingAttendance.id}) from status: ${existingAttendance.status} to: ${status}`);
       
+      // For the database, we need to convert 'excused' to 'absent' with an excuse reason
+      // The database schema likely only allows 'present', 'absent', 'late', and 'pending'
+      const dbStatus = status === 'excused' ? 'absent' : status;
+      
       const updateData: any = {
-        status,
+        status: dbStatus,
         time_recorded: timestamp
       };
       
       // Only set excuse_reason if it's provided or if status is 'excused'
-      if (excuseReason !== undefined) {
+      if (status === 'excused') {
+        updateData.excuse_reason = excuseReason || 'Excused absence';
+      } else if (excuseReason !== undefined) {
         updateData.excuse_reason = excuseReason;
       } else if (status !== 'excused' && existingAttendance.excuse_reason) {
         // Clear excuse reason if changing away from excused status
@@ -95,15 +102,20 @@ export const markAttendance = async (
     // Otherwise, insert new attendance record
     console.log(`Creating new attendance record for student ${studentId} with status: ${status} for date ${targetDate}`);
     
+    // For new records, we need to convert 'excused' to 'absent' with an excuse reason
+    const dbStatus = status === 'excused' ? 'absent' : status;
+    
     const newRecord: any = {
       student_id: studentId,
-      status,
+      status: dbStatus,
       date: targetDate,
       time_recorded: timestamp
     };
     
-    // Add excuse reason if provided for a new record
-    if (excuseReason !== undefined) {
+    // Add excuse reason if status is 'excused' or provided for a new record
+    if (status === 'excused') {
+      newRecord.excuse_reason = excuseReason || 'Excused absence';
+    } else if (excuseReason !== undefined) {
       newRecord.excuse_reason = excuseReason;
     }
     

@@ -9,6 +9,9 @@ interface AttendancePieChartProps {
   builders: Builder[];
 }
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+
 const AttendancePieChart = ({ builders }: AttendancePieChartProps) => {
   const [data, setData] = useState<{ name: string; value: number; color: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,6 +23,21 @@ const AttendancePieChart = ({ builders }: AttendancePieChartProps) => {
       try {
         // Get today's date in YYYY-MM-DD format
         const today = new Date().toISOString().split('T')[0];
+        const todayDate = new Date(today);
+        
+        // Skip processing if today is a Friday
+        if (todayDate.getDay() === 5) {
+          setData([]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Skip if today is before the minimum date
+        if (todayDate < MINIMUM_DATE) {
+          setData([]);
+          setIsLoading(false);
+          return;
+        }
         
         // Fetch attendance records for today
         const { data: attendanceRecords, error } = await supabase

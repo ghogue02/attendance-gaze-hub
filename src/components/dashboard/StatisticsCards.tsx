@@ -13,9 +13,13 @@ interface StatisticsCardsProps {
   builders: Builder[];
 }
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+const MINIMUM_DATE_STRING = MINIMUM_DATE.toISOString().split('T')[0];
+
 const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   const [isHistoricalDialogOpen, setIsHistoricalDialogOpen] = useState(false);
-  const [startDate, setStartDate] = useState('');
+  const [startDate, setStartDate] = useState(MINIMUM_DATE_STRING);
   const [endDate, setEndDate] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -52,11 +56,22 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   const getDefaultStartDate = () => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
-    return date.toISOString().split('T')[0];
+    
+    // Ensure default start date is not before MINIMUM_DATE
+    return date < MINIMUM_DATE 
+      ? MINIMUM_DATE_STRING
+      : date.toISOString().split('T')[0];
   };
 
   const handleHistoricalProcess = async (startDateStr: string, endDateStr: string) => {
     try {
+      // Validate that start date is not before MINIMUM_DATE
+      const startDateObj = new Date(startDateStr);
+      if (startDateObj < MINIMUM_DATE) {
+        toast.error(`Start date cannot be before ${MINIMUM_DATE_STRING}`);
+        return;
+      }
+      
       setIsProcessing(true);
       console.log(`Processing historical attendance from ${startDateStr} to ${endDateStr}`);
       
@@ -165,6 +180,9 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
             <p className="text-sm text-muted-foreground">
               This will mark all pending attendance as absent and create absent records for students with no attendance record for the specified date range.
             </p>
+            <p className="text-sm text-muted-foreground font-medium">
+              Note: Date range cannot start before {MINIMUM_DATE_STRING}
+            </p>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -175,6 +193,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
                   id="start-date"
                   type="date"
                   value={startDate}
+                  min={MINIMUM_DATE_STRING}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="mt-1"
                 />
@@ -188,6 +207,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
                   id="end-date"
                   type="date"
                   value={endDate}
+                  min={MINIMUM_DATE_STRING}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="mt-1"
                 />
@@ -205,7 +225,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
             </Button>
             <Button 
               onClick={() => handleHistoricalProcess(startDate, endDate)}
-              disabled={isProcessing || !startDate || !endDate}
+              disabled={isProcessing || !startDate || !endDate || new Date(startDate) < MINIMUM_DATE}
             >
               {isProcessing ? 'Processing...' : 'Process'}
             </Button>

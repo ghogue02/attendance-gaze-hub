@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
-import { format, parseISO, subDays } from 'date-fns';
+import { format, parseISO, subDays, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 
 export interface DailyAttendance {
@@ -13,6 +13,9 @@ export interface DailyAttendance {
   Excused: number;
 }
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+
 export const useAttendanceChartData = (builders: Builder[], days: number) => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,8 +24,12 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
   const dateRange = useMemo(() => {
     const endDate = new Date();
     const startDate = subDays(endDate, days - 1);
+    
+    // Ensure start date is not before the minimum date
+    const adjustedStartDate = isAfter(startDate, MINIMUM_DATE) ? startDate : MINIMUM_DATE;
+    
     return {
-      start: startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      start: adjustedStartDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
       end: endDate.toISOString().split('T')[0]
     };
   }, [days]);
@@ -71,31 +78,36 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         // Create a map to aggregate attendance by date
         const dateMap = new Map<string, { Present: number; Absent: number; Excused: number }>();
         
-        // Initialize the dateMap with all dates in the range (to ensure we have entries even for days with no attendance)
+        // Initialize the dateMap with all dates in the range (excluding Fridays)
         const currentDate = new Date(dateRange.start);
         const endDate = new Date(dateRange.end);
         
         while (currentDate <= endDate) {
-          const dateStr = currentDate.toISOString().split('T')[0];
-          dateMap.set(dateStr, {
-            Present: 0,
-            Absent: 0,
-            Excused: 0
-          });
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-        
-        // Process all attendance records
-        attendanceData.forEach(record => {
-          const dateStr = record.date;
-          
-          if (!dateMap.has(dateStr)) {
-            // This should not happen with our date filtering, but just in case
+          // Skip Fridays (5 is Friday in JS Date where 0 is Sunday)
+          if (currentDate.getDay() !== 5) {
+            const dateStr = currentDate.toISOString().split('T')[0];
             dateMap.set(dateStr, {
               Present: 0,
               Absent: 0,
               Excused: 0
             });
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        // Process all attendance records, filtering out Fridays
+        attendanceData.forEach(record => {
+          const dateStr = record.date;
+          const recordDate = new Date(dateStr);
+          
+          // Skip Friday records
+          if (recordDate.getDay() === 5) {
+            return;
+          }
+          
+          if (!dateMap.has(dateStr)) {
+            // This could happen if the date is outside our range but still got returned
+            return;
           }
           
           const dateStats = dateMap.get(dateStr)!;

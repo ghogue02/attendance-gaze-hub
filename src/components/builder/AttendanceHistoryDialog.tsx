@@ -16,6 +16,9 @@ interface AttendanceHistoryDialogProps {
   builder: Builder;
 }
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+
 const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistoryDialogProps) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +45,13 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
         return;
       }
 
-      const history: AttendanceRecord[] = data.map(record => {
+      // Filter out Fridays and dates before minimum date
+      const filteredData = data.filter(record => {
+        const date = new Date(record.date);
+        return date.getDay() !== 5 && date >= MINIMUM_DATE;
+      });
+
+      const history: AttendanceRecord[] = filteredData.map(record => {
         // Convert string status to BuilderStatus type
         let status: BuilderStatus = record.status as BuilderStatus;
         
@@ -65,7 +74,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
 
       setAttendanceHistory(history);
       
-      // Calculate attendance rate (excluding Fridays)
+      // Calculate attendance rate (already filtered for Fridays and minimum date)
       calculateAttendanceRate(history);
     } catch (error) {
       console.error('Error in fetchAttendanceHistory:', error);
@@ -81,24 +90,13 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
       return;
     }
 
-    // Filter out Fridays from attendance records
-    const nonFridayRecords = records.filter(record => {
-      const date = new Date(record.date);
-      return date.getDay() !== 5; // 5 is Friday (0 is Sunday)
-    });
-
-    if (nonFridayRecords.length === 0) {
-      setAttendanceRate(null);
-      return;
-    }
-
     // Count the number of days the builder was present or late
-    const presentCount = nonFridayRecords.filter(
+    const presentCount = records.filter(
       record => record.status === 'present' || record.status === 'late'
     ).length;
 
     // Calculate the rate
-    const rate = (presentCount / nonFridayRecords.length) * 100;
+    const rate = (presentCount / records.length) * 100;
     setAttendanceRate(Math.round(rate));
   };
 

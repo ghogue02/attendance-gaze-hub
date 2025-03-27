@@ -23,6 +23,9 @@ interface AttendanceRecord {
   excuseReason: string | null;
 }
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+
 const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -55,7 +58,13 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         return;
       }
       
-      const formattedRecords: AttendanceRecord[] = data.map(record => {
+      // Filter out Fridays and dates before minimum date
+      const filteredData = data.filter(record => {
+        const date = new Date(record.date);
+        return date.getDay() !== 5 && date >= MINIMUM_DATE;
+      });
+      
+      const formattedRecords: AttendanceRecord[] = filteredData.map(record => {
         const student = record.students;
         const fullName = `${student.first_name} ${student.last_name || ''}`.trim();
         

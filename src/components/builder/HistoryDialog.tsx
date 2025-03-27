@@ -15,6 +15,9 @@ interface HistoryDialogProps {
   builder: Builder;
 }
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+
 const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +47,13 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
         return;
       }
 
-      const history: AttendanceRecord[] = data.map(record => {
+      // Filter out Fridays and dates before minimum date
+      const filteredData = data.filter(record => {
+        const date = new Date(record.date);
+        return date.getDay() !== 5 && date >= MINIMUM_DATE;
+      });
+
+      const history: AttendanceRecord[] = filteredData.map(record => {
         let status: BuilderStatus = record.status as BuilderStatus;
         if (record.excuse_reason && record.status === 'absent') {
           status = 'excused';

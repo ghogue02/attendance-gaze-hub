@@ -1,13 +1,13 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Plus, CalendarPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, AttendanceRecord, BuilderStatus } from './types';
 import { toast } from 'sonner';
 import AttendanceHistoryTable from './AttendanceHistoryTable';
 import AttendanceEditForm from './AttendanceEditForm';
+import { format, isAfter, isBefore, isFriday } from 'date-fns';
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -26,6 +26,8 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   const [editStatus, setEditStatus] = useState<BuilderStatus>('present');
   const [editExcuseReason, setEditExcuseReason] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [isAddingNewDate, setIsAddingNewDate] = useState(false);
+  const [newDate, setNewDate] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -168,6 +170,125 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     }
   };
 
+  const handleAddNewDate = () => {
+    setIsAddingNewDate(true);
+    setEditStatus('present');
+    setEditExcuseReason('');
+    setEditNotes('');
+    // Default to tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setNewDate(tomorrow.toISOString().split('T')[0]);
+  };
+
+  const cancelAddNewDate = () => {
+    setIsAddingNewDate(false);
+    setNewDate('');
+  };
+
+  const validateNewDate = (dateString: string): boolean => {
+    try {
+      const date = new Date(dateString);
+      
+      // Check if it's a valid date
+      if (isNaN(date.getTime())) {
+        toast.error('Invalid date format');
+        return false;
+      }
+      
+      // Check if it's not a Friday
+      if (isFriday(date)) {
+        toast.error('Attendance is not recorded on Fridays');
+        return false;
+      }
+      
+      // Check if it's after minimum date
+      if (isBefore(date, MINIMUM_DATE)) {
+        toast.error(`Date must be on or after ${format(MINIMUM_DATE, 'MMM d, yyyy')}`);
+        return false;
+      }
+      
+      // Check if it's not in the future
+      if (isAfter(date, new Date())) {
+        toast.error('Cannot add attendance for future dates');
+        return false;
+      }
+      
+      // Check if the date already exists in attendance history
+      if (attendanceHistory.some(record => record.date === dateString)) {
+        toast.error('Attendance record already exists for this date');
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Date validation error:', error);
+      toast.error('Invalid date');
+      return false;
+    }
+  };
+
+  const saveNewAttendanceRecord = async () => {
+    if (!validateNewDate(newDate)) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      // For database, we need to handle 'excused' status
+      const dbStatus = editStatus === 'excused' ? 'absent' : editStatus;
+      const dbExcuseReason = editStatus === 'excused' ? editExcuseReason : null;
+      
+      const { data, error } = await supabase
+        .from('attendance')
+        .insert({
+          student_id: builder.id,
+          date: newDate,
+          status: dbStatus,
+          excuse_reason: dbExcuseReason,
+          notes: editNotes,
+          time_recorded: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('Error adding attendance record:', error);
+        toast.error('Failed to add attendance record');
+        return;
+      }
+      
+      toast.success('Attendance record added');
+      
+      // Create new record for the UI
+      const newRecord: AttendanceRecord = {
+        id: data.id,
+        date: newDate,
+        status: editStatus,
+        timeRecorded: new Date().toLocaleTimeString(),
+        excuseReason: editStatus === 'excused' ? editExcuseReason : undefined,
+        notes: editNotes || undefined
+      };
+      
+      // Update local state - insert new record and sort by date
+      setAttendanceHistory(prev => {
+        const updated = [...prev, newRecord].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        calculateAttendanceRate(updated);
+        return updated;
+      });
+      
+      // Reset form
+      cancelAddNewDate();
+    } catch (error) {
+      console.error('Error in saveNewAttendanceRecord:', error);
+      toast.error('Error adding attendance record');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
@@ -189,6 +310,86 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
             <p className="text-xs text-center text-muted-foreground mt-1">
               Based on {attendanceHistory.length} class sessions (excluding Fridays)
             </p>
+          </div>
+        )}
+        
+        <div className="flex justify-end mb-4">
+          <Button 
+            onClick={handleAddNewDate} 
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-2"
+            disabled={isAddingNewDate || !!editingRecord}
+          >
+            <CalendarPlus className="h-4 w-4" />
+            Add Missing Date
+          </Button>
+        </div>
+        
+        {isAddingNewDate && (
+          <div className="border rounded-md p-4 mb-4 bg-muted/20">
+            <h3 className="font-medium mb-3">Add New Attendance Record</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-2">
+                <label htmlFor="new-date" className="text-sm font-medium">
+                  Date:
+                </label>
+                <input
+                  id="new-date"
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="border p-2 rounded-md"
+                  min="2025-03-15"
+                  max={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 gap-2">
+                <label className="text-sm font-medium">Status:</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as BuilderStatus)}
+                  className="border p-2 rounded-md"
+                >
+                  <option value="present">Present</option>
+                  <option value="absent">Absent</option>
+                  <option value="late">Late</option>
+                  <option value="excused">Excused Absence</option>
+                </select>
+              </div>
+              
+              {editStatus === 'excused' && (
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="text-sm font-medium">Excuse Reason:</label>
+                  <textarea
+                    value={editExcuseReason}
+                    onChange={(e) => setEditExcuseReason(e.target.value)}
+                    className="border p-2 rounded-md h-20 resize-none"
+                    placeholder="Enter excuse reason..."
+                  />
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 gap-2">
+                <label className="text-sm font-medium">Notes:</label>
+                <textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="border p-2 rounded-md h-20 resize-none"
+                  placeholder="Enter notes..."
+                />
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={cancelAddNewDate} disabled={isLoading}>
+                  Cancel
+                </Button>
+                <Button onClick={saveNewAttendanceRecord} disabled={isLoading}>
+                  Save
+                </Button>
+              </div>
+            </div>
           </div>
         )}
         

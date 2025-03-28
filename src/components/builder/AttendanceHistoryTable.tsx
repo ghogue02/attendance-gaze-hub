@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PencilIcon } from 'lucide-react';
+import { PencilIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AttendanceRecord } from './types';
@@ -11,12 +11,14 @@ interface AttendanceHistoryTableProps {
   attendanceHistory: AttendanceRecord[];
   isLoading: boolean;
   onEditRecord: (record: AttendanceRecord) => void;
+  onDeleteRecord?: (record: AttendanceRecord) => void;
 }
 
 const AttendanceHistoryTable = ({ 
   attendanceHistory, 
   isLoading, 
-  onEditRecord 
+  onEditRecord,
+  onDeleteRecord
 }: AttendanceHistoryTableProps) => {
   if (isLoading) {
     return (
@@ -42,7 +44,7 @@ const AttendanceHistoryTable = ({
             <TableHead>Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Notes</TableHead>
-            <TableHead className="w-12"></TableHead>
+            <TableHead className="w-24 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -68,15 +70,27 @@ const AttendanceHistoryTable = ({
                   </div>
                 ) : record.excuseReason ? null : '—'}
               </TableCell>
-              <TableCell>
+              <TableCell className="text-right space-x-1">
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   onClick={() => onEditRecord(record)}
                   title="Edit record"
+                  className="h-8 w-8"
                 >
                   <PencilIcon className="h-4 w-4" />
                 </Button>
+                {onDeleteRecord && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onDeleteRecord(record)}
+                    title="Delete record"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2Icon className="h-4 w-4" />
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}

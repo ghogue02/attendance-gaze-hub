@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,16 @@ import AttendanceHistoryTable from './AttendanceHistoryTable';
 import AttendanceEditForm from './AttendanceEditForm';
 import { format, isAfter, isBefore, parseISO } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -30,6 +39,8 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   const [editNotes, setEditNotes] = useState('');
   const [isAddingNewDate, setIsAddingNewDate] = useState(false);
   const [newDate, setNewDate] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<AttendanceRecord | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -38,6 +49,8 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
       // Clear state when closing the dialog
       setEditingRecord(null);
       setIsAddingNewDate(false);
+      setRecordToDelete(null);
+      setDeleteDialogOpen(false);
     }
   }, [isOpen, builder.id]);
 
@@ -299,142 +312,213 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     }
   };
 
+  const handleDeleteRecord = (record: AttendanceRecord) => {
+    // Close other forms if they're open
+    setEditingRecord(null);
+    setIsAddingNewDate(false);
+    
+    setRecordToDelete(record);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!recordToDelete) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .delete()
+        .eq('id', recordToDelete.id);
+
+      if (error) {
+        console.error('Error deleting attendance record:', error);
+        toast.error('Failed to delete attendance record');
+        return;
+      }
+      
+      toast.success('Attendance record deleted');
+      
+      // Update local state
+      const updatedHistory = attendanceHistory.filter(
+        record => record.id !== recordToDelete.id
+      );
+      
+      setAttendanceHistory(updatedHistory);
+      // Recalculate attendance rate
+      calculateAttendanceRate(updatedHistory);
+      
+      // Close the delete dialog
+      setDeleteDialogOpen(false);
+      setRecordToDelete(null);
+    } catch (error) {
+      console.error('Error in deleteAttendanceRecord:', error);
+      toast.error('Error deleting attendance record');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5" />
-            Attendance History for {builder.name}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="px-1 space-y-4">
-            {attendanceRate !== null && (
-              <div className="mb-4 p-3 bg-muted/30 rounded-md">
-                <p className="font-medium text-center">
-                  Overall Attendance Rate: 
-                  <span className={`ml-2 ${attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {attendanceRate}%
-                  </span>
-                </p>
-                <p className="text-xs text-center text-muted-foreground mt-1">
-                  Based on {attendanceHistory.length} class sessions
-                </p>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Attendance History for {builder.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="px-1 space-y-4">
+              {attendanceRate !== null && (
+                <div className="mb-4 p-3 bg-muted/30 rounded-md">
+                  <p className="font-medium text-center">
+                    Overall Attendance Rate: 
+                    <span className={`ml-2 ${attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {attendanceRate}%
+                    </span>
+                  </p>
+                  <p className="text-xs text-center text-muted-foreground mt-1">
+                    Based on {attendanceHistory.length} class sessions
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex justify-end mb-4">
+                <Button 
+                  onClick={handleAddNewDate} 
+                  size="sm"
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  disabled={isAddingNewDate || !!editingRecord}
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  Add Missing Date
+                </Button>
               </div>
-            )}
-            
-            <div className="flex justify-end mb-4">
-              <Button 
-                onClick={handleAddNewDate} 
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-2"
-                disabled={isAddingNewDate || !!editingRecord}
-              >
-                <CalendarPlus className="h-4 w-4" />
-                Add Missing Date
-              </Button>
-            </div>
-            
-            {isAddingNewDate && (
-              <div className="border rounded-md p-4 mb-4 bg-muted/20">
-                <h3 className="font-medium mb-3">Add New Attendance Record</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-2">
-                    <label htmlFor="new-date" className="text-sm font-medium">
-                      Date:
-                    </label>
-                    <input
-                      id="new-date"
-                      type="date"
-                      value={newDate}
-                      onChange={(e) => setNewDate(e.target.value)}
-                      className="border p-2 rounded-md"
-                      min="2025-03-15"
-                      max={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-2">
-                    <label className="text-sm font-medium">Status:</label>
-                    <select
-                      value={editStatus}
-                      onChange={(e) => setEditStatus(e.target.value as BuilderStatus)}
-                      className="border p-2 rounded-md"
-                    >
-                      <option value="present">Present</option>
-                      <option value="absent">Absent</option>
-                      <option value="late">Late</option>
-                      <option value="excused">Excused Absence</option>
-                    </select>
-                  </div>
-                  
-                  {editStatus === 'excused' && (
+              
+              {isAddingNewDate && (
+                <div className="border rounded-md p-4 mb-4 bg-muted/20">
+                  <h3 className="font-medium mb-3">Add New Attendance Record</h3>
+                  <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-2">
-                      <label className="text-sm font-medium">Excuse Reason:</label>
-                      <textarea
-                        value={editExcuseReason}
-                        onChange={(e) => setEditExcuseReason(e.target.value)}
-                        className="border p-2 rounded-md h-20 resize-none"
-                        placeholder="Enter excuse reason..."
+                      <label htmlFor="new-date" className="text-sm font-medium">
+                        Date:
+                      </label>
+                      <input
+                        id="new-date"
+                        type="date"
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                        className="border p-2 rounded-md"
+                        min="2025-03-15"
+                        max={new Date().toISOString().split('T')[0]}
                       />
                     </div>
-                  )}
-                  
-                  <div className="grid grid-cols-1 gap-2">
-                    <label className="text-sm font-medium">Notes:</label>
-                    <textarea
-                      value={editNotes}
-                      onChange={(e) => setEditNotes(e.target.value)}
-                      className="border p-2 rounded-md h-20 resize-none"
-                      placeholder="Enter notes..."
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={cancelAddNewDate} disabled={isLoading}>
-                      Cancel
-                    </Button>
-                    <Button onClick={saveNewAttendanceRecord} disabled={isLoading}>
-                      Save
-                    </Button>
+                    
+                    <div className="grid grid-cols-1 gap-2">
+                      <label className="text-sm font-medium">Status:</label>
+                      <select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value as BuilderStatus)}
+                        className="border p-2 rounded-md"
+                      >
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                        <option value="late">Late</option>
+                        <option value="excused">Excused Absence</option>
+                      </select>
+                    </div>
+                    
+                    {editStatus === 'excused' && (
+                      <div className="grid grid-cols-1 gap-2">
+                        <label className="text-sm font-medium">Excuse Reason:</label>
+                        <textarea
+                          value={editExcuseReason}
+                          onChange={(e) => setEditExcuseReason(e.target.value)}
+                          className="border p-2 rounded-md h-20 resize-none"
+                          placeholder="Enter excuse reason..."
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 gap-2">
+                      <label className="text-sm font-medium">Notes:</label>
+                      <textarea
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        className="border p-2 rounded-md h-20 resize-none"
+                        placeholder="Enter notes..."
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={cancelAddNewDate} disabled={isLoading}>
+                        Cancel
+                      </Button>
+                      <Button onClick={saveNewAttendanceRecord} disabled={isLoading}>
+                        Save
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-            
-            <AttendanceHistoryTable 
-              attendanceHistory={attendanceHistory} 
-              isLoading={isLoading}
-              onEditRecord={startEditing}
-            />
-            
-            {editingRecord && (
-              <AttendanceEditForm
-                record={editingRecord}
-                editStatus={editStatus}
-                editExcuseReason={editExcuseReason}
-                editNotes={editNotes}
+              )}
+              
+              <AttendanceHistoryTable 
+                attendanceHistory={attendanceHistory} 
                 isLoading={isLoading}
-                onStatusChange={setEditStatus}
-                onExcuseReasonChange={setEditExcuseReason}
-                onNotesChange={setEditNotes}
-                onSave={saveAttendanceChanges}
-                onCancel={cancelEditing}
+                onEditRecord={startEditing}
+                onDeleteRecord={handleDeleteRecord}
               />
-            )}
-          </div>
-        </ScrollArea>
-        
-        <DialogFooter className="mt-4 pt-4 border-t">
-          <Button onClick={onClose}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              
+              {editingRecord && (
+                <AttendanceEditForm
+                  record={editingRecord}
+                  editStatus={editStatus}
+                  editExcuseReason={editExcuseReason}
+                  editNotes={editNotes}
+                  isLoading={isLoading}
+                  onStatusChange={setEditStatus}
+                  onExcuseReasonChange={setEditExcuseReason}
+                  onNotesChange={setEditNotes}
+                  onSave={saveAttendanceChanges}
+                  onCancel={cancelEditing}
+                />
+              )}
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="mt-4 pt-4 border-t">
+            <Button onClick={onClose}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Attendance Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this attendance record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={isLoading}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

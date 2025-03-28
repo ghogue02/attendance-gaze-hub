@@ -47,10 +47,11 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
         return;
       }
 
-      // Filter out Fridays and dates before minimum date
+      // Filter out dates before minimum date
       const filteredData = data.filter(record => {
         const date = new Date(record.date);
-        return date.getDay() !== 5 && date >= MINIMUM_DATE;
+        // Only filter by minimum date, not day of week
+        return date >= MINIMUM_DATE;
       });
 
       const history: AttendanceRecord[] = filteredData.map(record => {

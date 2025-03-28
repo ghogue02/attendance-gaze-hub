@@ -1,4 +1,3 @@
-
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Builder } from '@/components/builder/types';
 import { useState, useEffect } from 'react';
@@ -25,14 +24,7 @@ const AttendancePieChart = ({ builders }: AttendancePieChartProps) => {
         const today = new Date().toISOString().split('T')[0];
         const todayDate = new Date(today);
         
-        // Skip processing if today is a Friday
-        if (todayDate.getDay() === 5) {
-          setData([]);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Skip if today is before the minimum date
+        // Skip processing if today is before the minimum date
         if (todayDate < MINIMUM_DATE) {
           setData([]);
           setIsLoading(false);

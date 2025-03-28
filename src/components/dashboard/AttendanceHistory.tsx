@@ -58,10 +58,10 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         return;
       }
       
-      // Filter out Fridays and dates before minimum date
+      // Filter out dates before minimum date only
       const filteredData = data.filter(record => {
         const date = new Date(record.date);
-        return date.getDay() !== 5 && date >= MINIMUM_DATE;
+        return date >= MINIMUM_DATE;
       });
       
       const formattedRecords: AttendanceRecord[] = filteredData.map(record => {

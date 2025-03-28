@@ -7,7 +7,7 @@ import { Builder, AttendanceRecord, BuilderStatus } from './types';
 import { toast } from 'sonner';
 import AttendanceHistoryTable from './AttendanceHistoryTable';
 import AttendanceEditForm from './AttendanceEditForm';
-import { format, isAfter, isBefore, isFriday } from 'date-fns';
+import { format, isAfter, isBefore, parseISO } from 'date-fns';
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -50,10 +50,11 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
         return;
       }
 
-      // Filter out Fridays and dates before minimum date
+      // Filter out dates before minimum date
       const filteredData = data.filter(record => {
         const date = new Date(record.date);
-        return date.getDay() !== 5 && date >= MINIMUM_DATE;
+        // Only filter by minimum date, not day of week
+        return date >= MINIMUM_DATE;
       });
 
       const history: AttendanceRecord[] = filteredData.map(record => {
@@ -79,7 +80,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
 
       setAttendanceHistory(history);
       
-      // Calculate attendance rate (already filtered for Fridays and minimum date)
+      // Calculate attendance rate (now only filtered for minimum date)
       calculateAttendanceRate(history);
     } catch (error) {
       console.error('Error in fetchAttendanceHistory:', error);
@@ -196,11 +197,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
         return false;
       }
       
-      // Check if it's not a Friday
-      if (isFriday(date)) {
-        toast.error('Attendance is not recorded on Fridays');
-        return false;
-      }
+      // No longer checking if it's a Friday
       
       // Check if it's after minimum date
       if (isBefore(date, MINIMUM_DATE)) {

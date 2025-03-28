@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import Header from '@/components/Header';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import StatisticsCards from '@/components/dashboard/StatisticsCards';
+import { StatisticsCards } from '@/components/dashboard/statistics';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
 import { useDashboardData } from '@/hooks/useDashboardData';
 

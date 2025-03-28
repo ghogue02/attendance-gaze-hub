@@ -40,30 +40,47 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
     };
   }, [builders]);
 
-  // Process the specific March 27, 2025 date that needs to be fixed
+  // Process the specific March dates that need to be fixed
   useEffect(() => {
-    const processMarch27 = async () => {
-      // Check if we've already run this fix
-      const fixAppliedKey = 'march_27_2025_fix_applied';
-      if (localStorage.getItem(fixAppliedKey)) {
-        return;
+    const processMarchDates = async () => {
+      // Check which fixes have already been applied
+      const march27FixKey = 'march_27_2025_fix_applied';
+      const march26FixKey = 'march_26_2025_fix_applied';
+      
+      // Process March 27 if not already fixed
+      if (!localStorage.getItem(march27FixKey)) {
+        const date27 = '2025-03-27';
+        const result27 = await markPendingAsAbsent(date27);
+        
+        if (result27 > 0) {
+          toast.success(`Fixed ${result27} attendance records for ${date27}`);
+          console.log(`Successfully fixed ${result27} attendance records for ${date27}`);
+        } else {
+          console.log(`No pending attendance records found for ${date27}`);
+        }
+        
+        // Mark this fix as applied
+        localStorage.setItem(march27FixKey, 'true');
       }
       
-      const specificDate = '2025-03-27';
-      const result = await markPendingAsAbsent(specificDate);
-      
-      if (result > 0) {
-        toast.success(`Fixed ${result} attendance records for ${specificDate}`);
-        console.log(`Successfully fixed ${result} attendance records for ${specificDate}`);
-      } else {
-        console.log(`No pending attendance records found for ${specificDate}`);
+      // Process March 26 if not already fixed
+      if (!localStorage.getItem(march26FixKey)) {
+        const date26 = '2025-03-26';
+        const result26 = await markPendingAsAbsent(date26);
+        
+        if (result26 > 0) {
+          toast.success(`Fixed ${result26} attendance records for ${date26}`);
+          console.log(`Successfully fixed ${result26} attendance records for ${date26}`);
+        } else {
+          console.log(`No pending attendance records found for ${date26}`);
+        }
+        
+        // Mark this fix as applied
+        localStorage.setItem(march26FixKey, 'true');
       }
-      
-      // Mark this fix as applied so we don't run it again
-      localStorage.setItem(fixAppliedKey, 'true');
     };
     
-    processMarch27();
+    processMarchDates();
   }, []);
 
   return (

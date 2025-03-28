@@ -165,13 +165,18 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
   };
 
   const handleDeleteRecord = (record: AttendanceRecord) => {
+    console.log('Handling delete for record:', record);
     setRecordToDelete(record);
     setDeleteDialogOpen(true);
   };
 
   const confirmDelete = async () => {
-    if (!recordToDelete) return;
+    if (!recordToDelete) {
+      console.error('No record to delete');
+      return;
+    }
     
+    console.log('Confirming delete for record:', recordToDelete);
     setIsLoading(true);
     try {
       const { error } = await supabase

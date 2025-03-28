@@ -20,6 +20,23 @@ const AttendanceHistoryTable = ({
   onEditRecord,
   onDeleteRecord
 }: AttendanceHistoryTableProps) => {
+  
+  const handleDelete = (record: AttendanceRecord, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    e.preventDefault(); // Prevent default action
+    console.log("Delete button clicked for record:", record);
+    if (onDeleteRecord) {
+      onDeleteRecord(record);
+    }
+  };
+  
+  const handleEdit = (record: AttendanceRecord, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    e.preventDefault(); // Prevent default action
+    console.log("Edit button clicked for record:", record);
+    onEditRecord(record);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -74,7 +91,7 @@ const AttendanceHistoryTable = ({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => onEditRecord(record)}
+                  onClick={(e) => handleEdit(record, e)}
                   title="Edit record"
                   className="h-8 w-8"
                 >
@@ -84,7 +101,7 @@ const AttendanceHistoryTable = ({
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => onDeleteRecord(record)}
+                    onClick={(e) => handleDelete(record, e)}
                     title="Delete record"
                     className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >

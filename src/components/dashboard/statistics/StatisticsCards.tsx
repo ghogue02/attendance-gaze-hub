@@ -1,7 +1,9 @@
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
+import { markPendingAsAbsent } from '@/services/attendanceService';
+import { toast } from 'sonner';
 
 interface StatisticsCardsProps {
   builders: Builder[];
@@ -37,6 +39,32 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       attendanceRate
     };
   }, [builders]);
+
+  // Process the specific March 27, 2025 date that needs to be fixed
+  useEffect(() => {
+    const processMarch27 = async () => {
+      // Check if we've already run this fix
+      const fixAppliedKey = 'march_27_2025_fix_applied';
+      if (localStorage.getItem(fixAppliedKey)) {
+        return;
+      }
+      
+      const specificDate = '2025-03-27';
+      const result = await markPendingAsAbsent(specificDate);
+      
+      if (result > 0) {
+        toast.success(`Fixed ${result} attendance records for ${specificDate}`);
+        console.log(`Successfully fixed ${result} attendance records for ${specificDate}`);
+      } else {
+        console.log(`No pending attendance records found for ${specificDate}`);
+      }
+      
+      // Mark this fix as applied so we don't run it again
+      localStorage.setItem(fixAppliedKey, 'true');
+    };
+    
+    processMarch27();
+  }, []);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -76,7 +104,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
         delay={0.35}
       />
       
-      {/* Pending Card - Process History button removed */}
+      {/* Pending Card */}
       <StatisticCard
         title="Pending"
         value={stats.pendingCount}

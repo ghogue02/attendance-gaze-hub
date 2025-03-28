@@ -23,21 +23,27 @@ export const StatsSection = () => {
       
       console.log(`Checking if we need to process pending attendance for ${yesterdayString}`);
       
+      // Use a storage key with a timestamp that will force processing once per day
       const storageKey = `attendance_processed_${yesterdayString}`;
-      const alreadyProcessed = localStorage.getItem(storageKey);
+      const todayDateString = today.toISOString().split('T')[0];
+      const processedToday = localStorage.getItem(`${storageKey}_${todayDateString}`);
       
-      if (alreadyProcessed) {
-        console.log(`Already processed pending attendance for ${yesterdayString}`);
+      if (processedToday) {
+        console.log(`Already processed pending attendance for ${yesterdayString} today`);
         return;
       }
       
+      // Process yesterday's pending attendance
       const markedCount = await markPendingAsAbsent(yesterdayString);
       
       if (markedCount > 0) {
-        toast.success(`${markedCount} pending students marked as absent for yesterday`);
+        toast.success(`${markedCount} students marked as absent for yesterday (${yesterdayString})`);
+      } else {
+        console.log(`No pending attendance to process for ${yesterdayString}`);
       }
       
-      localStorage.setItem(storageKey, 'true');
+      // Store that we've processed today with today's date to ensure it runs once per day
+      localStorage.setItem(`${storageKey}_${todayDateString}`, 'true');
       
     } catch (error) {
       console.error('Error checking previous day attendance:', error);
@@ -56,6 +62,8 @@ export const StatsSection = () => {
     };
     
     updateStats();
+    
+    // Check previous day's attendance immediately on component mount
     checkPreviousDay();
     
     const attendanceChannel = supabase
@@ -71,6 +79,7 @@ export const StatsSection = () => {
       
     const refreshInterval = setInterval(updateStats, 60000);
     
+    // Set up midnight check
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);

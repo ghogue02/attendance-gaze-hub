@@ -50,8 +50,8 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
         <YAxis />
         <Tooltip />
         <Legend />
-        <Bar dataKey="Present" fill="#4ade80" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="Late" fill="#60a5fa" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Present" stackId="attendance" fill="#4ade80" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Late" stackId="attendance" fill="#60a5fa" radius={[0, 0, 0, 0]} />
         <Bar dataKey="Absent" fill="#f87171" radius={[4, 4, 0, 0]} />
         <Bar dataKey="Excused" fill="#facc15" radius={[4, 4, 0, 0]} />
       </BarChart>

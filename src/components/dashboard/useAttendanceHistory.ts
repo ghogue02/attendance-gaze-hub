@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from './AttendanceTypes';
+import { BuilderStatus } from '@/components/builder/types';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 

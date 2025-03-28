@@ -149,14 +149,31 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     }
   }, []);
   
-  const handleDeleteRecord = (record: AttendanceRecord) => {
+  const handleDeleteRecord = (record: AttendanceRecord, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     console.log("Opening delete dialog for record:", record);
     setRecordToDelete(record);
     setDeleteDialogOpen(true);
   };
   
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    // Use a small timeout to ensure React completes the state update before clearing the record
+    setTimeout(() => {
+      setRecordToDelete(null);
+    }, 100);
+  };
+  
   const confirmDelete = async () => {
-    if (!recordToDelete) return;
+    if (!recordToDelete) {
+      console.log("No record to delete");
+      closeDeleteDialog();
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -169,15 +186,14 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
       if (error) {
         console.error('Error deleting attendance record:', error);
         onError('Failed to delete attendance record');
+        closeDeleteDialog();
         return;
       }
       
+      // Update local state after successful deletion
       setAttendanceRecords(prev => 
         prev.filter(record => record.id !== recordToDelete.id)
       );
-      
-      setDeleteDialogOpen(false);
-      setRecordToDelete(null);
       
       toast.success('Attendance record deleted');
     } catch (error) {
@@ -185,6 +201,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
       onError('Error deleting attendance record');
     } finally {
       setIsLoading(false);
+      closeDeleteDialog();
     }
   };
   
@@ -251,7 +268,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => handleDeleteRecord(record)}
+                    onClick={(e) => handleDeleteRecord(record, e)}
                     title="Delete record"
                     className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
@@ -264,7 +281,10 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         </Table>
       </div>
       
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!open) closeDeleteDialog();
+        else setDeleteDialogOpen(true);
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Attendance Record</AlertDialogTitle>

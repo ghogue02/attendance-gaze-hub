@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
-import { markAttendance } from '@/utils/attendance/markAttendance';
+import { markAttendance } from '@/utils/attendance';
 import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';

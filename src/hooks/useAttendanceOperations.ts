@@ -1,7 +1,7 @@
 
 import { useCallback } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
-import { markAttendance } from '@/utils/attendance/markAttendance';
+import { markAttendance } from '@/utils/attendance';
 import { toast } from 'sonner';
 
 interface AttendanceParams {

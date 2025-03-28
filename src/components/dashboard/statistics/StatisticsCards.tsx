@@ -2,7 +2,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
-import { markPendingAsAbsent } from '@/services/attendanceService';
+import { markPendingAsAbsent } from '@/utils/attendance';
 import { toast } from 'sonner';
 
 interface StatisticsCardsProps {

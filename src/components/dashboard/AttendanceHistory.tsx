@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
@@ -5,8 +6,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { getStatusColor } from '@/components/builder/BuilderCardUtils';
-import { Button, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, Trash2Icon } from '@radix-ui/react';
-import { toast } from 'react-toastify';
+import { Button } from '@/components/ui/button';
+import { Trash2Icon } from 'lucide-react';
+import { 
+  AlertDialog,
+  AlertDialogContent, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogCancel, 
+  AlertDialogAction 
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 interface AttendanceHistoryProps {
   builders: Builder[];

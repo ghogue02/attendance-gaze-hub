@@ -9,12 +9,34 @@ export interface DailyAttendance {
   name: string;
   date: string;
   Present: number;
+  Late: number;
   Absent: number;
   Excused: number;
 }
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
+
+// Time thresholds for late attendance
+const isLateArrival = (date: Date, timeStr: string): boolean => {
+  const day = date.getDay();
+  const hour = parseInt(timeStr.split(':')[0]);
+  const isPM = timeStr.toLowerCase().includes('pm');
+  const adjustedHour = isPM && hour !== 12 ? hour + 12 : (hour === 12 && !isPM ? 0 : hour);
+  
+  // Weekend (Saturday = 6, Sunday = 0)
+  if (day === 6 || day === 0) {
+    // Late on weekend: 10 AM - 4 PM (10:00-16:00)
+    return adjustedHour >= 10 && adjustedHour < 16;
+  }
+  
+  // Weekday (Monday-Thursday, Friday is typically excluded in the existing code)
+  // Late on weekdays: 6:30 PM - 10 PM (18:30-22:00)
+  const minutes = parseInt(timeStr.split(':')[1]);
+  const totalMinutes = adjustedHour * 60 + minutes;
+  
+  return totalMinutes >= 18 * 60 + 30 && totalMinutes < 22 * 60;
+};
 
 export const useAttendanceChartData = (builders: Builder[], days: number) => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
@@ -76,7 +98,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         }
         
         // Create a map to aggregate attendance by date
-        const dateMap = new Map<string, { Present: number; Absent: number; Excused: number }>();
+        const dateMap = new Map<string, { Present: number; Late: number; Absent: number; Excused: number }>();
         
         // Initialize the dateMap with all dates in the range (excluding Fridays)
         const currentDate = new Date(dateRange.start);
@@ -88,6 +110,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
             const dateStr = currentDate.toISOString().split('T')[0];
             dateMap.set(dateStr, {
               Present: 0,
+              Late: 0,
               Absent: 0,
               Excused: 0
             });
@@ -112,9 +135,19 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           
           const dateStats = dateMap.get(dateStr)!;
           
-          // Map the status properly
-          if (record.status === 'present' || record.status === 'late') {
-            dateStats.Present++;
+          // Map the status properly with late detection
+          if (record.status === 'present') {
+            // Check if the attendance time falls into "late" time ranges
+            const timeRecorded = record.time_recorded ? new Date(record.time_recorded) : null;
+            const timeString = timeRecorded ? timeRecorded.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : null;
+            
+            if (timeString && isLateArrival(recordDate, timeString)) {
+              dateStats.Late++;
+            } else {
+              dateStats.Present++;
+            }
+          } else if (record.status === 'late') {
+            dateStats.Late++;
           } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
             dateStats.Excused++;
           } else if (record.status === 'absent') {
@@ -134,6 +167,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
               name: `${dayNum} ${dayOfWeek}`,
               date: dateStr,
               Present: counts.Present,
+              Late: counts.Late,
               Absent: counts.Absent,
               Excused: counts.Excused
             };
@@ -144,6 +178,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
               name: dateStr,
               date: dateStr,
               Present: counts.Present,
+              Late: counts.Late,
               Absent: counts.Absent,
               Excused: counts.Excused
             };

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,10 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   useEffect(() => {
     if (isOpen) {
       fetchAttendanceHistory();
+    } else {
+      // Clear state when closing the dialog
+      setEditingRecord(null);
+      setIsAddingNewDate(false);
     }
   }, [isOpen, builder.id]);
 
@@ -108,6 +113,10 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   };
 
   const startEditing = (record: AttendanceRecord) => {
+    console.log('Starting to edit record:', record);
+    // Close the add new date form if it's open
+    setIsAddingNewDate(false);
+    
     setEditingRecord(record);
     setEditStatus(record.status);
     setEditExcuseReason(record.excuseReason || '');
@@ -173,6 +182,9 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   };
 
   const handleAddNewDate = () => {
+    // Close editing form if it's open
+    setEditingRecord(null);
+    
     setIsAddingNewDate(true);
     setEditStatus('present');
     setEditExcuseReason('');
@@ -298,7 +310,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
         </DialogHeader>
         
         <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="px-1">
+          <div className="px-1 space-y-4">
             {attendanceRate !== null && (
               <div className="mb-4 p-3 bg-muted/30 rounded-md">
                 <p className="font-medium text-center">
@@ -308,7 +320,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
                   </span>
                 </p>
                 <p className="text-xs text-center text-muted-foreground mt-1">
-                  Based on {attendanceHistory.length} class sessions (excluding Fridays)
+                  Based on {attendanceHistory.length} class sessions
                 </p>
               </div>
             )}

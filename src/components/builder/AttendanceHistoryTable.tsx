@@ -42,7 +42,7 @@ const AttendanceHistoryTable = ({
             <TableHead>Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Notes</TableHead>
-            <TableHead className="w-12"></TableHead> {/* Column for edit button */}
+            <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -83,6 +83,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
   };
 
   const startEditing = (record: AttendanceRecord) => {
+    console.log('Starting to edit record:', record);
     setEditingRecord(record);
     setEditStatus(record.status);
     setEditExcuseReason(record.excuseReason || '');
@@ -158,7 +159,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
         </DialogHeader>
         
         <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="px-1">
+          <div className="px-1 space-y-4">
             <AttendanceHistoryTable 
               attendanceHistory={attendanceHistory} 
               isLoading={isLoading}

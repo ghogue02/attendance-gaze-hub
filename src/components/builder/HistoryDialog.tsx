@@ -8,6 +8,7 @@ import { Builder, AttendanceRecord, BuilderStatus } from './types';
 import { toast } from 'sonner';
 import AttendanceHistoryTable from './AttendanceHistoryTable';
 import AttendanceEditForm from './AttendanceEditForm';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface HistoryDialogProps {
   isOpen: boolean;
@@ -148,7 +149,7 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
@@ -156,28 +157,32 @@ const HistoryDialog = ({ isOpen, onClose, builder }: HistoryDialogProps) => {
           </DialogTitle>
         </DialogHeader>
         
-        <AttendanceHistoryTable 
-          attendanceHistory={attendanceHistory} 
-          isLoading={isLoading}
-          onEditRecord={startEditing}
-        />
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="px-1">
+            <AttendanceHistoryTable 
+              attendanceHistory={attendanceHistory} 
+              isLoading={isLoading}
+              onEditRecord={startEditing}
+            />
+            
+            {editingRecord && (
+              <AttendanceEditForm
+                record={editingRecord}
+                editStatus={editStatus}
+                editExcuseReason={editExcuseReason}
+                editNotes={editNotes}
+                isLoading={isLoading}
+                onStatusChange={setEditStatus}
+                onExcuseReasonChange={setEditExcuseReason}
+                onNotesChange={setEditNotes}
+                onSave={saveAttendanceChanges}
+                onCancel={cancelEditing}
+              />
+            )}
+          </div>
+        </ScrollArea>
         
-        {editingRecord && (
-          <AttendanceEditForm
-            record={editingRecord}
-            editStatus={editStatus}
-            editExcuseReason={editExcuseReason}
-            editNotes={editNotes}
-            isLoading={isLoading}
-            onStatusChange={setEditStatus}
-            onExcuseReasonChange={setEditExcuseReason}
-            onNotesChange={setEditNotes}
-            onSave={saveAttendanceChanges}
-            onCancel={cancelEditing}
-          />
-        )}
-        
-        <DialogFooter className="mt-4">
+        <DialogFooter className="mt-4 pt-4 border-t">
           <Button onClick={onClose}>
             Close
           </Button>

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import AttendanceHistoryTable from './AttendanceHistoryTable';
 import AttendanceEditForm from './AttendanceEditForm';
 import { format, isAfter, isBefore, parseISO } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -288,7 +289,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
@@ -296,122 +297,126 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
           </DialogTitle>
         </DialogHeader>
         
-        {attendanceRate !== null && (
-          <div className="mb-4 p-3 bg-muted/30 rounded-md">
-            <p className="font-medium text-center">
-              Overall Attendance Rate: 
-              <span className={`ml-2 ${attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {attendanceRate}%
-              </span>
-            </p>
-            <p className="text-xs text-center text-muted-foreground mt-1">
-              Based on {attendanceHistory.length} class sessions (excluding Fridays)
-            </p>
-          </div>
-        )}
-        
-        <div className="flex justify-end mb-4">
-          <Button 
-            onClick={handleAddNewDate} 
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-            disabled={isAddingNewDate || !!editingRecord}
-          >
-            <CalendarPlus className="h-4 w-4" />
-            Add Missing Date
-          </Button>
-        </div>
-        
-        {isAddingNewDate && (
-          <div className="border rounded-md p-4 mb-4 bg-muted/20">
-            <h3 className="font-medium mb-3">Add New Attendance Record</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-2">
-                <label htmlFor="new-date" className="text-sm font-medium">
-                  Date:
-                </label>
-                <input
-                  id="new-date"
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="border p-2 rounded-md"
-                  min="2025-03-15"
-                  max={new Date().toISOString().split('T')[0]}
-                />
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="px-1">
+            {attendanceRate !== null && (
+              <div className="mb-4 p-3 bg-muted/30 rounded-md">
+                <p className="font-medium text-center">
+                  Overall Attendance Rate: 
+                  <span className={`ml-2 ${attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {attendanceRate}%
+                  </span>
+                </p>
+                <p className="text-xs text-center text-muted-foreground mt-1">
+                  Based on {attendanceHistory.length} class sessions (excluding Fridays)
+                </p>
               </div>
-              
-              <div className="grid grid-cols-1 gap-2">
-                <label className="text-sm font-medium">Status:</label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value as BuilderStatus)}
-                  className="border p-2 rounded-md"
-                >
-                  <option value="present">Present</option>
-                  <option value="absent">Absent</option>
-                  <option value="late">Late</option>
-                  <option value="excused">Excused Absence</option>
-                </select>
-              </div>
-              
-              {editStatus === 'excused' && (
-                <div className="grid grid-cols-1 gap-2">
-                  <label className="text-sm font-medium">Excuse Reason:</label>
-                  <textarea
-                    value={editExcuseReason}
-                    onChange={(e) => setEditExcuseReason(e.target.value)}
-                    className="border p-2 rounded-md h-20 resize-none"
-                    placeholder="Enter excuse reason..."
-                  />
-                </div>
-              )}
-              
-              <div className="grid grid-cols-1 gap-2">
-                <label className="text-sm font-medium">Notes:</label>
-                <textarea
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  className="border p-2 rounded-md h-20 resize-none"
-                  placeholder="Enter notes..."
-                />
-              </div>
-              
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={cancelAddNewDate} disabled={isLoading}>
-                  Cancel
-                </Button>
-                <Button onClick={saveNewAttendanceRecord} disabled={isLoading}>
-                  Save
-                </Button>
-              </div>
+            )}
+            
+            <div className="flex justify-end mb-4">
+              <Button 
+                onClick={handleAddNewDate} 
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-2"
+                disabled={isAddingNewDate || !!editingRecord}
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Add Missing Date
+              </Button>
             </div>
+            
+            {isAddingNewDate && (
+              <div className="border rounded-md p-4 mb-4 bg-muted/20">
+                <h3 className="font-medium mb-3">Add New Attendance Record</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-2">
+                    <label htmlFor="new-date" className="text-sm font-medium">
+                      Date:
+                    </label>
+                    <input
+                      id="new-date"
+                      type="date"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                      className="border p-2 rounded-md"
+                      min="2025-03-15"
+                      max={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="text-sm font-medium">Status:</label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value as BuilderStatus)}
+                      className="border p-2 rounded-md"
+                    >
+                      <option value="present">Present</option>
+                      <option value="absent">Absent</option>
+                      <option value="late">Late</option>
+                      <option value="excused">Excused Absence</option>
+                    </select>
+                  </div>
+                  
+                  {editStatus === 'excused' && (
+                    <div className="grid grid-cols-1 gap-2">
+                      <label className="text-sm font-medium">Excuse Reason:</label>
+                      <textarea
+                        value={editExcuseReason}
+                        onChange={(e) => setEditExcuseReason(e.target.value)}
+                        className="border p-2 rounded-md h-20 resize-none"
+                        placeholder="Enter excuse reason..."
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="text-sm font-medium">Notes:</label>
+                    <textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      className="border p-2 rounded-md h-20 resize-none"
+                      placeholder="Enter notes..."
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={cancelAddNewDate} disabled={isLoading}>
+                      Cancel
+                    </Button>
+                    <Button onClick={saveNewAttendanceRecord} disabled={isLoading}>
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <AttendanceHistoryTable 
+              attendanceHistory={attendanceHistory} 
+              isLoading={isLoading}
+              onEditRecord={startEditing}
+            />
+            
+            {editingRecord && (
+              <AttendanceEditForm
+                record={editingRecord}
+                editStatus={editStatus}
+                editExcuseReason={editExcuseReason}
+                editNotes={editNotes}
+                isLoading={isLoading}
+                onStatusChange={setEditStatus}
+                onExcuseReasonChange={setEditExcuseReason}
+                onNotesChange={setEditNotes}
+                onSave={saveAttendanceChanges}
+                onCancel={cancelEditing}
+              />
+            )}
           </div>
-        )}
+        </ScrollArea>
         
-        <AttendanceHistoryTable 
-          attendanceHistory={attendanceHistory} 
-          isLoading={isLoading}
-          onEditRecord={startEditing}
-        />
-        
-        {editingRecord && (
-          <AttendanceEditForm
-            record={editingRecord}
-            editStatus={editStatus}
-            editExcuseReason={editExcuseReason}
-            editNotes={editNotes}
-            isLoading={isLoading}
-            onStatusChange={setEditStatus}
-            onExcuseReasonChange={setEditExcuseReason}
-            onNotesChange={setEditNotes}
-            onSave={saveAttendanceChanges}
-            onCancel={cancelEditing}
-          />
-        )}
-        
-        <DialogFooter className="mt-4">
+        <DialogFooter className="mt-4 pt-4 border-t">
           <Button onClick={onClose}>
             Close
           </Button>

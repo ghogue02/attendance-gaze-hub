@@ -13,6 +13,7 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
   const functionName = '[getAllBuilders]';
   try {
     console.log(`${functionName} Starting fetch for date: ${targetDateString}`);
+    console.log(`${functionName} Date object created from string: ${new Date(targetDateString).toISOString()}`);
 
     // --- 1. Fetch all students ---
     const { data: students, error: studentsError } = await supabase
@@ -34,10 +35,12 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
 
     // --- 2. Fetch attendance records for the TARGET date ---
     console.log(`${functionName} Fetching attendance records for specific date: ${targetDateString}`);
+    
+    // Use eq with the exact date string to avoid any timezone issues
     const { data: attendanceRecords, error: attendanceError } = await supabase
       .from('attendance')
       .select('student_id, status, time_recorded, excuse_reason, notes')
-      .eq('date', targetDateString); // Use the specific date passed in
+      .eq('date', targetDateString);
 
     if (attendanceError) {
       console.error(`${functionName} Error fetching attendance for ${targetDateString}:`, attendanceError);

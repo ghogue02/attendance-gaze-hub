@@ -17,16 +17,26 @@ export const useDashboardData = () => {
   const isMounted = useRef(true);
   const subscriptionStatus = useRef({ attendance: 'unsubscribed', profile: 'unsubscribed' });
 
-  // --- Use the Current Date ---
-  // Get the current date instead of a hardcoded date
-  const currentDate = useMemo(() => new Date(), []);
-  const targetDateString = useMemo(() => currentDate.toISOString().split('T')[0], [currentDate]); // 'YYYY-MM-DD'
-  const displayDateString = useMemo(() => currentDate.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  }), [currentDate]);
+  // --- Get the current date properly ---
+  // Create a new date and ensure it's the local date by setting to midnight and then getting ISO string
+  const currentDate = useMemo(() => {
+    const now = new Date();
+    // Format as YYYY-MM-DD to avoid timezone issues
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
+  
+  // Use the formatted date string directly without timezone conversion
+  const targetDateString = currentDate;
+  
+  const displayDateString = useMemo(() => {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+  }, []);
 
   // Debugging the current date
-  console.log(`[useDashboardData] Current date: ${currentDate}, targetDateString: ${targetDateString}`);
+  console.log(`[useDashboardData] Current date string: ${currentDate}, targetDateString: ${targetDateString}`);
 
   // Stable function to load/refresh data for the target date
   const loadData = useCallback(async (showLoadingSpinner = true) => {
@@ -172,6 +182,24 @@ export const useDashboardData = () => {
      console.log('[useDashboardData] Manual refresh triggered.');
      loadData(true);
   }, [loadData]);
+
+  // Effect for filtering
+  useEffect(() => {
+    console.log('[useDashboardData] Filtering effect running...');
+    let results = [...builders];
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      results = results.filter(builder =>
+        builder.name.toLowerCase().includes(query) ||
+        (builder.builderId && builder.builderId.toLowerCase().includes(query))
+      );
+    }
+    if (statusFilter !== 'all') {
+      results = results.filter(builder => builder.status === statusFilter);
+    }
+    console.log(`[useDashboardData] Setting filteredBuilders with ${results.length} builders.`);
+    setFilteredBuilders(results);
+  }, [builders, searchQuery, statusFilter]);
 
   // Return state and handlers
   return {

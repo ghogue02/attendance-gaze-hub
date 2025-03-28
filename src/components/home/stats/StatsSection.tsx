@@ -1,11 +1,9 @@
 
-import { Users, CheckCircle, Calendar } from 'lucide-react';
+import { Users, CheckCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { StatCard } from './';
-import HistoricalProcessDialog from './HistoricalProcessDialog';
 import { markPendingAsAbsent, fetchStats } from '@/services/attendanceService';
 
 export const StatsSection = () => {
@@ -13,7 +11,6 @@ export const StatsSection = () => {
     totalBuilders: 0,
     attendanceRate: 0
   });
-  const [isHistoricalDialogOpen, setIsHistoricalDialogOpen] = useState(false);
   const isMounted = useRef(true);
   
   // Check if we need to mark students absent from previous day
@@ -45,12 +42,6 @@ export const StatsSection = () => {
     } catch (error) {
       console.error('Error checking previous day attendance:', error);
     }
-  };
-  
-  const getDefaultStartDate = () => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().split('T')[0];
   };
 
   useEffect(() => {
@@ -119,29 +110,6 @@ export const StatsSection = () => {
         icon={<CheckCircle size={20} />}
         value={`${stats.attendanceRate}%`}
         label="Attendance Today"
-      />
-
-      <StatCard 
-        icon={<Calendar size={20} />}
-        label="Attendance"
-        value=""
-        action={
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-xs mt-1"
-            onClick={() => {
-              setIsHistoricalDialogOpen(true);
-            }}
-          >
-            Process Historical
-          </Button>
-        }
-      />
-
-      <HistoricalProcessDialog
-        open={isHistoricalDialogOpen}
-        onOpenChange={setIsHistoricalDialogOpen}
       />
     </div>
   );

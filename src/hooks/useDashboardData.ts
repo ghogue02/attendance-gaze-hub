@@ -1,3 +1,4 @@
+
 // src/hooks/useDashboardData.ts
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -24,6 +25,9 @@ export const useDashboardData = () => {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   }), [currentDate]);
 
+  // Debugging the current date
+  console.log(`[useDashboardData] Current date: ${currentDate}, targetDateString: ${targetDateString}`);
+
   // Stable function to load/refresh data for the target date
   const loadData = useCallback(async (showLoadingSpinner = true) => {
     if (!isMounted.current) return;
@@ -35,6 +39,7 @@ export const useDashboardData = () => {
       if (isMounted.current) {
         setBuilders(data);
         console.log(`[useDashboardData] setBuilders called with ${data.length} builders for ${targetDateString}.`);
+        console.log(`[useDashboardData] Present count: ${data.filter(b => b.status === 'present').length}`);
       }
     } catch (error) {
       console.error('[useDashboardData] Error during loadData:', error);
@@ -138,9 +143,7 @@ export const useDashboardData = () => {
         )
       );
 
-      // Now let's make sure we pass the correct date parameter to markAttendance
-      // We need to modify the markAttendance function to accept a date
-      // For now, we'll pass targetDateString as a parameter
+      // Explicitly pass the current date to markAttendance to ensure correct date recording
       const success = await markAttendance(builderId, status, excuseReason, targetDateString);
 
       if (success) {

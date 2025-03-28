@@ -44,7 +44,17 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
       toast.warning(`Could not fetch attendance for ${targetDateString}: ${attendanceError.message}`);
       // Continue without attendance data
     }
+    
     console.log(`${functionName} Retrieved ${attendanceRecords?.length || 0} attendance records for ${targetDateString}.`);
+    
+    if (attendanceRecords) {
+      // Debug output for each record
+      attendanceRecords.forEach((record, index) => {
+        if (index < 10) { // Limit log volume
+          console.log(`${functionName} Record ${index}: student_id=${record.student_id}, status=${record.status}, time=${record.time_recorded}`);
+        }
+      });
+    }
 
     // --- 3. Create Attendance Map ---
     const attendanceMap = new Map<string, typeof attendanceRecords[0]>();
@@ -81,13 +91,14 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
         if (calculatedStatus === 'present') presentCountCheck++;
 
          // Log status calculation for the first few students for debugging
-        if (index < 5) {
+        if (index < 5 || student.first_name.toLowerCase().includes('martha')) {
             console.log(`${functionName} Mapping student ${student.id} (${student.first_name}): Found attendance? ${!!attendanceRecord}. DB Status: ${recordStatus}. Calculated Status: ${calculatedStatus}`);
             console.log(`${functionName} Time recorded: ${attendanceRecord.time_recorded} -> Formatted: ${timeRecorded}`);
+            console.log(`${functionName} For date: ${targetDateString}`);
         }
       } else {
          // Log if no record found for first few
-         if (index < 5) {
+         if (index < 5 || student.first_name.toLowerCase().includes('martha')) {
              console.log(`${functionName} Mapping student ${student.id} (${student.first_name}): No attendance record found. Status: pending`);
          }
       }

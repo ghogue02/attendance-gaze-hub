@@ -106,11 +106,13 @@ const SimpleAttendanceCamera = ({
       toast.success('Profile image saved successfully', { id: toastId });
       
       // Step 3: Mark attendance in Supabase with explicit "present" status
-      console.log(`Marking attendance for builder ID: ${selectedBuilder.id} as present`);
+      // Ensure we're using the current date in YYYY-MM-DD format
+      const currentDate = new Date().toISOString().split('T')[0];
+      console.log(`Marking attendance for builder ID: ${selectedBuilder.id} as present for date ${currentDate}`);
       toast.loading('Recording attendance...', { id: toastId });
       
-      // Ensure the attendance is marked with explicit "present" status
-      const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present');
+      // Explicitly pass current date to markAttendance
+      const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present', undefined, currentDate);
       
       if (!attendanceSuccess) {
         const errorMsg = 'Failed to record attendance';

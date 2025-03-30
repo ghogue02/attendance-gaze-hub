@@ -109,7 +109,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         const currentDate = new Date(startDate);
         
         while (currentDate <= endDate) {
-          // Skip Fridays (5 is Friday in JS Date where 0 is Sunday)
+          // Friday is 5 in JavaScript's Date.getDay() (0=Sunday, 1=Monday, ..., 6=Saturday)
           if (currentDate.getDay() !== 5) {
             const dateStr = currentDate.toISOString().split('T')[0];
             dateMap.set(dateStr, {
@@ -126,6 +126,11 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         }
         
         console.log("Dates included in chart:", datesInRange);
+        console.log("Day of week for each date in chart:");
+        datesInRange.forEach(dateStr => {
+          const date = new Date(dateStr);
+          console.log(`${dateStr}: Day ${date.getDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()]})`);
+        });
         
         // Process all attendance records
         attendanceData.forEach(record => {
@@ -134,6 +139,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           
           // Skip Friday records
           if (recordDate.getDay() === 5) {
+            console.log(`Skipping Friday record: ${dateStr}`);
             return;
           }
           
@@ -147,7 +153,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
                 Absent: 0,
                 Excused: 0
               });
-              console.log(`Added missing date to chart: ${dateStr}`);
+              console.log(`Added missing date to chart: ${dateStr} (Day ${recordDate.getDay()}, ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][recordDate.getDay()]})`);
             } else {
               return;
             }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +35,17 @@ const isLateArrival = (date: Date, timeStr: string): boolean => {
   const totalMinutes = adjustedHour * 60 + minutes;
   
   return totalMinutes >= 18 * 60 + 30 && totalMinutes < 22 * 60;
+};
+
+// Parse a date string as UTC
+const parseAsUTC = (dateStr: string): Date => {
+  return new Date(dateStr + 'T00:00:00Z');
+};
+
+// Helper to log date debugging info
+const logDateDebug = (dateStr: string, message: string): void => {
+  const date = parseAsUTC(dateStr);
+  console.log(`${message}: ${dateStr} - UTC Day: ${date.getUTCDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getUTCDay()]})`);
 };
 
 export const useAttendanceChartData = (builders: Builder[], days: number) => {
@@ -109,11 +119,12 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         const currentDate = new Date(startDate);
         
         while (currentDate <= endDate) {
-          const dayOfWeek = currentDate.getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
+          const dateStr = currentDate.toISOString().split('T')[0];
+          const checkDate = parseAsUTC(dateStr);
+          const dayOfWeek = checkDate.getUTCDay(); // Use UTC day
           
           // Skip Fridays (day 5)
           if (dayOfWeek !== 5) {
-            const dateStr = currentDate.toISOString().split('T')[0];
             dateMap.set(dateStr, {
               Present: 0,
               Late: 0,
@@ -121,8 +132,9 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
               Excused: 0
             });
             datesInRange.push(dateStr);
+            logDateDebug(dateStr, `Added to chart`);
           } else {
-            console.log(`Excluding Friday from chart: ${currentDate.toISOString().split('T')[0]}`);
+            logDateDebug(dateStr, `Excluding Friday from chart`);
           }
           
           // Move to next day
@@ -132,34 +144,39 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         console.log("Dates included in chart:", datesInRange);
         console.log("Day of week for each date in chart:");
         datesInRange.forEach(dateStr => {
-          const date = new Date(dateStr);
-          console.log(`${dateStr}: Day ${date.getDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()]})`);
+          const date = parseAsUTC(dateStr);
+          console.log(`${dateStr}: UTC Day ${date.getUTCDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getUTCDay()]})`);
         });
         
         // Process all attendance records
         attendanceData.forEach(record => {
           const dateStr = record.date;
-          const recordDate = new Date(dateStr);
-          const dayOfWeek = recordDate.getDay();
+          const recordDate = parseAsUTC(dateStr);
+          const dayOfWeek = recordDate.getUTCDay(); // Use UTC day
           
           // Skip Friday records
           if (dayOfWeek === 5) {
-            console.log(`Skipping Friday record: ${dateStr}`);
+            logDateDebug(dateStr, `Skipping Friday record`);
             return;
           }
           
           if (!dateMap.has(dateStr)) {
             // This could happen if the date is outside our range but still got returned
             // Create the entry if it's in our dateRange but wasn't initialized
-            if (recordDate >= startDate && recordDate <= endDate) {
+            const checkDate = parseAsUTC(dateStr);
+            const startDateObj = parseAsUTC(dateRange.start);
+            const endDateObj = parseAsUTC(dateRange.end);
+            
+            if (checkDate >= startDateObj && checkDate <= endDateObj && checkDate.getUTCDay() !== 5) {
               dateMap.set(dateStr, {
                 Present: 0,
                 Late: 0,
                 Absent: 0,
                 Excused: 0
               });
-              console.log(`Added missing date to chart: ${dateStr} (Day ${recordDate.getDay()}, ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][recordDate.getDay()]})`);
+              logDateDebug(dateStr, `Added missing date to chart`);
             } else {
+              logDateDebug(dateStr, `Skipping out-of-range date`);
               return;
             }
           }
@@ -190,9 +207,9 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         const formattedData: DailyAttendance[] = Array.from(dateMap.entries()).map(([dateStr, counts]) => {
           // Parse the date to create a proper display format
           try {
-            const date = parseISO(dateStr);
-            const dayNum = date.getDate().toString().padStart(2, '0');
-            const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+            const date = parseAsUTC(dateStr);
+            const dayNum = date.getUTCDate().toString().padStart(2, '0'); // Use UTC date
+            const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getUTCDay()]; // Use UTC day
             
             return {
               name: `${dayNum} ${dayOfWeek}`,
@@ -218,9 +235,9 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         
         // Double-check to ensure no Friday data is in the final result
         const cleanedData = formattedData.filter(item => {
-          const itemDate = new Date(item.date);
-          if (itemDate.getDay() === 5) {
-            console.log(`Removing Friday data from final chart: ${item.date}`);
+          const itemDate = parseAsUTC(item.date);
+          if (itemDate.getUTCDay() === 5) {
+            logDateDebug(item.date, `Removing Friday data from final chart`);
             return false;
           }
           return true;

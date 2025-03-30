@@ -16,6 +16,11 @@ interface AttendanceBarChartProps {
   isLoading: boolean;
 }
 
+// Parse a date string as UTC
+const parseAsUTC = (dateStr: string): Date => {
+  return new Date(dateStr + 'T00:00:00Z');
+};
+
 const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) => {
   if (isLoading) {
     return (
@@ -33,14 +38,17 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
     );
   }
   
-  // Additional filter to ensure no Friday data is displayed
+  // Additional filter to ensure no Friday data is displayed using UTC day check
   const filteredData = chartData.filter(item => {
-    const date = new Date(item.date);
-    return date.getDay() !== 5; // Filter out Fridays (5)
+    const date = parseAsUTC(item.date);
+    return date.getUTCDay() !== 5; // Filter out Fridays (5) using UTC
   });
   
-  // Log the chart data for debugging
-  console.log("Chart data to be rendered:", filteredData.map(d => `${d.date} (${d.name})`));
+  // Log the chart data for debugging with UTC day info
+  console.log("Chart data to be rendered:", filteredData.map(d => {
+    const date = parseAsUTC(d.date);
+    return `${d.date} (${d.name}, UTC Day: ${date.getUTCDay()})`;
+  }));
   
   // If after filtering Fridays we have no data, show empty state
   if (filteredData.length === 0) {

@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Download } from 'lucide-react';
 import { BuilderStatus } from '@/components/builder/types';
 import { Button } from '@/components/ui/button';
 import BuilderFilters from './BuilderFilters';
@@ -8,6 +7,7 @@ import BuildersList from './BuildersList';
 import { AddBuilderDialog } from '@/components/builder/AddBuilderDialog';
 import { DeleteBuilderDialog } from '@/components/builder/DeleteBuilderDialog';
 import { supabase } from '@/integrations/supabase/client';
+import ExtractPhotosButton from '@/components/builders/ExtractPhotosButton';
 
 interface BuildersTabProps {
   isLoading: boolean;
@@ -39,7 +39,6 @@ const BuildersTab = ({
   const [sortedBuilders, setSortedBuilders] = useState(filteredBuilders);
   const [builderAttendanceRates, setBuilderAttendanceRates] = useState<{[key: string]: number | null}>({});
   
-  // Fetch attendance rates for all builders
   useEffect(() => {
     const fetchAttendanceRates = async () => {
       if (filteredBuilders.length === 0) return;
@@ -64,7 +63,6 @@ const BuildersTab = ({
             continue;
           }
 
-          // Filter out Fridays
           const nonFridayRecords = data.filter(record => {
             const date = new Date(record.date);
             return date.getDay() !== 5; // 5 is Friday
@@ -75,12 +73,10 @@ const BuildersTab = ({
             continue;
           }
 
-          // Count present or late days
           const presentCount = nonFridayRecords.filter(
             record => record.status === 'present' || record.status === 'late'
           ).length;
 
-          // Calculate rate
           rates[builder.id] = Math.round((presentCount / nonFridayRecords.length) * 100);
         } catch (error) {
           console.error('Error calculating attendance rate:', error);
@@ -94,7 +90,6 @@ const BuildersTab = ({
     fetchAttendanceRates();
   }, [filteredBuilders]);
 
-  // Sort the builders based on the selected option
   useEffect(() => {
     if (!filteredBuilders.length) {
       setSortedBuilders([]);
@@ -125,7 +120,6 @@ const BuildersTab = ({
         });
         break;
       default:
-        // Default to name sorting
         builders.sort((a, b) => a.name.localeCompare(b.name));
     }
 
@@ -141,13 +135,16 @@ const BuildersTab = ({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Builders</h2>
-        <Button 
-          onClick={() => setIsAddDialogOpen(true)}
-          className="flex items-center gap-1"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Add Builder
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExtractPhotosButton variant="outline" />
+          <Button 
+            onClick={() => setIsAddDialogOpen(true)}
+            className="flex items-center gap-1"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Add Builder
+          </Button>
+        </div>
       </div>
       
       <BuilderFilters 

@@ -33,13 +33,28 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
     );
   }
   
+  // Additional filter to ensure no Friday data is displayed
+  const filteredData = chartData.filter(item => {
+    const date = new Date(item.date);
+    return date.getDay() !== 5; // Filter out Fridays (5)
+  });
+  
   // Log the chart data for debugging
-  console.log("Chart data to be rendered:", chartData.map(d => `${d.date} (${d.name})`));
+  console.log("Chart data to be rendered:", filteredData.map(d => `${d.date} (${d.name})`));
+  
+  // If after filtering Fridays we have no data, show empty state
+  if (filteredData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">No attendance data available (after filtering out Fridays)</p>
+      </div>
+    );
+  }
   
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart
-        data={chartData}
+        data={filteredData}
         margin={{
           top: 5,
           right: 30,

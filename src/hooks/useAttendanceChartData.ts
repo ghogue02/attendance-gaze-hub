@@ -109,8 +109,10 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         const currentDate = new Date(startDate);
         
         while (currentDate <= endDate) {
-          // Friday is 5 in JavaScript's Date.getDay() (0=Sunday, 1=Monday, ..., 6=Saturday)
-          if (currentDate.getDay() !== 5) {
+          const dayOfWeek = currentDate.getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
+          
+          // Skip Fridays (day 5)
+          if (dayOfWeek !== 5) {
             const dateStr = currentDate.toISOString().split('T')[0];
             dateMap.set(dateStr, {
               Present: 0,
@@ -119,6 +121,8 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
               Excused: 0
             });
             datesInRange.push(dateStr);
+          } else {
+            console.log(`Excluding Friday from chart: ${currentDate.toISOString().split('T')[0]}`);
           }
           
           // Move to next day
@@ -136,9 +140,10 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         attendanceData.forEach(record => {
           const dateStr = record.date;
           const recordDate = new Date(dateStr);
+          const dayOfWeek = recordDate.getDay();
           
           // Skip Friday records
-          if (recordDate.getDay() === 5) {
+          if (dayOfWeek === 5) {
             console.log(`Skipping Friday record: ${dateStr}`);
             return;
           }
@@ -211,11 +216,21 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           }
         });
         
-        // Sort by date (ascending)
-        formattedData.sort((a, b) => a.date.localeCompare(b.date));
+        // Double-check to ensure no Friday data is in the final result
+        const cleanedData = formattedData.filter(item => {
+          const itemDate = new Date(item.date);
+          if (itemDate.getDay() === 5) {
+            console.log(`Removing Friday data from final chart: ${item.date}`);
+            return false;
+          }
+          return true;
+        });
         
-        console.log('Prepared chart data:', formattedData);
-        setChartData(formattedData);
+        // Sort by date (ascending)
+        cleanedData.sort((a, b) => a.date.localeCompare(b.date));
+        
+        console.log('Prepared chart data:', cleanedData);
+        setChartData(cleanedData);
       } catch (error) {
         console.error('Error preparing chart data:', error);
         toast.error('Error loading attendance chart');

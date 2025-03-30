@@ -21,6 +21,12 @@ const AttendanceHistoryTable = ({
   onDeleteRecord
 }: AttendanceHistoryTableProps) => {
   
+  // Fixed: Removed the event parameter to simplify the function call
+  const handleEdit = (record: AttendanceRecord) => {
+    console.log("Edit button clicked for record:", record);
+    onEditRecord(record);
+  };
+  
   const handleDelete = (record: AttendanceRecord, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling
     e.preventDefault(); // Prevent default action
@@ -28,13 +34,6 @@ const AttendanceHistoryTable = ({
     if (onDeleteRecord) {
       onDeleteRecord(record);
     }
-  };
-  
-  const handleEdit = (record: AttendanceRecord, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
-    e.preventDefault(); // Prevent default action
-    console.log("Edit button clicked for record:", record);
-    onEditRecord(record);
   };
 
   if (isLoading) {
@@ -91,7 +90,7 @@ const AttendanceHistoryTable = ({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={(e) => handleEdit(record, e)}
+                  onClick={() => handleEdit(record)} // Fixed: Changed to use the simplified handler
                   title="Edit record"
                   className="h-8 w-8"
                 >

@@ -2,6 +2,7 @@
 import UserProfileImage from '@/components/dashboard/UserProfileImage';
 import { Builder } from './types';
 import { CalendarIcon } from 'lucide-react';
+import AttendanceBadge from './AttendanceBadge';
 
 interface CardHeaderProps {
   builder: Builder;
@@ -24,6 +25,7 @@ const CardHeader = ({ builder, attendanceRate, onNotesClick }: CardHeaderProps) 
           userId={builder.id}
           className="w-full h-full"
         />
+        <AttendanceBadge attendanceRate={attendanceRate} />
       </div>
       
       <div className="flex-1 text-center sm:text-left">

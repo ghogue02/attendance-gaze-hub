@@ -80,7 +80,7 @@ const Home = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container max-w-md mx-auto pt-16 pb-16 px-4 flex flex-col items-center">
+      <main className="container max-w-3xl mx-auto pt-16 pb-16 px-4 flex flex-col items-center">
         <h1 className="text-3xl font-bold mb-8 text-center text-primary">Attendance Tracker</h1>
         
         {loading ? (

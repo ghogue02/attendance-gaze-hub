@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -188,10 +187,10 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
           }}
           className="w-full"
         >
-          <CarouselContent className="-ml-4">
+          <CarouselContent className="-ml-6">
             {presentBuilders.map((builder) => (
-              <CarouselItem key={builder.id} className="pl-4 basis-1/3 md:basis-1/4 lg:basis-1/5">
-                <div className="flex flex-col items-center p-2">
+              <CarouselItem key={builder.id} className="pl-6 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                <div className="flex flex-col items-center p-3">
                   <Avatar className="h-20 w-20 md:h-24 md:w-24 border-2 border-green-400">
                     {builder.image ? (
                       <AvatarImage src={builder.image} alt={builder.name} className="object-cover" />
@@ -201,7 +200,7 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
                       </AvatarFallback>
                     )}
                   </Avatar>
-                  <p className="text-sm mt-3 text-center font-medium max-w-28 truncate">{builder.name}</p>
+                  <p className="text-sm mt-3 text-center font-medium max-w-32 truncate">{builder.name}</p>
                 </div>
               </CarouselItem>
             ))}

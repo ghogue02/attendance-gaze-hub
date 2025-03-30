@@ -2,7 +2,7 @@
 import { useCamera } from '@/hooks/camera';
 import { useAttendanceProcessor } from './useAttendanceProcessor';
 import { UseAttendanceCaptureProps, UseAttendanceCaptureReturn } from './types';
-import { toast } from '@/hooks/use-toast'; // Add this import
+import { toast } from 'sonner'; // Change to use sonner for consistency
 
 export const useAttendanceCapture = ({
   onAttendanceMarked,

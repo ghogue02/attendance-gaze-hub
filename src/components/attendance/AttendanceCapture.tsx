@@ -1,7 +1,6 @@
-
 import { useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
-import { useAttendanceCapture } from '@/hooks/useAttendanceCapture';
+import { useAttendanceCapture } from '@/hooks/attendance-capture';
 import CameraViewport from './CameraViewport';
 import CaptureButton from './CaptureButton';
 import ProcessingOverlay from './ProcessingOverlay';

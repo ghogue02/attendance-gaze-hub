@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,31 +19,25 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
   const [isLoading, setIsLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Log for debugging
   useEffect(() => {
     console.log(`Carousel initialized with ${presentBuilders.length} present builders out of ${initialBuilders.length} total`);
     console.log(`Today's date: ${getCurrentDateString()}`);
   }, [presentBuilders.length, initialBuilders.length]);
 
-  // Setup continuous smooth scrolling
   useEffect(() => {
     if (!api || presentBuilders.length <= 4) return;
     
-    // Clear any existing timer
     if (autoScrollTimerRef.current) {
       clearInterval(autoScrollTimerRef.current);
     }
     
-    // Set the scroll interval (2.5 seconds provides a steady pace)
     autoScrollTimerRef.current = setInterval(() => {
-      // Only scroll if we have more than 4 builders
       if (presentBuilders.length > 4) {
-        // Increment the index and loop back to 0 if needed
         const nextIndex = (currentIndex + 1) % presentBuilders.length;
         setCurrentIndex(nextIndex);
         api.scrollTo(nextIndex);
       }
-    }, 2500); // Steady pace of 2.5 seconds per scroll
+    }, 2500);
     
     return () => {
       if (autoScrollTimerRef.current) {
@@ -53,7 +46,6 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
     };
   }, [api, presentBuilders.length, currentIndex]);
   
-  // Track scroll changes
   useEffect(() => {
     if (!api) return;
     
@@ -69,15 +61,13 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
     };
   }, [api]);
   
-  // Fetch all present builders directly from the database
   useEffect(() => {
     const fetchPresentBuilders = async () => {
       setIsLoading(true);
-      const today = getCurrentDateString(); // Format: YYYY-MM-DD (2025-03-30)
+      const today = getCurrentDateString();
       console.log(`Fetching present builders for date: ${today}`);
       
       try {
-        // First get all the present students for today from attendance table
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('attendance')
           .select('student_id')
@@ -98,10 +88,8 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
           return;
         }
         
-        // Get the student IDs of present students
         const studentIds = attendanceData.map(record => record.student_id);
         
-        // Fetch student details
         const { data: studentsData, error: studentsError } = await supabase
           .from('students')
           .select('id, first_name, last_name, student_id, image_url')
@@ -115,7 +103,6 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
         
         console.log(`Retrieved ${studentsData.length} student records for present builders`);
         
-        // Map to Builder objects
         const builders: Builder[] = studentsData.map(student => ({
           id: student.id,
           name: `${student.first_name} ${student.last_name}`,
@@ -135,7 +122,6 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
     
     fetchPresentBuilders();
     
-    // Set up real-time updates for attendance changes
     const today = getCurrentDateString();
     const channel = supabase
       .channel('present-builders-carousel')
@@ -150,13 +136,11 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
       
     console.log('Subscribed to attendance changes for present builders carousel');
     
-    // Clean up subscription on unmount
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []); // Empty dependency array to run only on mount
+  }, []);
   
-  // If loading, show loading indicator
   if (isLoading) {
     return (
       <motion.div 
@@ -175,7 +159,6 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
     );
   }
   
-  // If no builders are present, don't render the carousel
   if (presentBuilders.length === 0) {
     return (
       <motion.div 
@@ -213,7 +196,7 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
         >
           <CarouselContent className="-ml-6">
             {presentBuilders.map((builder) => (
-              <CarouselItem key={builder.id} className="pl-6 basis-1/2 md:basis-1/3 lg:basis-1/4">
+              <CarouselItem key={builder.id} className="pl-6 basis-1/4 md:basis-1/4 lg:basis-1/4">
                 <div className="flex flex-col items-center p-3">
                   <Avatar className="h-20 w-20 md:h-24 md:w-24 border-2 border-green-400">
                     {builder.image ? (

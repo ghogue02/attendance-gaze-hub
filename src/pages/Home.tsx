@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
 import { PhotoCapture } from '@/components/PhotoCapture';
@@ -9,6 +8,8 @@ import { useEffect } from 'react';
 import { Loader2, Search, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import PresentBuildersCarousel from '@/components/home/PresentBuildersCarousel';
+import { supabase } from '@/integrations/supabase/client';
 
 const Home = () => {
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
@@ -21,7 +22,6 @@ const Home = () => {
     const loadBuilders = async () => {
       setLoading(true);
       try {
-        // Get the current date in YYYY-MM-DD format
         const today = new Date().toISOString().split('T')[0];
         const data = await getAllBuilders(today);
         setBuilders(data);
@@ -33,6 +33,21 @@ const Home = () => {
     };
 
     loadBuilders();
+    
+    const today = new Date().toISOString().split('T')[0];
+    const channel = supabase
+      .channel('home-attendance-updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'attendance', filter: `date=eq.${today}` },
+        () => {
+          loadBuilders();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleSuccess = (builder: Builder) => {
@@ -70,7 +85,6 @@ const Home = () => {
           />
         ) : (
           <div className="space-y-8 w-full">
-            {/* Search by Name Section */}
             <div className="glass-card p-6 rounded-lg shadow-sm w-full">
               <h2 className="text-xl font-semibold mb-4 text-center">Search by Name</h2>
               <div className="relative mb-4">
@@ -115,7 +129,6 @@ const Home = () => {
               )}
             </div>
             
-            {/* Photo Capture Section */}
             <div className="glass-card p-6 rounded-lg shadow-sm w-full flex flex-col items-center">
               <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                 <Camera size={40} className="text-primary" />
@@ -146,6 +159,8 @@ const Home = () => {
             </div>
           </div>
         )}
+        
+        {!loading && <PresentBuildersCarousel initialBuilders={builders} />}
       </main>
     </div>
   );

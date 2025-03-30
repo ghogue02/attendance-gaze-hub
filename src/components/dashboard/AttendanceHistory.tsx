@@ -6,26 +6,8 @@ import AttendanceLoadingState from './AttendanceLoadingState';
 import AttendanceEmptyState from './AttendanceEmptyState';
 import AttendanceTable from './AttendanceTable';
 import DeleteAttendanceDialog from './DeleteAttendanceDialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, X, Copy, Clipboard, Filter } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { convertToMarkdown, copyToClipboard } from './AttendanceTableUtils';
-import { toast } from 'sonner';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import AttendanceFilters from './AttendanceFilters';
+import AttendanceCopyOptions from './AttendanceCopyOptions';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
@@ -40,6 +22,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     attendanceRecords,
     isLoading,
     deleteDialogOpen,
+    recordToDelete,
     dateFilter,
     statusFilter,
     setDateFilter,
@@ -49,18 +32,6 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     confirmDelete,
     closeDeleteDialog
   } = useAttendanceHistory(onError);
-  
-  // Handle date selection
-  const handleDateSelect = (selectedDate: Date | undefined) => {
-    setDate(selectedDate);
-    if (selectedDate) {
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-      setDateFilter(formattedDate);
-    } else {
-      setDateFilter(null);
-    }
-    setCalendarOpen(false);
-  };
   
   // Clear date filter
   const clearDateFilter = () => {
@@ -79,55 +50,12 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     clearStatusFilter();
   };
   
-  // Copy attendance records to clipboard
-  const handleCopyToClipboard = async () => {
-    // Format records with proper date format
-    const formattedRecords = attendanceRecords.map(record => ({
-      ...record,
-      date: formatDate(record.date)
-    }));
-    
-    const markdown = convertToMarkdown(formattedRecords);
-    const success = await copyToClipboard(markdown);
-    
-    if (success) {
-      toast.success('Attendance records copied to clipboard');
-    } else {
-      toast.error('Failed to copy to clipboard');
-    }
-  };
-  
-  // Download Markdown file
-  const handleDownloadMarkdown = () => {
-    // Format records with proper date format
-    const formattedRecords = attendanceRecords.map(record => ({
-      ...record,
-      date: formatDate(record.date)
-    }));
-    
-    const markdown = convertToMarkdown(formattedRecords);
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    
-    a.href = url;
-    a.download = `attendance-records${dateFilter ? '-' + dateFilter : ''}.md`;
-    document.body.appendChild(a);
-    a.click();
-    
-    // Cleanup
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Markdown file downloaded');
-  };
-  
   // Determine earliest valid date (March 15, 2025)
   const fromDate = new Date('2025-03-15');
   const toDate = new Date(); // Today
   
   // Check if any filters are active
-  const hasActiveFilters = dateFilter || statusFilter !== 'all';
+  const hasActiveFilters = !!dateFilter || statusFilter !== 'all';
   
   if (isLoading) {
     return <AttendanceLoadingState />;
@@ -136,102 +64,36 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   return (
     <>
       <div className="space-y-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">Attendance Records</h3>
-          <div className="flex gap-2 items-center">
-            {hasActiveFilters && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={clearAllFilters}
-                className="h-9 gap-1"
-              >
-                <X className="h-3.5 w-3.5" />
-                <span>Clear all filters</span>
-              </Button>
-            )}
-            
-            {dateFilter && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={clearDateFilter}
-                className="h-9 gap-1"
-              >
-                <X className="h-3.5 w-3.5" />
-                <span>Clear date: {date ? format(date, 'MMM d, yyyy') : ''}</span>
-              </Button>
-            )}
-            
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-1"
-                >
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  <span>Filter by date</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={handleDateSelect}
-                  disabled={(date) => 
-                    date > toDate || date < fromDate
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            
-            <Select 
-              value={statusFilter} 
-              onValueChange={(value) => setStatusFilter(value as any)}
-            >
-              <SelectTrigger className="w-[180px] h-9">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="present">Present</SelectItem>
-                <SelectItem value="absent">Absent</SelectItem>
-                <SelectItem value="excused">Excused</SelectItem>
-                <SelectItem value="late">Late</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            {attendanceRecords.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-1"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    <span>Copy Records</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleCopyToClipboard}>
-                    <Clipboard className="mr-2 h-4 w-4" />
-                    <span>Copy to Clipboard</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDownloadMarkdown}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    <span>Download as Markdown</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+        <AttendanceFilters 
+          dateFilter={dateFilter}
+          statusFilter={statusFilter}
+          date={date}
+          setDate={setDate}
+          setDateFilter={setDateFilter}
+          setStatusFilter={setStatusFilter}
+          clearDateFilter={clearDateFilter}
+          clearStatusFilter={clearStatusFilter}
+          clearAllFilters={clearAllFilters}
+          calendarOpen={calendarOpen}
+          setCalendarOpen={setCalendarOpen}
+          fromDate={fromDate}
+          toDate={toDate}
+          hasActiveFilters={hasActiveFilters}
+        />
+        
+        <div className="flex justify-end">
+          <AttendanceCopyOptions
+            attendanceRecords={attendanceRecords}
+            formatDate={formatDate}
+            dateFilter={dateFilter}
+          />
         </div>
         
         {attendanceRecords.length === 0 ? (
-          <AttendanceEmptyState dateFiltered={!!dateFilter} />
+          <AttendanceEmptyState 
+            dateFiltered={!!dateFilter} 
+            statusFiltered={statusFilter !== 'all'}
+          />
         ) : (
           <AttendanceTable 
             attendanceRecords={attendanceRecords}

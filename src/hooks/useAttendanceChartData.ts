@@ -1,9 +1,10 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, subDays, isAfter } from 'date-fns';
 import { toast } from 'sonner';
-import { parseAsUTC, isLateArrivalUTC } from '@/utils/date/dateUtils';
+import { parseAsUTC, isLateArrivalUTC, getCurrentDateString } from '@/utils/date/dateUtils';
 
 export interface DailyAttendance {
   name: string;
@@ -27,23 +28,33 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Calculate date range once
+  // Calculate date range once, using the HARDCODED "current" date
   const dateRange = useMemo(() => {
-    const endDate = new Date();
+    // Use the hardcoded date string as the end date for consistency
+    const hardcodedEndDateStr = getCurrentDateString(); // "2025-03-30"
+    const endDate = parseAsUTC(hardcodedEndDateStr); // Parse as UTC Date object
+    
+    // Calculate start date based on the hardcoded end date
     const startDate = subDays(endDate, days - 1);
     
     // Ensure start date is not before the minimum date
     const adjustedStartDate = isAfter(startDate, MINIMUM_DATE) ? startDate : MINIMUM_DATE;
     
-    return {
-      start: adjustedStartDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
-      end: endDate.toISOString().split('T')[0]
+    // Format back to YYYY-MM-DD strings for the query
+    const formatToYYYYMMDD = (date: Date): string => date.toISOString().split('T')[0];
+    
+    const range = {
+      start: formatToYYYYMMDD(adjustedStartDate),
+      end: formatToYYYYMMDD(endDate) // Use the hardcoded end date here too
     };
+    console.log(`Calculated date range for ${days} days:`, range);
+    return range;
   }, [days]);
   
   useEffect(() => {
     const fetchHistoricalData = async () => {
       setIsLoading(true);
+      console.log(`Using date range: ${dateRange.start} to ${dateRange.end}`);
       
       try {
         // If no builders are provided, show nothing
@@ -285,7 +296,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
     };
     
     fetchHistoricalData();
-  }, [days, builders, dateRange]); // Added builders and dateRange to dependencies
+  }, [days, builders, dateRange]); // Added dateRange to dependencies
   
   return { chartData, isLoading };
 };

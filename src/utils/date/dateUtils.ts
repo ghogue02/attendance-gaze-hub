@@ -38,12 +38,41 @@ export const logDateDebugInfo = (context: string, dateString: string): void => {
 };
 
 /**
- * Checks if a time falls within the "late" attendance windows
+ * Parse a date string as UTC
+ */
+export const parseAsUTC = (dateStr: string): Date => {
+  return new Date(dateStr + 'T00:00:00Z');
+};
+
+/**
+ * Checks if a time falls within the "late" attendance windows using UTC time
  * Late is:
- * - Weekdays (Mon-Thu): 6:30 PM - 10:00 PM
- * - Weekends (Sat-Sun): 10:00 AM - 4:00 PM
+ * - Weekdays (Mon-Thu): 6:30 PM - 10:00 PM UTC (18:30-22:00)
+ * - Weekends (Sat-Sun): 10:00 AM - 4:00 PM UTC (10:00-16:00)
+ */
+export const isLateArrivalUTC = (dayOfWeekUTC: number, hourUTC: number, minutesUTC: number): boolean => {
+  // Weekend (Saturday = 6, Sunday = 0 UTC)
+  if (dayOfWeekUTC === 6 || dayOfWeekUTC === 0) {
+    // Late on weekend: 10:00 UTC to 15:59 UTC (exclusive of 16:00)
+    return hourUTC >= 10 && hourUTC < 16;
+  }
+  
+  // Weekday (Monday-Thursday UTC, Friday is excluded elsewhere)
+  // Late on weekdays: 18:30 UTC to 21:59 UTC (exclusive of 22:00)
+  const totalMinutesUTC = hourUTC * 60 + minutesUTC;
+  const startLateMinutesUTC = 18 * 60 + 30; // 18:30
+  const endLateMinutesUTC = 22 * 60;        // 22:00
+  
+  return totalMinutesUTC >= startLateMinutesUTC && totalMinutesUTC < endLateMinutesUTC;
+};
+
+/**
+ * Legacy function that uses local time - DEPRECATED
+ * Use isLateArrivalUTC instead
  */
 export const isLateArrival = (date: Date, timeStr: string): boolean => {
+  console.warn('DEPRECATED: isLateArrival using local time is deprecated. Use isLateArrivalUTC instead.');
+  
   const day = date.getDay();
   
   // Parse the time string (assuming format like "6:30 PM" or "10:45 AM")

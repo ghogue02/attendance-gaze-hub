@@ -11,16 +11,12 @@ import {
   TooltipProps
 } from 'recharts';
 import { DailyAttendance } from '@/hooks/useAttendanceChartData';
+import { parseAsUTC } from '@/utils/date/dateUtils';
 
 interface AttendanceBarChartProps {
   chartData: DailyAttendance[];
   isLoading: boolean;
 }
-
-// Parse a date string as UTC
-const parseAsUTC = (dateStr: string): Date => {
-  return new Date(dateStr + 'T00:00:00Z');
-};
 
 // Custom tooltip to show all values and date
 const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
@@ -35,6 +31,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
         <p className="text-[#60a5fa]">Late: {dataItem?.Late}</p>
         <p className="text-[#f87171]">Absent: {dataItem?.Absent}</p>
         <p className="text-[#facc15]">Excused: {dataItem?.Excused}</p>
+        <p className="text-muted-foreground text-xs">{dataItem?.date}</p>
       </div>
     );
   }

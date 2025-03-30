@@ -4,6 +4,7 @@ import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, subDays, isAfter } from 'date-fns';
 import { toast } from 'sonner';
+import { parseAsUTC, isLateArrivalUTC } from '@/utils/date/dateUtils';
 
 export interface DailyAttendance {
   name: string;
@@ -16,32 +17,6 @@ export interface DailyAttendance {
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
-
-// Time thresholds for late attendance
-const isLateArrival = (date: Date, timeStr: string): boolean => {
-  const day = date.getDay();
-  const hour = parseInt(timeStr.split(':')[0]);
-  const isPM = timeStr.toLowerCase().includes('pm');
-  const adjustedHour = isPM && hour !== 12 ? hour + 12 : (hour === 12 && !isPM ? 0 : hour);
-  
-  // Weekend (Saturday = 6, Sunday = 0)
-  if (day === 6 || day === 0) {
-    // Late on weekend: 10 AM - 4 PM (10:00-16:00)
-    return adjustedHour >= 10 && adjustedHour < 16;
-  }
-  
-  // Weekday (Monday-Thursday, Friday is typically excluded in the existing code)
-  // Late on weekdays: 6:30 PM - 10 PM (18:30-22:00)
-  const minutes = parseInt(timeStr.split(':')[1]);
-  const totalMinutes = adjustedHour * 60 + minutes;
-  
-  return totalMinutes >= 18 * 60 + 30 && totalMinutes < 22 * 60;
-};
-
-// Parse a date string as UTC
-const parseAsUTC = (dateStr: string): Date => {
-  return new Date(dateStr + 'T00:00:00Z');
-};
 
 // Helper to log date debugging info
 const logDateDebug = (dateStr: string, message: string): void => {
@@ -195,13 +170,38 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           
           // Process all records for this date
           records.forEach(record => {
-            // Map the status properly with late detection
+            // Map the status properly with late detection using UTC time
             if (record.status === 'present') {
-              // Check if the attendance time falls into "late" time ranges
-              const timeRecorded = record.time_recorded ? new Date(record.time_recorded) : null;
-              const timeString = timeRecorded ? timeRecorded.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : null;
+              let isMarkedLate = false;
               
-              if (timeString && isLateArrival(recordDate, timeString)) {
+              if (record.time_recorded) {
+                try {
+                  // Parse time_recorded as a Date object
+                  const timeRecordedDate = new Date(record.time_recorded);
+                  
+                  if (!isNaN(timeRecordedDate.getTime())) {
+                    // Extract UTC hours and minutes
+                    const hourUTC = timeRecordedDate.getUTCHours();
+                    const minutesUTC = timeRecordedDate.getUTCMinutes();
+                    const dayOfWeekUTC = recordDate.getUTCDay();
+                    
+                    // Use the UTC-based late check
+                    isMarkedLate = isLateArrivalUTC(dayOfWeekUTC, hourUTC, minutesUTC);
+                    
+                    // Debug logging for weekend days
+                    if (dayOfWeekUTC === 0 || dayOfWeekUTC === 6) {
+                      console.log(`DEBUG ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeekUTC]} ${dateStr}: ` +
+                        `time=${record.time_recorded}, UTC Hour=${hourUTC}, UTC Min=${minutesUTC}, isLate=${isMarkedLate}`);
+                    }
+                  } else {
+                    console.warn(`Invalid time_recorded format for record on ${dateStr}: ${record.time_recorded}`);
+                  }
+                } catch (e) {
+                  console.error(`Error parsing time_recorded for record on ${dateStr}: ${record.time_recorded}`, e);
+                }
+              }
+              
+              if (isMarkedLate) {
                 dateStats.Late++;
               } else {
                 dateStats.Present++;
@@ -215,7 +215,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
             }
           });
           
-          // For debugging, log specific dates
+          // For debugging specific dates
           if (dateStr === '2025-03-29' || dateStr === '2025-03-30') {
             console.log(`Attendance counts for ${dateStr}:`, { ...dateStats });
           }

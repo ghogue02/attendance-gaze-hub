@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -123,7 +124,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           const checkDate = parseAsUTC(dateStr);
           const dayOfWeek = checkDate.getUTCDay(); // Use UTC day
           
-          // Skip Fridays (day 5)
+          // Skip Fridays (UTC day 5)
           if (dayOfWeek !== 5) {
             dateMap.set(dateStr, {
               Present: 0,
@@ -148,15 +149,24 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           console.log(`${dateStr}: UTC Day ${date.getUTCDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getUTCDay()]})`);
         });
         
-        // Process all attendance records
+        // Group attendance records by date for more accurate processing
+        const recordsByDate = new Map<string, any[]>();
         attendanceData.forEach(record => {
           const dateStr = record.date;
+          if (!recordsByDate.has(dateStr)) {
+            recordsByDate.set(dateStr, []);
+          }
+          recordsByDate.get(dateStr)!.push(record);
+        });
+        
+        // Process attendance records by date
+        recordsByDate.forEach((records, dateStr) => {
           const recordDate = parseAsUTC(dateStr);
           const dayOfWeek = recordDate.getUTCDay(); // Use UTC day
           
           // Skip Friday records
           if (dayOfWeek === 5) {
-            logDateDebug(dateStr, `Skipping Friday record`);
+            logDateDebug(dateStr, `Skipping Friday records`);
             return;
           }
           
@@ -183,23 +193,31 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           
           const dateStats = dateMap.get(dateStr)!;
           
-          // Map the status properly with late detection
-          if (record.status === 'present') {
-            // Check if the attendance time falls into "late" time ranges
-            const timeRecorded = record.time_recorded ? new Date(record.time_recorded) : null;
-            const timeString = timeRecorded ? timeRecorded.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : null;
-            
-            if (timeString && isLateArrival(recordDate, timeString)) {
+          // Process all records for this date
+          records.forEach(record => {
+            // Map the status properly with late detection
+            if (record.status === 'present') {
+              // Check if the attendance time falls into "late" time ranges
+              const timeRecorded = record.time_recorded ? new Date(record.time_recorded) : null;
+              const timeString = timeRecorded ? timeRecorded.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : null;
+              
+              if (timeString && isLateArrival(recordDate, timeString)) {
+                dateStats.Late++;
+              } else {
+                dateStats.Present++;
+              }
+            } else if (record.status === 'late') {
               dateStats.Late++;
-            } else {
-              dateStats.Present++;
+            } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
+              dateStats.Excused++;
+            } else if (record.status === 'absent') {
+              dateStats.Absent++;
             }
-          } else if (record.status === 'late') {
-            dateStats.Late++;
-          } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
-            dateStats.Excused++;
-          } else if (record.status === 'absent') {
-            dateStats.Absent++;
+          });
+          
+          // For debugging, log specific dates
+          if (dateStr === '2025-03-29' || dateStr === '2025-03-30') {
+            console.log(`Attendance counts for ${dateStr}:`, { ...dateStats });
           }
         });
         
@@ -245,6 +263,12 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         
         // Sort by date (ascending)
         cleanedData.sort((a, b) => a.date.localeCompare(b.date));
+        
+        // Log specific dates data to debug
+        const mar29Data = cleanedData.find(d => d.date === '2025-03-29');
+        const mar30Data = cleanedData.find(d => d.date === '2025-03-30');
+        console.log('March 29 data:', mar29Data);
+        console.log('March 30 data:', mar30Data);
         
         console.log('Prepared chart data:', cleanedData);
         setChartData(cleanedData);

@@ -1,7 +1,7 @@
 
 import { memo, useState } from 'react';
 import { Builder } from '@/components/builder/types';
-import { useAttendanceHistory } from './useAttendanceHistory';
+import { useAttendanceHistory } from '@/hooks/useAttendanceHistory';
 import AttendanceLoadingState from './AttendanceLoadingState';
 import AttendanceEmptyState from './AttendanceEmptyState';
 import AttendanceTable from './AttendanceTable';

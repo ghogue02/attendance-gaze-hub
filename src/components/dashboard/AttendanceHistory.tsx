@@ -9,7 +9,7 @@ import DeleteAttendanceDialog from './DeleteAttendanceDialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, X, Copy, Clipboard } from 'lucide-react';
+import { CalendarIcon, X, Copy, Clipboard, Filter } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { convertToMarkdown, copyToClipboard } from './AttendanceTableUtils';
 import { toast } from 'sonner';
@@ -19,6 +19,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
@@ -34,7 +41,9 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     isLoading,
     deleteDialogOpen,
     dateFilter,
+    statusFilter,
     setDateFilter,
+    setStatusFilter,
     formatDate,
     handleDeleteRecord,
     confirmDelete,
@@ -57,6 +66,17 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   const clearDateFilter = () => {
     setDate(undefined);
     setDateFilter(null);
+  };
+  
+  // Clear status filter
+  const clearStatusFilter = () => {
+    setStatusFilter('all');
+  };
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    clearDateFilter();
+    clearStatusFilter();
   };
   
   // Copy attendance records to clipboard
@@ -106,6 +126,9 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   const fromDate = new Date('2025-03-15');
   const toDate = new Date(); // Today
   
+  // Check if any filters are active
+  const hasActiveFilters = dateFilter || statusFilter !== 'all';
+  
   if (isLoading) {
     return <AttendanceLoadingState />;
   }
@@ -116,6 +139,18 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium">Attendance Records</h3>
           <div className="flex gap-2 items-center">
+            {hasActiveFilters && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={clearAllFilters}
+                className="h-9 gap-1"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>Clear all filters</span>
+              </Button>
+            )}
+            
             {dateFilter && (
               <Button 
                 variant="outline" 
@@ -124,7 +159,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
                 className="h-9 gap-1"
               >
                 <X className="h-3.5 w-3.5" />
-                <span>Clear filter: {date ? format(date, 'MMM d, yyyy') : ''}</span>
+                <span>Clear date: {date ? format(date, 'MMM d, yyyy') : ''}</span>
               </Button>
             )}
             
@@ -151,6 +186,22 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
                 />
               </PopoverContent>
             </Popover>
+            
+            <Select 
+              value={statusFilter} 
+              onValueChange={(value) => setStatusFilter(value as any)}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="present">Present</SelectItem>
+                <SelectItem value="absent">Absent</SelectItem>
+                <SelectItem value="excused">Excused</SelectItem>
+                <SelectItem value="late">Late</SelectItem>
+              </SelectContent>
+            </Select>
             
             {attendanceRecords.length > 0 && (
               <DropdownMenu>

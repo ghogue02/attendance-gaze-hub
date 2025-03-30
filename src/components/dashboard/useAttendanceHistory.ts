@@ -12,6 +12,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [dateFilter, setDateFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<AttendanceRecord | null>(null);
   
@@ -83,14 +84,20 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         };
       });
       
-      setAttendanceRecords(formattedRecords);
+      // Apply status filter after formatting
+      let records = formattedRecords;
+      if (statusFilter !== 'all') {
+        records = records.filter(record => record.status === statusFilter);
+      }
+      
+      setAttendanceRecords(records);
     } catch (error) {
       console.error('Error in fetchAttendanceHistory:', error);
       onError('An error occurred while loading attendance history');
     } finally {
       setIsLoading(false);
     }
-  }, [onError, dateFilter]);
+  }, [onError, dateFilter, statusFilter]);
   
   useEffect(() => {
     fetchAttendanceHistory();
@@ -190,7 +197,9 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     deleteDialogOpen,
     recordToDelete,
     dateFilter,
+    statusFilter,
     setDateFilter,
+    setStatusFilter,
     formatDate,
     handleDeleteRecord,
     confirmDelete,

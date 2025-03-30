@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +18,7 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
   const [api, setApi] = useState<CarouselApi>();
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   // Log for debugging
   useEffect(() => {
@@ -24,7 +26,7 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
     console.log(`Today's date: ${getCurrentDateString()}`);
   }, [presentBuilders.length, initialBuilders.length]);
 
-  // Set up auto-scrolling
+  // Setup continuous smooth scrolling
   useEffect(() => {
     if (!api || presentBuilders.length <= 4) return;
     
@@ -33,17 +35,39 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
       clearInterval(autoScrollTimerRef.current);
     }
     
-    // Set up auto-scroll every 3 seconds
+    // Set the scroll interval (2.5 seconds provides a steady pace)
     autoScrollTimerRef.current = setInterval(() => {
-      api.scrollNext();
-    }, 3000);
+      // Only scroll if we have more than 4 builders
+      if (presentBuilders.length > 4) {
+        // Increment the index and loop back to 0 if needed
+        const nextIndex = (currentIndex + 1) % presentBuilders.length;
+        setCurrentIndex(nextIndex);
+        api.scrollTo(nextIndex);
+      }
+    }, 2500); // Steady pace of 2.5 seconds per scroll
     
     return () => {
       if (autoScrollTimerRef.current) {
         clearInterval(autoScrollTimerRef.current);
       }
     };
-  }, [api, presentBuilders.length]);
+  }, [api, presentBuilders.length, currentIndex]);
+  
+  // Track scroll changes
+  useEffect(() => {
+    if (!api) return;
+    
+    const onScroll = () => {
+      const index = api.selectedScrollSnap();
+      setCurrentIndex(index);
+    };
+    
+    api.on("select", onScroll);
+    
+    return () => {
+      api.off("select", onScroll);
+    };
+  }, [api]);
   
   // Fetch all present builders directly from the database
   useEffect(() => {

@@ -97,14 +97,14 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         const dateMap = new Map<string, { Present: number; Late: number; Absent: number; Excused: number }>();
         
         // Initialize the dateMap with all dates in the range (excluding Fridays)
-        const startDate = new Date(dateRange.start);
-        const endDate = new Date(dateRange.end);
+        // Generate all dates in the range - completely recreated to ensure consistency
+        const startDateObj = parseAsUTC(dateRange.start);
+        const endDateObj = parseAsUTC(dateRange.end);
         const datesInRange: string[] = [];
         
-        // Generate all dates in the range
-        const currentDate = new Date(startDate);
-        
-        while (currentDate <= endDate) {
+        // Loop through each date in the range and add to the map
+        const currentDate = new Date(startDateObj);
+        while (currentDate <= endDateObj) {
           const dateStr = currentDate.toISOString().split('T')[0];
           const checkDate = parseAsUTC(dateStr);
           const dayOfWeek = checkDate.getUTCDay(); // Use UTC day
@@ -123,8 +123,8 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
             logDateDebug(dateStr, `Excluding Friday from chart`);
           }
           
-          // Move to next day
-          currentDate.setDate(currentDate.getDate() + 1);
+          // Move to next day - add exactly 24 hours to ensure UTC consistency
+          currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
         
         console.log("Dates included in chart:", datesInRange);

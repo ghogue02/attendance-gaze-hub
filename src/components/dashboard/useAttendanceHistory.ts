@@ -11,13 +11,15 @@ const MINIMUM_DATE = new Date('2025-03-15');
 export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [dateFilter, setDateFilter] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<AttendanceRecord | null>(null);
   
   const fetchAttendanceHistory = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Build query
+      let query = supabase
         .from('attendance')
         .select(`
           id, 
@@ -31,6 +33,13 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         .neq('status', 'pending')
         .order('date', { ascending: false })
         .order('time_recorded', { ascending: false });
+        
+      // Add date filter if selected
+      if (dateFilter) {
+        query = query.eq('date', dateFilter);
+      }
+      
+      const { data, error } = await query;
         
       if (error) {
         console.error('Error fetching attendance history:', error);
@@ -81,7 +90,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     } finally {
       setIsLoading(false);
     }
-  }, [onError]);
+  }, [onError, dateFilter]);
   
   useEffect(() => {
     fetchAttendanceHistory();
@@ -180,6 +189,8 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     isLoading,
     deleteDialogOpen,
     recordToDelete,
+    dateFilter,
+    setDateFilter,
     formatDate,
     handleDeleteRecord,
     confirmDelete,

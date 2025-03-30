@@ -130,7 +130,17 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           
           if (!dateMap.has(dateStr)) {
             // This could happen if the date is outside our range but still got returned
-            return;
+            // Create the entry if it's in our dateRange but wasn't initialized
+            if (recordDate >= new Date(dateRange.start) && recordDate <= new Date(dateRange.end)) {
+              dateMap.set(dateStr, {
+                Present: 0,
+                Late: 0,
+                Absent: 0,
+                Excused: 0
+              });
+            } else {
+              return;
+            }
           }
           
           const dateStats = dateMap.get(dateStr)!;

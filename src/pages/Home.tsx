@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
 import { PhotoCapture } from '@/components/PhotoCapture';
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PresentBuildersCarousel from '@/components/home/PresentBuildersCarousel';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentDateString } from '@/utils/date/dateUtils';
 
 const Home = () => {
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
@@ -22,8 +24,12 @@ const Home = () => {
     const loadBuilders = async () => {
       setLoading(true);
       try {
-        const today = new Date().toISOString().split('T')[0];
+        // Use the current date in YYYY-MM-DD format
+        const today = getCurrentDateString();
+        console.log(`Home: Loading builders for date: ${today}`);
+        
         const data = await getAllBuilders(today);
+        console.log(`Home: Loaded ${data.length} builders, ${data.filter(b => b.status === 'present').length} present`);
         setBuilders(data);
       } catch (error) {
         console.error('Error loading builders:', error);
@@ -34,12 +40,16 @@ const Home = () => {
 
     loadBuilders();
     
-    const today = new Date().toISOString().split('T')[0];
+    // Subscribe to attendance changes to reload builders when attendance is updated
+    const today = getCurrentDateString();
+    console.log(`Home: Setting up subscription for date: ${today}`);
+    
     const channel = supabase
       .channel('home-attendance-updates')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'attendance', filter: `date=eq.${today}` },
         () => {
+          console.log('Home: Attendance change detected, reloading builders');
           loadBuilders();
         }
       )

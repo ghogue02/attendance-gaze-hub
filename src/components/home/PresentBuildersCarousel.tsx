@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +17,13 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
   );
   const [api, setApi] = useState<CarouselApi>();
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Log for debugging
+  useEffect(() => {
+    console.log(`Carousel initialized with ${presentBuilders.length} present builders out of ${initialBuilders.length} total`);
+    console.log(`Today's date: ${getCurrentDateString()}`);
+  }, [presentBuilders.length, initialBuilders.length]);
 
   // Set up auto-scrolling
   useEffect(() => {
@@ -38,21 +46,81 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
     };
   }, [api, presentBuilders.length]);
   
-  // Set up real-time updates for attendance changes
+  // Fetch all present builders directly from the database
   useEffect(() => {
-    // Get current date in YYYY-MM-DD format for filtering attendance records
-    const today = getCurrentDateString();
+    const fetchPresentBuilders = async () => {
+      setIsLoading(true);
+      const today = getCurrentDateString(); // Format: YYYY-MM-DD (2025-03-30)
+      console.log(`Fetching present builders for date: ${today}`);
+      
+      try {
+        // First get all the present students for today from attendance table
+        const { data: attendanceData, error: attendanceError } = await supabase
+          .from('attendance')
+          .select('student_id')
+          .eq('date', today)
+          .eq('status', 'present');
+          
+        if (attendanceError) {
+          console.error('Error fetching attendance data:', attendanceError);
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log(`Found ${attendanceData.length} attendance records for present builders`);
+        
+        if (attendanceData.length === 0) {
+          setPresentBuilders([]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Get the student IDs of present students
+        const studentIds = attendanceData.map(record => record.student_id);
+        
+        // Fetch student details
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('students')
+          .select('id, first_name, last_name, student_id, image_url')
+          .in('id', studentIds);
+          
+        if (studentsError) {
+          console.error('Error fetching student details:', studentsError);
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log(`Retrieved ${studentsData.length} student records for present builders`);
+        
+        // Map to Builder objects
+        const builders: Builder[] = studentsData.map(student => ({
+          id: student.id,
+          name: `${student.first_name} ${student.last_name}`,
+          builderId: student.student_id || '',
+          status: 'present',
+          timeRecorded: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}),
+          image: student.image_url
+        }));
+        
+        setPresentBuilders(builders);
+      } catch (error) {
+        console.error('Unexpected error fetching present builders:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Set up subscription to attendance changes
+    fetchPresentBuilders();
+    
+    // Set up real-time updates for attendance changes
+    const today = getCurrentDateString();
     const channel = supabase
-      .channel('present-builders-updates')
+      .channel('present-builders-carousel')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'attendance', filter: `date=eq.${today}` },
         () => {
-          // When attendance changes, update our list of builders
-          const updatedBuilders = [...initialBuilders];
-          // Re-filter to only show present builders
-          setPresentBuilders(updatedBuilders.filter(builder => builder.status === 'present'));
+          console.log('Attendance change detected, refreshing present builders');
+          fetchPresentBuilders();
         }
       )
       .subscribe();
@@ -63,11 +131,42 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [initialBuilders]);
+  }, []); // Empty dependency array to run only on mount
+  
+  // If loading, show loading indicator
+  if (isLoading) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mt-8 pb-8 w-full"
+      >
+        <div className="glass-card p-4 rounded-lg">
+          <h2 className="text-center text-xl font-semibold mb-4">Present Today</h2>
+          <div className="flex justify-center py-6">
+            <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-primary rounded-full"></div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
   
   // If no builders are present, don't render the carousel
   if (presentBuilders.length === 0) {
-    return null;
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mt-8 pb-8 w-full"
+      >
+        <div className="glass-card p-4 rounded-lg">
+          <h2 className="text-center text-xl font-semibold mb-4">Present Today</h2>
+          <p className="text-center text-muted-foreground">No builders are present yet</p>
+        </div>
+      </motion.div>
+    );
   }
   
   return (
@@ -78,7 +177,7 @@ const PresentBuildersCarousel = ({ initialBuilders }: PresentBuildersCarouselPro
       className="mt-8 pb-8 w-full"
     >
       <div className="glass-card p-4 rounded-lg">
-        <h2 className="text-center text-xl font-semibold mb-4">Present Today</h2>
+        <h2 className="text-center text-xl font-semibold mb-4">Present Today ({presentBuilders.length})</h2>
         <Carousel 
           setApi={setApi}
           opts={{

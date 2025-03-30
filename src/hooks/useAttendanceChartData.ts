@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -188,10 +187,15 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
                     // Use the UTC-based late check
                     isMarkedLate = isLateArrivalUTC(dayOfWeekUTC, hourUTC, minutesUTC);
                     
-                    // Debug logging for weekend days
-                    if (dayOfWeekUTC === 0 || dayOfWeekUTC === 6) {
+                    // Enhanced Debug logging for weekends/weekdays
+                    const timeStr = `${String(hourUTC).padStart(2, '0')}:${String(minutesUTC).padStart(2, '0')} UTC`;
+                    if (dayOfWeekUTC === 0 || dayOfWeekUTC === 6) { // Weekend
                       console.log(`DEBUG ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeekUTC]} ${dateStr}: ` +
-                        `time=${record.time_recorded}, UTC Hour=${hourUTC}, UTC Min=${minutesUTC}, isLate=${isMarkedLate}`);
+                        `time=${record.time_recorded} (${timeStr}), Late if >= 14:00 UTC? -> ${isMarkedLate}`);
+                    } else if (dayOfWeekUTC >= 1 && dayOfWeekUTC <= 4) { // Weekday
+                      const totalMinutesUTC = hourUTC * 60 + minutesUTC;
+                      console.log(`DEBUG ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeekUTC]} ${dateStr}: ` +
+                        `time=${record.time_recorded} (${timeStr}), Late if >= 22:30 UTC? -> ${isMarkedLate} (Total UTC mins: ${totalMinutesUTC})`);
                     }
                   } else {
                     console.warn(`Invalid time_recorded format for record on ${dateStr}: ${record.time_recorded}`);

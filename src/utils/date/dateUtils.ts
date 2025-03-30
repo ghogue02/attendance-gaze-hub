@@ -47,23 +47,27 @@ export const parseAsUTC = (dateStr: string): Date => {
 /**
  * Checks if a time falls within the "late" attendance windows using UTC time
  * Late is:
- * - Weekdays (Mon-Thu): 6:30 PM - 10:00 PM UTC (18:30-22:00)
- * - Weekends (Sat-Sun): 10:00 AM - 4:00 PM UTC (10:00-16:00)
+ * - Weekends (Sat-Sun): Starting at 10:00 AM EDT (14:00 UTC) onwards
+ * - Weekdays (Mon-Thu): Starting at 6:30 PM EDT (22:30 UTC) onwards
  */
 export const isLateArrivalUTC = (dayOfWeekUTC: number, hourUTC: number, minutesUTC: number): boolean => {
   // Weekend (Saturday = 6, Sunday = 0 UTC)
   if (dayOfWeekUTC === 6 || dayOfWeekUTC === 0) {
-    // Late on weekend: 10:00 UTC to 15:59 UTC (exclusive of 16:00)
-    return hourUTC >= 10 && hourUTC < 16;
+    // Late starts at 10:00 AM EDT == 14:00 UTC
+    const startLateHourUTC = 14;
+    return hourUTC >= startLateHourUTC;
   }
   
   // Weekday (Monday-Thursday UTC, Friday is excluded elsewhere)
-  // Late on weekdays: 18:30 UTC to 21:59 UTC (exclusive of 22:00)
-  const totalMinutesUTC = hourUTC * 60 + minutesUTC;
-  const startLateMinutesUTC = 18 * 60 + 30; // 18:30
-  const endLateMinutesUTC = 22 * 60;        // 22:00
+  // Late starts at 6:30 PM EDT == 22:30 UTC
+  if (dayOfWeekUTC >= 1 && dayOfWeekUTC <= 4) {
+    const startLateMinutesUTC = 22 * 60 + 30; // 22:30 UTC
+    const totalMinutesUTC = hourUTC * 60 + minutesUTC;
+    return totalMinutesUTC >= startLateMinutesUTC;
+  }
   
-  return totalMinutesUTC >= startLateMinutesUTC && totalMinutesUTC < endLateMinutesUTC;
+  // Default: Not considered late (e.g., if Friday data somehow gets here)
+  return false;
 };
 
 /**

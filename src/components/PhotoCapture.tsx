@@ -28,6 +28,7 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
     captureImageData
   } = useCamera({
     isCameraActive: true,
+    canvasRef, // Pass the canvas reference to useCamera hook
     videoConstraints: {
       facingMode: 'user',
       width: { min: 640, ideal: 1280, max: 1920 },

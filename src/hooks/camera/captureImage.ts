@@ -13,14 +13,17 @@ export const captureImageFromVideo = (
     const canvas = canvasRef.current;
     
     if (!video || !canvas) {
-      console.error('Video or canvas reference not available');
+      console.error('Video or canvas reference not available', { 
+        videoExists: !!video, 
+        canvasExists: !!canvas 
+      });
       return null;
     }
     
     const { videoWidth, videoHeight } = video;
     
     if (videoWidth === 0 || videoHeight === 0) {
-      console.error('Video dimensions are not available');
+      console.error('Video dimensions are not available', { videoWidth, videoHeight });
       return null;
     }
     

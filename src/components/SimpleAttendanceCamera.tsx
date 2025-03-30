@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useCamera } from '@/hooks/camera/useCamera';
 import { toast } from 'sonner';
@@ -23,10 +23,10 @@ const SimpleAttendanceCamera = ({
 }: SimpleAttendanceCameraProps) => {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const {
     videoRef,
-    canvasRef,
     isCapturing,
     cameraError,
     startCamera,
@@ -34,6 +34,7 @@ const SimpleAttendanceCamera = ({
     captureImageData
   } = useCamera({
     isCameraActive,
+    canvasRef,
     videoConstraints: {
       facingMode: 'user',
       width: { min: 640, ideal: 1280, max: 1920 },

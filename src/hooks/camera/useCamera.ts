@@ -8,12 +8,15 @@ export function useCamera({
   onCameraStart, 
   onCameraStop, 
   isCameraActive = false,
-  videoConstraints = {}
+  videoConstraints = {},
+  canvasRef: externalCanvasRef
 }: UseCameraProps = {}): UseCameraReturn {
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Only create our own canvas ref if one wasn't provided
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = externalCanvasRef || internalCanvasRef;
   const streamRef = useRef<MediaStream | null>(null);
   const retryCountRef = useRef(0);
   const maxRetries = 5;
@@ -151,8 +154,12 @@ export function useCamera({
 
   // Capture the current frame from the video stream
   const captureImageData = useCallback((): string | null => {
+    console.log("Capturing image from video...", {
+      videoRefExists: !!videoRef.current,
+      canvasRefExists: !!canvasRef.current
+    });
     return captureImageFromVideo(videoRef, canvasRef);
-  }, []);
+  }, [canvasRef]);
 
   // Add function to check if camera is healthy
   const checkCameraHealth = useCallback(() => {

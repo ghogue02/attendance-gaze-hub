@@ -14,21 +14,21 @@ export const BuilderCarouselItem = ({ builder }: BuilderCarouselItemProps) => {
   const { attendanceRate } = useBuilderAttendance(builder.id);
 
   return (
-    <CarouselItem key={builder.id} className="pl-6 basis-1/4 md:basis-1/4 lg:basis-1/4">
-      <div className="flex flex-col items-center p-3">
+    <CarouselItem key={builder.id} className="pl-6 basis-1/6 md:basis-1/6 lg:basis-1/6">
+      <div className="flex flex-col items-center p-2">
         <div className="relative">
-          <Avatar className="h-20 w-20 md:h-24 md:w-24 border-2 border-green-400">
+          <Avatar className="h-16 w-16 md:h-20 md:w-20 border-2 border-green-400">
             {builder.image ? (
               <AvatarImage src={builder.image} alt={builder.name} className="object-cover" />
             ) : (
-              <AvatarFallback className="bg-primary/10 text-primary text-xl">
+              <AvatarFallback className="bg-primary/10 text-primary text-lg">
                 {builder.name.split(' ').map(n => n[0]).join('')}
               </AvatarFallback>
             )}
           </Avatar>
           <AttendanceBadge attendanceRate={attendanceRate} />
         </div>
-        <p className="text-sm mt-3 text-center font-medium max-w-32 truncate">{builder.name}</p>
+        <p className="text-xs md:text-sm mt-2 text-center font-medium max-w-28 truncate">{builder.name}</p>
       </div>
     </CarouselItem>
   );

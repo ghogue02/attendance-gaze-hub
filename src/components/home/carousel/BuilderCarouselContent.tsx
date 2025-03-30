@@ -19,10 +19,10 @@ export const BuilderCarouselContent = ({
 
   // Setup auto-scrolling
   useEffect(() => {
-    if (!api || builders.length <= 4 || !autoScroll) return;
+    if (!api || builders.length <= 6 || !autoScroll) return;
     
     const autoScrollTimer = setInterval(() => {
-      if (builders.length > 4) {
+      if (builders.length > 6) {
         const nextIndex = (currentIndex + 1) % builders.length;
         setCurrentIndex(nextIndex);
         api.scrollTo(nextIndex);

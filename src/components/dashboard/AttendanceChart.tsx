@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { timeFrameOptions } from './constants/timeFrameOptions';
@@ -14,6 +14,11 @@ interface AttendanceChartProps {
 const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   const [timeFrame, setTimeFrame] = useState("7");
   const days = parseInt(timeFrame);
+  
+  // Add debug output for timeFrame changes
+  useEffect(() => {
+    console.log(`AttendanceChart: timeFrame changed to ${timeFrame} (${days} days)`);
+  }, [timeFrame, days]);
   
   const { chartData, isLoading } = useAttendanceChartData(builders, days);
 

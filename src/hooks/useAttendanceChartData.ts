@@ -101,8 +101,12 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         const dateMap = new Map<string, { Present: number; Late: number; Absent: number; Excused: number }>();
         
         // Initialize the dateMap with all dates in the range (excluding Fridays)
-        const currentDate = new Date(dateRange.start);
+        const startDate = new Date(dateRange.start);
         const endDate = new Date(dateRange.end);
+        const datesInRange: string[] = [];
+        
+        // Generate all dates in the range
+        const currentDate = new Date(startDate);
         
         while (currentDate <= endDate) {
           // Skip Fridays (5 is Friday in JS Date where 0 is Sunday)
@@ -114,11 +118,16 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
               Absent: 0,
               Excused: 0
             });
+            datesInRange.push(dateStr);
           }
+          
+          // Move to next day
           currentDate.setDate(currentDate.getDate() + 1);
         }
         
-        // Process all attendance records, filtering out Fridays
+        console.log("Dates included in chart:", datesInRange);
+        
+        // Process all attendance records
         attendanceData.forEach(record => {
           const dateStr = record.date;
           const recordDate = new Date(dateStr);
@@ -131,13 +140,14 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           if (!dateMap.has(dateStr)) {
             // This could happen if the date is outside our range but still got returned
             // Create the entry if it's in our dateRange but wasn't initialized
-            if (recordDate >= new Date(dateRange.start) && recordDate <= new Date(dateRange.end)) {
+            if (recordDate >= startDate && recordDate <= endDate) {
               dateMap.set(dateStr, {
                 Present: 0,
                 Late: 0,
                 Absent: 0,
                 Excused: 0
               });
+              console.log(`Added missing date to chart: ${dateStr}`);
             } else {
               return;
             }

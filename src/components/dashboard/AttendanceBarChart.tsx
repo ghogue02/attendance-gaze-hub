@@ -33,6 +33,9 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
     );
   }
   
+  // Log the chart data for debugging
+  console.log("Chart data to be rendered:", chartData.map(d => `${d.date} (${d.name})`));
+  
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart

@@ -4,6 +4,7 @@ import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
 import { markPendingAsAbsent } from '@/utils/attendance/processing/pendingProcessor';
 import { toast } from 'sonner';
+import { processAttendanceForDate } from '@/services/attendanceService';
 
 interface StatisticsCardsProps {
   builders: Builder[];
@@ -40,47 +41,40 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
     };
   }, [builders]);
 
-  // Process the specific March dates that need to be fixed
+  // Process specific dates with absent marking issues
   useEffect(() => {
-    const processMarchDates = async () => {
-      // Check which fixes have already been applied
-      const march27FixKey = 'march_27_2025_fix_applied';
-      const march26FixKey = 'march_26_2025_fix_applied';
+    const processSpecificDates = async () => {
+      // Define the dates we want to process
+      const datesToProcess = [
+        { date: '2025-03-29', storageKey: 'march_29_2025_fix_applied' },
+        { date: '2025-03-30', storageKey: 'march_30_2025_fix_applied' },
+        { date: '2025-03-27', storageKey: 'march_27_2025_fix_applied' },
+        { date: '2025-03-26', storageKey: 'march_26_2025_fix_applied' }
+      ];
       
-      // Process March 27 if not already fixed
-      if (!localStorage.getItem(march27FixKey)) {
-        const date27 = '2025-03-27';
-        const result27 = await markPendingAsAbsent(date27);
-        
-        if (result27 > 0) {
-          toast.success(`Fixed ${result27} attendance records for ${date27}`);
-          console.log(`Successfully fixed ${result27} attendance records for ${date27}`);
+      // Process each date only if it hasn't been processed before
+      for (const { date, storageKey } of datesToProcess) {
+        if (!localStorage.getItem(storageKey)) {
+          console.log(`Processing attendance for ${date} - not yet processed`);
+          const result = await processAttendanceForDate(date);
+          
+          if (result > 0) {
+            toast.success(`Fixed ${result} attendance records for ${date}`);
+            console.log(`Successfully fixed ${result} attendance records for ${date}`);
+          } else {
+            console.log(`No pending attendance records found for ${date}`);
+          }
+          
+          // Mark this fix as applied regardless of result
+          localStorage.setItem(storageKey, 'true');
         } else {
-          console.log(`No pending attendance records found for ${date27}`);
+          console.log(`Skipping ${date} - already processed previously`);
         }
-        
-        // Mark this fix as applied
-        localStorage.setItem(march27FixKey, 'true');
-      }
-      
-      // Process March 26 if not already fixed
-      if (!localStorage.getItem(march26FixKey)) {
-        const date26 = '2025-03-26';
-        const result26 = await markPendingAsAbsent(date26);
-        
-        if (result26 > 0) {
-          toast.success(`Fixed ${result26} attendance records for ${date26}`);
-          console.log(`Successfully fixed ${result26} attendance records for ${date26}`);
-        } else {
-          console.log(`No pending attendance records found for ${date26}`);
-        }
-        
-        // Mark this fix as applied
-        localStorage.setItem(march26FixKey, 'true');
       }
     };
     
-    processMarchDates();
+    // Run the process on mount
+    processSpecificDates();
   }, []);
 
   return (

@@ -51,5 +51,20 @@ export const fetchStats = async () => {
   }
 };
 
+/**
+ * Processes attendance for a specific date, marking pending as absent
+ * @param dateString The date to process in YYYY-MM-DD format
+ * @returns Promise with the number of records processed
+ */
+export const processAttendanceForDate = async (dateString: string): Promise<number> => {
+  console.log(`Processing attendance records for ${dateString}`);
+  try {
+    return await markPendingAsAbsent(dateString);
+  } catch (error) {
+    console.error(`Error processing attendance for ${dateString}:`, error);
+    return 0;
+  }
+};
+
 // Re-export the attendance marking utility since it's used in the frontend
 export { markPendingAsAbsent };

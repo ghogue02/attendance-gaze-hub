@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { StatCard } from './';
-import { markPendingAsAbsent, fetchStats } from '@/services/attendanceService';
+import { markPendingAsAbsent, processAttendanceForDate } from '@/services/attendanceService';
 
 export const StatsSection = () => {
   const [stats, setStats] = useState({
@@ -13,15 +13,36 @@ export const StatsSection = () => {
   });
   const isMounted = useRef(true);
   
-  // Check if we need to mark students absent from previous day
-  const checkPreviousDay = async () => {
+  // Check if we need to process specific dates or mark students absent from previous day
+  const processAttendance = async () => {
     try {
+      // Process specific dates with known issues
+      const datesToProcess = [
+        { date: '2025-03-29', storageKey: 'home_march_29_2025_fix_applied' },
+        { date: '2025-03-30', storageKey: 'home_march_30_2025_fix_applied' }
+      ];
+      
+      for (const { date, storageKey } of datesToProcess) {
+        if (!localStorage.getItem(storageKey)) {
+          console.log(`StatsSection: Processing attendance for ${date} - not yet processed`);
+          const result = await processAttendanceForDate(date);
+          
+          if (result > 0) {
+            toast.success(`Fixed ${result} attendance records for ${date}`);
+          }
+          
+          // Mark as processed
+          localStorage.setItem(storageKey, 'true');
+        }
+      }
+      
+      // Also check previous day
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayString = yesterday.toISOString().split('T')[0];
       
-      console.log(`Checking if we need to process pending attendance for ${yesterdayString}`);
+      console.log(`StatsSection: Checking if we need to process pending attendance for ${yesterdayString}`);
       
       // Use a storage key with a timestamp that will force processing once per day
       const storageKey = `attendance_processed_${yesterdayString}`;
@@ -29,7 +50,7 @@ export const StatsSection = () => {
       const processedToday = localStorage.getItem(`${storageKey}_${todayDateString}`);
       
       if (processedToday) {
-        console.log(`Already processed pending attendance for ${yesterdayString} today`);
+        console.log(`StatsSection: Already processed pending attendance for ${yesterdayString} today`);
         return;
       }
       
@@ -39,14 +60,14 @@ export const StatsSection = () => {
       if (markedCount > 0) {
         toast.success(`${markedCount} students marked as absent for yesterday (${yesterdayString})`);
       } else {
-        console.log(`No pending attendance to process for ${yesterdayString}`);
+        console.log(`StatsSection: No pending attendance to process for ${yesterdayString}`);
       }
       
       // Store that we've processed today with today's date to ensure it runs once per day
       localStorage.setItem(`${storageKey}_${todayDateString}`, 'true');
       
     } catch (error) {
-      console.error('Error checking previous day attendance:', error);
+      console.error('Error processing attendance:', error);
     }
   };
 
@@ -55,16 +76,53 @@ export const StatsSection = () => {
     
     const updateStats = async () => {
       if (!isMounted.current) return;
-      const newStats = await fetchStats();
-      if (isMounted.current) {
-        setStats(newStats);
+      
+      try {
+        // Fetch total builders count
+        const { count: totalBuilders, error: buildersError } = await supabase
+          .from('students')
+          .select('*', { count: 'exact', head: true });
+          
+        if (buildersError) {
+          console.error('Error fetching builders count:', buildersError);
+          return;
+        }
+        
+        // Fetch today's attendance
+        const today = new Date().toISOString().split('T')[0];
+        const { data: attendanceData, error: attendanceError } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('date', today);
+          
+        if (attendanceError) {
+          console.error('Error fetching attendance:', attendanceError);
+          return;
+        }
+        
+        // Calculate attendance rate
+        const presentCount = attendanceData?.filter(record => 
+          record.status === 'present'
+        ).length || 0;
+        
+        const attendanceRate = totalBuilders ? 
+          Math.round((presentCount / totalBuilders) * 100) : 0;
+          
+        if (isMounted.current) {
+          setStats({
+            totalBuilders: totalBuilders || 0,
+            attendanceRate
+          });
+        }
+      } catch (error) {
+        console.error('Error updating stats:', error);
       }
     };
     
     updateStats();
     
-    // Check previous day's attendance immediately on component mount
-    checkPreviousDay();
+    // Process attendance issues and previous day's pending records
+    processAttendance();
     
     const attendanceChannel = supabase
       .channel('attendance-changes')
@@ -125,3 +183,4 @@ export const StatsSection = () => {
 };
 
 export default StatsSection;
+

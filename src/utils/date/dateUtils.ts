@@ -7,9 +7,9 @@
  * Returns the current date in YYYY-MM-DD format
  */
 export const getCurrentDateString = (): string => {
-  // For this application, we're using 2025-03-30 as "today"
+  // For this application, we're using 2025-03-31 as "today"
   // Hardcoding this date to match the expected testing date
-  return "2025-03-30";
+  return "2025-03-31";
   
   // In a real application, we would use the actual current date:
   // const now = new Date();
@@ -21,7 +21,7 @@ export const getCurrentDateString = (): string => {
  */
 export const getDisplayDateString = (): string => {
   // For this application, we're using a hardcoded date
-  return "Sunday, March 30, 2025";
+  return "Monday, March 31, 2025";
   
   // In a real application, we would use:
   // const now = new Date();

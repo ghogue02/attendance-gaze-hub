@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { markPendingAsAbsent } from '@/utils/attendance';
+import { markPendingAsAbsent } from '@/utils/attendance/processing/pendingProcessor';
 
 /**
  * Fetches statistics about students and attendance

@@ -1,4 +1,3 @@
-
 /**
  * Utility functions for handling dates in the application
  */
@@ -7,27 +6,18 @@
  * Returns the current date in YYYY-MM-DD format
  */
 export const getCurrentDateString = (): string => {
-  // For this application, we're using 2025-03-31 as "today"
-  // Hardcoding this date to match the expected testing date
-  return "2025-03-31";
-  
-  // In a real application, we would use the actual current date:
-  // const now = new Date();
-  // return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
 /**
  * Returns a formatted display date string
  */
 export const getDisplayDateString = (): string => {
-  // For this application, we're using a hardcoded date
-  return "Monday, March 31, 2025";
-  
-  // In a real application, we would use:
-  // const now = new Date();
-  // return now.toLocaleDateString('en-US', {
-  //   weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  // });
+  const now = new Date();
+  return now.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
 };
 
 /**

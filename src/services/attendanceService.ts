@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { markPendingAsAbsent } from '@/utils/attendance/processing/pendingProcessor';
 
@@ -81,9 +82,16 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     .on('postgres_changes', 
       { event: '*', schema: 'public', table: 'attendance' }, 
       (payload) => {
-        // Fix: Safely access id properties with optional chaining
-        const recordId = payload.new?.id || payload.old?.id;
-        console.log('Attendance change detected:', payload.eventType, 'for record:', recordId);
+        // Type-safe approach to accessing id - check if properties exist first
+        let recordId: string | undefined;
+        
+        if (payload.new && typeof payload.new === 'object' && 'id' in payload.new) {
+          recordId = payload.new.id as string;
+        } else if (payload.old && typeof payload.old === 'object' && 'id' in payload.old) {
+          recordId = payload.old.id as string;
+        }
+        
+        console.log('Attendance change detected:', payload.eventType, 'for record:', recordId || 'unknown');
         callback();
       }
     )

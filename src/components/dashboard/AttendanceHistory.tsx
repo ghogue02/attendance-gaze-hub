@@ -1,5 +1,5 @@
 
-import { memo, useState } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useAttendanceHistory } from '@/hooks/useAttendanceHistory';
 import AttendanceLoadingState from './AttendanceLoadingState';
@@ -30,25 +30,26 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     formatDate,
     handleDeleteRecord,
     confirmDelete,
-    closeDeleteDialog
+    closeDeleteDialog,
+    refreshData
   } = useAttendanceHistory(onError);
   
   // Clear date filter
-  const clearDateFilter = () => {
+  const clearDateFilter = useCallback(() => {
     setDate(undefined);
     setDateFilter(null);
-  };
+  }, [setDateFilter]);
   
   // Clear status filter
-  const clearStatusFilter = () => {
+  const clearStatusFilter = useCallback(() => {
     setStatusFilter('all');
-  };
+  }, [setStatusFilter]);
   
   // Clear all filters
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     clearDateFilter();
     clearStatusFilter();
-  };
+  }, [clearDateFilter, clearStatusFilter]);
   
   // Determine earliest valid date (March 15, 2025)
   const fromDate = new Date('2025-03-15');

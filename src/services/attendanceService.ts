@@ -74,16 +74,21 @@ export const processAttendanceForDate = async (dateString: string): Promise<numb
 export const subscribeToAttendanceChanges = (callback: () => void) => {
   console.log('Setting up attendance subscription');
   
+  // Use a channel name that includes a timestamp to ensure a unique channel each time
+  const channelName = `attendance-changes-${Date.now()}`;
+  
   const channel = supabase
-    .channel('global-attendance-changes')
+    .channel(channelName)
     .on('postgres_changes', 
       { event: '*', schema: 'public', table: 'attendance' }, 
-      () => {
-        console.log('Attendance change detected in global subscription');
+      (payload) => {
+        console.log('Attendance change detected:', payload.eventType, 'for record:', payload.new?.id || payload.old?.id);
         callback();
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log(`Attendance subscription status: ${status}`);
+    });
   
   // Return cleanup function
   return () => {

@@ -1,8 +1,9 @@
 
-import { useState, useCallback, memo, useMemo } from 'react';
+import { useState, useCallback, memo, useMemo, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
+import { subscribeToAttendanceChanges } from '@/services/attendanceService';
 
 interface HistoryTabProps {
   builders: Builder[];
@@ -19,6 +20,19 @@ const HistoryTab = memo(({ builders }: HistoryTabProps) => {
   
   const handleError = useCallback((message: string) => {
     setError(message);
+  }, []);
+  
+  // Set up a redundant subscription at the top level to ensure
+  // the entire component tree refreshes when attendance changes
+  useEffect(() => {
+    const unsubscribe = subscribeToAttendanceChanges(() => {
+      console.log('HistoryTab detected attendance change, forcing refresh');
+      setRefreshKey(prev => prev + 1);
+    });
+    
+    return () => {
+      unsubscribe();
+    };
   }, []);
   
   // Memoize the builders array to prevent unnecessary re-renders

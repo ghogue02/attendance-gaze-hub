@@ -50,6 +50,8 @@ export const fetchAttendanceRecords = async (
       return date >= MINIMUM_DATE;
     });
     
+    console.log(`Fetched ${filteredData.length} attendance records after filtering`);
+    
     // Format records
     return mapAttendanceRecords(filteredData);
   } catch (error) {
@@ -115,6 +117,7 @@ export const deleteAttendanceRecord = async (
     }
     
     toast.success('Attendance record deleted');
+    console.log('Successfully deleted attendance record from database');
     return true;
   } catch (error) {
     console.error('Error in deleteAttendanceRecord:', error);

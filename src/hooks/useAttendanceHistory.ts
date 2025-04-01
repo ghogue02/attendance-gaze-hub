@@ -26,6 +26,9 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       }
       
       setAttendanceRecords(filteredRecords);
+      console.log('Attendance history loaded with', filteredRecords.length, 'records');
+    } catch (error) {
+      console.error('Error loading attendance history:', error);
     } finally {
       setIsLoading(false);
     }
@@ -76,10 +79,13 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       const success = await deleteAttendanceRecord(recordToDelete.id, onError);
       
       if (success) {
-        // Update local state after successful deletion
+        // Immediately update local state after successful deletion
         setAttendanceRecords(prev => 
           prev.filter(record => record.id !== recordToDelete.id)
         );
+        
+        // The global attendance subscription will trigger a refresh as well
+        console.log('Record deleted successfully, local state updated');
       }
     } finally {
       setIsLoading(false);
@@ -99,6 +105,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     formatDate,
     handleDeleteRecord,
     confirmDelete,
-    closeDeleteDialog
+    closeDeleteDialog,
+    refreshData: loadAttendanceHistory // Expose refresh function
   };
 };

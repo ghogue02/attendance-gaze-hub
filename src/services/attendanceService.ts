@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { markPendingAsAbsent } from '@/utils/attendance/processing/pendingProcessor';
 
@@ -82,12 +81,23 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     .on('postgres_changes', 
       { event: '*', schema: 'public', table: 'attendance' }, 
       (payload) => {
-        // Type-safe approach to accessing id - use type assertions after checks
+        // Type-safe approach for accessing id
         let recordId: string | undefined;
         
-        if (payload.new && typeof payload.new === 'object' && 'id' in payload.new) {
+        // Check if new payload exists and has id
+        if (payload.new && 
+            typeof payload.new === 'object' && 
+            payload.new !== null && 
+            'id' in payload.new && 
+            payload.new.id) {
           recordId = String(payload.new.id);
-        } else if (payload.old && typeof payload.old === 'object' && 'id' in payload.old) {
+        } 
+        // Check if old payload exists and has id
+        else if (payload.old && 
+                typeof payload.old === 'object' && 
+                payload.old !== null && 
+                'id' in payload.old && 
+                payload.old.id) {
           recordId = String(payload.old.id);
         }
         

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CalendarIcon } from 'lucide-react';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import DeleteAttendanceConfirmation from './attendance/DeleteAttendanceConfirmation';
 import AttendanceHistoryContent from './attendance/AttendanceHistoryContent';
 import { MINIMUM_DATE } from './attendance/attendanceValidation';
+import { subscribeToAttendanceChanges } from '@/services/attendanceService';
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -25,20 +26,15 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   const [editNotes, setEditNotes] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<AttendanceRecord | null>(null);
+  const isMounted = useRef(true);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchAttendanceHistory();
-    } else {
-      // Clear state when closing the dialog
-      setEditingRecord(null);
-      setRecordToDelete(null);
-      setDeleteDialogOpen(false);
-    }
-  }, [isOpen, builder.id]);
-
-  const fetchAttendanceHistory = async () => {
+  // Use callback to avoid recreating the function on each render
+  const fetchAttendanceHistory = useCallback(async () => {
+    if (!isMounted.current || !isOpen) return;
+    
+    console.log(`Fetching attendance history for builder ${builder.id}`);
     setIsLoading(true);
+    
     try {
       const { data, error } = await supabase
         .from('attendance')
@@ -86,7 +82,40 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [builder.id, isOpen]);
+
+  // Effect for initial load and subscription setup
+  useEffect(() => {
+    isMounted.current = true;
+    
+    if (isOpen) {
+      fetchAttendanceHistory();
+      
+      // Subscribe to attendance changes from anywhere in the app
+      const unsubscribe = subscribeToAttendanceChanges(() => {
+        console.log('Attendance change detected, refreshing builder history');
+        fetchAttendanceHistory();
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    }
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, [isOpen, fetchAttendanceHistory]);
+
+  // Effect for cleanup when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Clear state when closing the dialog
+      setEditingRecord(null);
+      setRecordToDelete(null);
+      setDeleteDialogOpen(false);
+    }
+  }, [isOpen]);
 
   const startEditing = (record: AttendanceRecord) => {
     console.log('Starting to edit record:', record);
@@ -187,22 +216,8 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
       
       toast.success('Attendance record added');
       
-      // Create new record for the UI
-      const newRecord: AttendanceRecord = {
-        id: data.id,
-        date: date,
-        status: status,
-        timeRecorded: new Date().toLocaleTimeString(),
-        excuseReason: status === 'excused' ? excuseReason : undefined,
-        notes: notes || undefined
-      };
-      
-      // Update local state - insert new record and sort by date
-      setAttendanceHistory(prev => {
-        return [...prev, newRecord].sort((a, b) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-      });
+      // Refresh the entire attendance history to ensure consistency
+      fetchAttendanceHistory();
     } catch (error) {
       console.error('Error in addNewAttendanceRecord:', error);
       toast.error('Error adding attendance record');

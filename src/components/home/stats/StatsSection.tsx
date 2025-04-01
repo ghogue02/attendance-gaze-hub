@@ -2,9 +2,9 @@
 import { Users, CheckCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { StatCard } from './';
-import { markPendingAsAbsent, processAttendanceForDate } from '@/services/attendanceService';
+import { markPendingAsAbsent, processAttendanceForDate, subscribeToAttendanceChanges } from '@/services/attendanceService';
+import { fetchStats } from '@/services/attendanceService';
 
 export const StatsSection = () => {
   const [stats, setStats] = useState({
@@ -78,41 +78,10 @@ export const StatsSection = () => {
       if (!isMounted.current) return;
       
       try {
-        // Fetch total builders count
-        const { count: totalBuilders, error: buildersError } = await supabase
-          .from('students')
-          .select('*', { count: 'exact', head: true });
-          
-        if (buildersError) {
-          console.error('Error fetching builders count:', buildersError);
-          return;
-        }
+        const statsData = await fetchStats();
         
-        // Fetch today's attendance
-        const today = new Date().toISOString().split('T')[0];
-        const { data: attendanceData, error: attendanceError } = await supabase
-          .from('attendance')
-          .select('*')
-          .eq('date', today);
-          
-        if (attendanceError) {
-          console.error('Error fetching attendance:', attendanceError);
-          return;
-        }
-        
-        // Calculate attendance rate
-        const presentCount = attendanceData?.filter(record => 
-          record.status === 'present'
-        ).length || 0;
-        
-        const attendanceRate = totalBuilders ? 
-          Math.round((presentCount / totalBuilders) * 100) : 0;
-          
         if (isMounted.current) {
-          setStats({
-            totalBuilders: totalBuilders || 0,
-            attendanceRate
-          });
+          setStats(statsData);
         }
       } catch (error) {
         console.error('Error updating stats:', error);
@@ -124,17 +93,12 @@ export const StatsSection = () => {
     // Process attendance issues and previous day's pending records
     processAttendance();
     
-    const attendanceChannel = supabase
-      .channel('attendance-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'attendance' }, 
-        () => {
-          console.log('Attendance change detected, refreshing stats');
-          updateStats();
-        }
-      )
-      .subscribe();
-      
+    // Subscribe to attendance changes using the shared subscription service
+    const unsubscribe = subscribeToAttendanceChanges(() => {
+      console.log('Attendance change detected in StatsSection, refreshing stats');
+      updateStats();
+    });
+    
     const refreshInterval = setInterval(updateStats, 60000);
     
     // Set up midnight check
@@ -161,7 +125,7 @@ export const StatsSection = () => {
       isMounted.current = false;
       clearInterval(refreshInterval);
       clearTimeout(midnightCheck);
-      supabase.removeChannel(attendanceChannel);
+      unsubscribe();
     };
   }, []);
 
@@ -183,4 +147,3 @@ export const StatsSection = () => {
 };
 
 export default StatsSection;
-

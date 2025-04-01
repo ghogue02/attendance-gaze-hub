@@ -14,6 +14,7 @@ export const fetchAttendanceRecords = async (
   onError: (message: string) => void
 ): Promise<AttendanceRecord[]> => {
   try {
+    console.log('Fetching attendance records with date filter:', dateFilter);
     // Build query
     let query = supabase
       .from('attendance')
@@ -101,6 +102,7 @@ export const deleteAttendanceRecord = async (
   onError: (message: string) => void
 ): Promise<boolean> => {
   try {
+    console.log('Deleting attendance record:', recordId);
     const { error } = await supabase
       .from('attendance')
       .delete()

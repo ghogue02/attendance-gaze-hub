@@ -1,10 +1,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
 import { formatDate } from '@/utils/attendance/formatUtils';
 import { fetchAttendanceRecords, deleteAttendanceRecord } from '@/services/attendanceHistoryService';
+import { subscribeToAttendanceChanges } from '@/services/attendanceService';
 
 export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -34,19 +34,14 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   useEffect(() => {
     loadAttendanceHistory();
     
-    const channel = supabase
-      .channel('history-attendance-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'attendance' }, 
-        () => {
-          console.log('Attendance changed, refreshing history');
-          loadAttendanceHistory();
-        }
-      )
-      .subscribe();
+    // Subscribe to global attendance changes
+    const unsubscribe = subscribeToAttendanceChanges(() => {
+      console.log('Attendance changed, refreshing history from global subscription');
+      loadAttendanceHistory();
+    });
     
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [loadAttendanceHistory]);
   

@@ -66,5 +66,31 @@ export const processAttendanceForDate = async (dateString: string): Promise<numb
   }
 };
 
+/**
+ * Creates a Supabase subscription for attendance changes
+ * @param callback Function to call when attendance changes
+ * @returns Cleanup function to remove the subscription
+ */
+export const subscribeToAttendanceChanges = (callback: () => void) => {
+  console.log('Setting up attendance subscription');
+  
+  const channel = supabase
+    .channel('global-attendance-changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'attendance' }, 
+      () => {
+        console.log('Attendance change detected in global subscription');
+        callback();
+      }
+    )
+    .subscribe();
+  
+  // Return cleanup function
+  return () => {
+    console.log('Cleaning up attendance subscription');
+    supabase.removeChannel(channel);
+  };
+};
+
 // Re-export the attendance marking utility since it's used in the frontend
 export { markPendingAsAbsent };

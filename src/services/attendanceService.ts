@@ -82,13 +82,13 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     .on('postgres_changes', 
       { event: '*', schema: 'public', table: 'attendance' }, 
       (payload) => {
-        // Type-safe approach to accessing id - check if properties exist first
+        // Type-safe approach to accessing id - use type assertions after checks
         let recordId: string | undefined;
         
         if (payload.new && typeof payload.new === 'object' && 'id' in payload.new) {
-          recordId = payload.new.id as string;
+          recordId = String(payload.new.id);
         } else if (payload.old && typeof payload.old === 'object' && 'id' in payload.old) {
-          recordId = payload.old.id as string;
+          recordId = String(payload.old.id);
         }
         
         console.log('Attendance change detected:', payload.eventType, 'for record:', recordId || 'unknown');

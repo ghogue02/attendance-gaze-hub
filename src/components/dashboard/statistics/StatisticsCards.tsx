@@ -2,9 +2,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
-import { markPendingAsAbsent } from '@/utils/attendance/processing/pendingProcessor';
 import { toast } from 'sonner';
-import { processAttendanceForDate } from '@/services/attendanceService';
+import { processAttendanceForDate, processSpecificDateIssues, processPendingAttendance } from '@/services/attendanceService';
 
 interface StatisticsCardsProps {
   builders: Builder[];
@@ -43,17 +42,19 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
 
   // Process specific dates with absent marking issues
   useEffect(() => {
-    const processSpecificDates = async () => {
-      // Define the dates we want to process
-      const datesToProcess = [
-        { date: '2025-03-29', storageKey: 'march_29_2025_fix_applied' },
-        { date: '2025-03-30', storageKey: 'march_30_2025_fix_applied' },
+    const processAttendanceIssues = async () => {
+      // Process the general set of problematic dates
+      await processSpecificDateIssues();
+      
+      // Define additional specific dates we want to process
+      const additionalDates = [
+        { date: '2025-03-31', storageKey: 'stats_march_31_2025_fix_applied' }, // Added March 31
         { date: '2025-03-27', storageKey: 'march_27_2025_fix_applied' },
         { date: '2025-03-26', storageKey: 'march_26_2025_fix_applied' }
       ];
       
       // Process each date only if it hasn't been processed before
-      for (const { date, storageKey } of datesToProcess) {
+      for (const { date, storageKey } of additionalDates) {
         if (!localStorage.getItem(storageKey)) {
           console.log(`Processing attendance for ${date} - not yet processed`);
           const result = await processAttendanceForDate(date);
@@ -62,7 +63,15 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
             toast.success(`Fixed ${result} attendance records for ${date}`);
             console.log(`Successfully fixed ${result} attendance records for ${date}`);
           } else {
-            console.log(`No pending attendance records found for ${date}`);
+            // If no records were updated, try the alternative method
+            console.log(`No records updated via standard method for ${date}, trying direct processing`);
+            const directResult = await processPendingAttendance(date);
+            
+            if (directResult > 0) {
+              toast.success(`Fixed ${directResult} attendance records for ${date} (direct method)`);
+            } else {
+              console.log(`No pending attendance records found for ${date}`);
+            }
           }
           
           // Mark this fix as applied regardless of result
@@ -74,7 +83,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
     };
     
     // Run the process on mount
-    processSpecificDates();
+    processAttendanceIssues();
   }, []);
 
   return (

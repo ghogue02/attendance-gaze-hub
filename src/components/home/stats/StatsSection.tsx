@@ -3,8 +3,14 @@ import { Users, CheckCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { StatCard } from './';
-import { markPendingAsAbsent, processAttendanceForDate, subscribeToAttendanceChanges } from '@/services/attendanceService';
-import { fetchStats } from '@/services/attendanceService';
+import { 
+  markPendingAsAbsent, 
+  processAttendanceForDate, 
+  subscribeToAttendanceChanges, 
+  fetchStats,
+  processSpecificDateIssues,
+  processPendingAttendance 
+} from '@/services/attendanceService';
 
 export const StatsSection = () => {
   const [stats, setStats] = useState({
@@ -16,24 +22,23 @@ export const StatsSection = () => {
   // Check if we need to process specific dates or mark students absent from previous day
   const processAttendance = async () => {
     try {
-      // Process specific dates with known issues
-      const datesToProcess = [
-        { date: '2025-03-29', storageKey: 'home_march_29_2025_fix_applied' },
-        { date: '2025-03-30', storageKey: 'home_march_30_2025_fix_applied' }
-      ];
+      // First process specific problematic dates, including 3/31/2025
+      await processSpecificDateIssues();
       
-      for (const { date, storageKey } of datesToProcess) {
-        if (!localStorage.getItem(storageKey)) {
-          console.log(`StatsSection: Processing attendance for ${date} - not yet processed`);
-          const result = await processAttendanceForDate(date);
-          
-          if (result > 0) {
-            toast.success(`Fixed ${result} attendance records for ${date}`);
-          }
-          
-          // Mark as processed
-          localStorage.setItem(storageKey, 'true');
+      // Specifically check for 3/31/2025 and make sure it's processed
+      const march31_2025 = '2025-03-31';
+      const march31StorageKey = `fix_applied_${march31_2025.replace(/-/g, '_')}`;
+      
+      if (!localStorage.getItem(march31StorageKey)) {
+        console.log(`StatsSection: Specifically processing 3/31/2025`);
+        const result = await processPendingAttendance(march31_2025);
+        
+        if (result > 0) {
+          toast.success(`Fixed ${result} attendance records for March 31, 2025`);
         }
+        
+        // Mark as processed
+        localStorage.setItem(march31StorageKey, 'true');
       }
       
       // Also check previous day

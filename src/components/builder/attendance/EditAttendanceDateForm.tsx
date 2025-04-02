@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { MINIMUM_DATE } from './attendanceValidation';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface EditAttendanceDateFormProps {
   currentDate: string;
@@ -54,6 +55,16 @@ const EditAttendanceDateForm = ({
   const fromDate = MINIMUM_DATE;
   const toDate = new Date(); // Today
 
+  const handleSelectDate = (newDate: Date | undefined) => {
+    setDate(newDate);
+    
+    // Using setTimeout to allow the state to update before closing
+    // This helps ensure the date is properly set before the popover closes
+    if (newDate) {
+      setTimeout(() => setOpen(false), 100);
+    }
+  };
+
   return (
     <div className="mt-4 space-y-4 border rounded-md p-4 bg-muted/20">
       <h3 className="text-sm font-medium">Edit Attendance Date</h3>
@@ -78,7 +89,7 @@ const EditAttendanceDateForm = ({
             <Calendar
               mode="single"
               selected={date}
-              onSelect={setDate}
+              onSelect={handleSelectDate}
               disabled={(date) => 
                 date < fromDate || 
                 date > toDate
@@ -97,12 +108,25 @@ const EditAttendanceDateForm = ({
         <Button variant="outline" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Button 
-          onClick={handleSave} 
-          disabled={isLoading || !date || !isDateValid()}
-        >
-          Save Changes
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={isLoading || !date || !isDateValid()}
+                >
+                  Save Changes
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!isDateValid() && date && date !== new Date(currentDate) && (
+              <TooltipContent>
+                <p>This date already has an attendance record</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );

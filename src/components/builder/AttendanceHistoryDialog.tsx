@@ -21,6 +21,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [editingDate, setEditingDate] = useState<AttendanceRecord | null>(null);
   const [editStatus, setEditStatus] = useState<BuilderStatus>('present');
   const [editExcuseReason, setEditExcuseReason] = useState('');
   const [editNotes, setEditNotes] = useState('');
@@ -112,6 +113,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     if (!isOpen) {
       // Clear state when closing the dialog
       setEditingRecord(null);
+      setEditingDate(null);
       setRecordToDelete(null);
       setDeleteDialogOpen(false);
     }
@@ -119,10 +121,21 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
 
   const startEditing = (record: AttendanceRecord) => {
     console.log('Starting to edit record:', record);
+    // Cancel any date editing in progress
+    setEditingDate(null);
+    
     setEditingRecord(record);
     setEditStatus(record.status);
     setEditExcuseReason(record.excuseReason || '');
     setEditNotes(record.notes || '');
+  };
+
+  const startEditingDate = (record: AttendanceRecord) => {
+    console.log('Starting to edit date for record:', record);
+    // Cancel any status/note editing in progress
+    setEditingRecord(null);
+    
+    setEditingDate(record);
   };
 
   const cancelEditing = () => {
@@ -130,6 +143,10 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     setEditStatus('present');
     setEditExcuseReason('');
     setEditNotes('');
+  };
+
+  const cancelEditingDate = () => {
+    setEditingDate(null);
   };
 
   const saveAttendanceChanges = async () => {
@@ -183,6 +200,38 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     }
   };
 
+  const saveAttendanceDateChange = async (recordId: string, newDate: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          date: newDate,
+          time_recorded: new Date().toISOString()
+        })
+        .eq('id', recordId);
+
+      if (error) {
+        console.error('Error updating attendance date:', error);
+        toast.error('Failed to update attendance date');
+        return;
+      }
+      
+      toast.success('Attendance date updated');
+      
+      // Refresh the entire attendance history since we changed a date
+      fetchAttendanceHistory();
+      
+      // Close the date editing form
+      cancelEditingDate();
+    } catch (error) {
+      console.error('Error in saveAttendanceDateChange:', error);
+      toast.error('Error updating attendance date');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const addNewAttendanceRecord = async (
     date: string, 
     status: BuilderStatus, 
@@ -229,6 +278,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
   const handleDeleteRecord = (record: AttendanceRecord) => {
     // Close other forms if they're open
     setEditingRecord(null);
+    setEditingDate(null);
     
     setRecordToDelete(record);
     setDeleteDialogOpen(true);
@@ -284,9 +334,12 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
             attendanceHistory={attendanceHistory}
             isLoading={isLoading}
             onEditRecord={startEditing}
+            onEditDate={startEditingDate}
             onDeleteRecord={handleDeleteRecord}
             onAddNewDate={addNewAttendanceRecord}
+            onSaveNewDate={saveAttendanceDateChange}
             editingRecord={editingRecord}
+            editingDate={editingDate}
             editStatus={editStatus}
             editExcuseReason={editExcuseReason}
             editNotes={editNotes}
@@ -295,6 +348,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
             onNotesChange={setEditNotes}
             onSaveChanges={saveAttendanceChanges}
             onCancelEdit={cancelEditing}
+            onCancelEditDate={cancelEditingDate}
           />
           
           <DialogFooter className="mt-4 pt-4 border-t">

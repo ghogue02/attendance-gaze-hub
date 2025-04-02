@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PencilIcon, Trash2Icon } from 'lucide-react';
+import { CalendarIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AttendanceRecord } from './types';
@@ -11,6 +11,7 @@ interface AttendanceHistoryTableProps {
   attendanceHistory: AttendanceRecord[];
   isLoading: boolean;
   onEditRecord: (record: AttendanceRecord) => void;
+  onEditDate?: (record: AttendanceRecord) => void;
   onDeleteRecord?: (record: AttendanceRecord) => void;
 }
 
@@ -18,6 +19,7 @@ const AttendanceHistoryTable = ({
   attendanceHistory, 
   isLoading, 
   onEditRecord,
+  onEditDate,
   onDeleteRecord
 }: AttendanceHistoryTableProps) => {
   
@@ -25,6 +27,15 @@ const AttendanceHistoryTable = ({
   const handleEdit = (record: AttendanceRecord) => {
     console.log("Edit button clicked for record:", record);
     onEditRecord(record);
+  };
+  
+  const handleEditDate = (record: AttendanceRecord, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    e.preventDefault(); // Prevent default action
+    console.log("Edit date button clicked for record:", record);
+    if (onEditDate) {
+      onEditDate(record);
+    }
   };
   
   const handleDelete = (record: AttendanceRecord, e: React.MouseEvent) => {
@@ -60,7 +71,7 @@ const AttendanceHistoryTable = ({
             <TableHead>Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Notes</TableHead>
-            <TableHead className="w-24 text-right">Actions</TableHead>
+            <TableHead className="w-32 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -87,6 +98,17 @@ const AttendanceHistoryTable = ({
                 ) : record.excuseReason ? null : '—'}
               </TableCell>
               <TableCell className="text-right space-x-1">
+                {onEditDate && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={(e) => handleEditDate(record, e)}
+                    title="Edit date"
+                    className="h-8 w-8"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button 
                   variant="ghost" 
                   size="icon" 

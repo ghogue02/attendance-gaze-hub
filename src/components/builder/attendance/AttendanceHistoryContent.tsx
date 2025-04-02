@@ -8,6 +8,7 @@ import AttendanceHistoryTable from '../AttendanceHistoryTable';
 import AttendanceEditForm from '../AttendanceEditForm';
 import AttendanceStats from './AttendanceStats';
 import AddNewDateForm from './AddNewDateForm';
+import EditAttendanceDateForm from './EditAttendanceDateForm';
 
 interface AttendanceHistoryContentProps {
   builder: Builder;
@@ -15,16 +16,20 @@ interface AttendanceHistoryContentProps {
   isLoading: boolean;
   onEditRecord: (record: AttendanceRecord) => void;
   onDeleteRecord: (record: AttendanceRecord) => void;
+  onEditDate: (record: AttendanceRecord) => void;
   onAddNewDate: (date: string, status: BuilderStatus, excuseReason: string, notes: string) => Promise<void>;
+  onSaveNewDate: (recordId: string, newDate: string) => Promise<void>;
   editingRecord: AttendanceRecord | null;
   editStatus: BuilderStatus;
   editExcuseReason: string;
   editNotes: string;
+  editingDate: AttendanceRecord | null;
   onStatusChange: (status: BuilderStatus) => void;
   onExcuseReasonChange: (reason: string) => void;
   onNotesChange: (notes: string) => void;
   onSaveChanges: () => Promise<void>;
   onCancelEdit: () => void;
+  onCancelEditDate: () => void;
 }
 
 const AttendanceHistoryContent = ({
@@ -33,16 +38,20 @@ const AttendanceHistoryContent = ({
   isLoading,
   onEditRecord,
   onDeleteRecord,
+  onEditDate,
   onAddNewDate,
+  onSaveNewDate,
   editingRecord,
   editStatus,
   editExcuseReason,
   editNotes,
+  editingDate,
   onStatusChange,
   onExcuseReasonChange,
   onNotesChange,
   onSaveChanges,
-  onCancelEdit
+  onCancelEdit,
+  onCancelEditDate
 }: AttendanceHistoryContentProps) => {
   const [isAddingNewDate, setIsAddingNewDate] = useState(false);
 
@@ -77,7 +86,7 @@ const AttendanceHistoryContent = ({
             size="sm"
             variant="outline"
             className="flex items-center gap-2"
-            disabled={isAddingNewDate || !!editingRecord}
+            disabled={isAddingNewDate || !!editingRecord || !!editingDate}
           >
             <CalendarPlus className="h-4 w-4" />
             Add Missing Date
@@ -97,6 +106,7 @@ const AttendanceHistoryContent = ({
           attendanceHistory={attendanceHistory} 
           isLoading={isLoading}
           onEditRecord={onEditRecord}
+          onEditDate={onEditDate}
           onDeleteRecord={onDeleteRecord}
         />
         
@@ -112,6 +122,16 @@ const AttendanceHistoryContent = ({
             onNotesChange={onNotesChange}
             onSave={onSaveChanges}
             onCancel={onCancelEdit}
+          />
+        )}
+        
+        {editingDate && (
+          <EditAttendanceDateForm
+            currentDate={editingDate.date}
+            existingDates={existingDates}
+            isLoading={isLoading}
+            onSave={async (newDate) => await onSaveNewDate(editingDate.id, newDate)}
+            onCancel={onCancelEditDate}
           />
         )}
       </div>

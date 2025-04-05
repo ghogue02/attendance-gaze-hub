@@ -59,16 +59,17 @@ export const useBuilderAttendance = (builderId: string) => {
       
       console.log(`Builder ${builderId}: Present/late count: ${presentCount}, Total filtered: ${filteredRecords.length}`);
       
-      // If all records are present/late, ensure we display exactly 100% rather than rounding errors
+      // Calculate percentage - if all records are present/late, ensure we display exactly 100%
       let rate: number;
       if (presentCount === filteredRecords.length) {
         rate = 100;
+        console.log(`Setting PERFECT attendance rate for builder ${builderId}: ${rate}%`);
       } else {
         // Calculate percentage and round to whole number
         rate = Math.round((presentCount / filteredRecords.length) * 100);
+        console.log(`Calculated attendance rate for builder ${builderId}: ${rate}%`);
       }
       
-      console.log(`Final attendance rate for builder ${builderId}: ${rate}%`);
       setAttendanceRate(rate);
     } catch (error) {
       console.error('Error calculating attendance rate:', error);

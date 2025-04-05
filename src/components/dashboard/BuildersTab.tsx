@@ -10,6 +10,9 @@ import { DeleteBuilderDialog } from '@/components/builder/DeleteBuilderDialog';
 import { supabase } from '@/integrations/supabase/client';
 import ExtractPhotosButton from '@/components/builders/ExtractPhotosButton';
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+
 interface BuildersTabProps {
   isLoading: boolean;
   filteredBuilders: any[];
@@ -21,9 +24,6 @@ interface BuildersTabProps {
   onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
   refreshData: () => void;
 }
-
-// Minimum allowed date - Saturday, March 15, 2025
-const MINIMUM_DATE = new Date('2025-03-15');
 
 const BuildersTab = ({
   isLoading,
@@ -72,8 +72,8 @@ const BuildersTab = ({
             const date = new Date(record.date);
             const isFriday = date.getDay() === 5;
             const isApril4th = date.getFullYear() === 2025 && 
-                               date.getMonth() === 3 && // April is month 3 (0-indexed)
-                               date.getDate() === 4;
+                              date.getMonth() === 3 && // April is month 3 (0-indexed)
+                              date.getDate() === 4;
             return !isFriday && !isApril4th && date >= MINIMUM_DATE;
           });
 

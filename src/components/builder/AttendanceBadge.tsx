@@ -7,8 +7,8 @@ interface AttendanceBadgeProps {
 }
 
 const AttendanceBadge = ({ attendanceRate }: AttendanceBadgeProps) => {
-  // Only show perfect attendance badge for 100%
-  if (attendanceRate !== 100) {
+  // Show perfect attendance badge for 94% or higher
+  if (attendanceRate === null || attendanceRate < 94) {
     return null;
   }
 
@@ -18,7 +18,7 @@ const AttendanceBadge = ({ attendanceRate }: AttendanceBadgeProps) => {
       variant="default"
     >
       <Award className="h-3 w-3 text-white" />
-      <span className="text-[10px] font-bold">100%</span>
+      <span className="text-[10px] font-bold">{attendanceRate}%</span>
     </Badge>
   );
 };

@@ -23,15 +23,14 @@ export const fetchStats = async () => {
     // Get attendance for today
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
-      .select('status, date')
-      .eq('date', today);
+      .select('status, date');
       
     if (attendanceError) {
       console.error('Error fetching attendance:', attendanceError);
       throw attendanceError;
     }
     
-    // Filter out records for Fridays or April 4th, 2025
+    // Filter out records for Fridays or April 4th, 2025, or before MINIMUM_DATE
     const filteredAttendance = attendanceData?.filter(record => {
       const date = new Date(record.date);
       // Check if it's a Friday or April 4th, 2025

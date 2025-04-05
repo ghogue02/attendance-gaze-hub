@@ -2,6 +2,9 @@
 import React from 'react';
 import { AttendanceRecord } from '../types';
 
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+
 interface AttendanceStatsProps {
   attendanceHistory: AttendanceRecord[];
 }
@@ -11,14 +14,14 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     return null;
   }
   
-  // Filter out any records for Fridays or April 4th, 2025
+  // Filter out any records for Fridays or April 4th, 2025, or before MINIMUM_DATE
   const filteredHistory = attendanceHistory.filter(record => {
     const date = new Date(record.date);
     const isFriday = date.getDay() === 5;
     const isApril4th = date.getFullYear() === 2025 && 
                       date.getMonth() === 3 && // April is month 3 (0-indexed)
                       date.getDate() === 4;
-    return !isFriday && !isApril4th;
+    return !isFriday && !isApril4th && date >= MINIMUM_DATE;
   });
   
   if (filteredHistory.length === 0) {

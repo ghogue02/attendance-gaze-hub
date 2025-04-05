@@ -302,19 +302,19 @@ export const processAttendanceForDate = async (dateString: string): Promise<numb
   }
 };
 
-// Clear automated absence notes for students who are present today
+// Clear automated absence notes for students who are present today or excused
 export const clearAutomatedNotesForPresentStudents = async (): Promise<number> => {
   try {
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
-    console.log(`[clearAutomatedNotesForPresentStudents] Clearing automated notes for present/late students on ${today}`);
+    console.log(`[clearAutomatedNotesForPresentStudents] Clearing automated notes for present/late/excused students on ${today}`);
     
-    // Find all records for today that have status 'present' or 'late' and have an automated note
+    // Find all records for today that have status 'present', 'late' or 'excused' and have an automated note
     const { data: recordsToUpdate, error: fetchError } = await supabase
       .from('attendance')
-      .select('id, notes, status')
+      .select('id, notes, status, excuse_reason')
       .eq('date', today)
-      .in('status', ['present', 'late'])
+      .in('status', ['present', 'late', 'excused'])
       .not('notes', 'is', null);
       
     if (fetchError) {
@@ -341,15 +341,23 @@ export const clearAutomatedNotesForPresentStudents = async (): Promise<number> =
       return 0;
     }
     
-    // Update each record to clear the notes
+    // Update each record to clear the notes, preserving excuse_reason for excused statuses
     let updatedCount = 0;
     for (const record of recordsWithAutomatedNotes) {
+      // For excused status, preserve the excuse_reason in the notes field
+      const updateData = record.status === 'excused' 
+        ? { 
+            notes: record.excuse_reason || null, 
+            time_recorded: new Date().toISOString() 
+          }
+        : { 
+            notes: null, 
+            time_recorded: new Date().toISOString() 
+          };
+      
       const { error: updateError } = await supabase
         .from('attendance')
-        .update({ 
-          notes: null,
-          time_recorded: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', record.id);
         
       if (updateError) {

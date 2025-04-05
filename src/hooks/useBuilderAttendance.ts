@@ -17,7 +17,7 @@ export const useBuilderAttendance = (builderId: string) => {
 
     try {
       setIsLoading(true);
-      console.log(`Fetching attendance for builder ${builderId}`);
+      console.log(`[useBuilderAttendance] Fetching attendance for builder ${builderId}`);
       
       const { data, error } = await supabase
         .from('attendance')
@@ -25,11 +25,13 @@ export const useBuilderAttendance = (builderId: string) => {
         .eq('student_id', builderId);
       
       if (error) {
-        console.error('Error fetching attendance:', error);
+        console.error('[useBuilderAttendance] Error fetching attendance:', error);
+        setAttendanceRate(null);
+        setIsLoading(false);
         return;
       }
 
-      console.log(`Got ${data.length} raw attendance records for builder ${builderId}`);
+      console.log(`[useBuilderAttendance] Got ${data.length} raw attendance records for builder ${builderId}`);
       
       // Filter out records that are:
       // 1. For Fridays (day 5)
@@ -45,7 +47,7 @@ export const useBuilderAttendance = (builderId: string) => {
         return !isFriday && !isApril4th && !isBeforeMinDate;
       });
       
-      console.log(`After filtering, ${filteredRecords.length} valid attendance records for builder ${builderId}`);
+      console.log(`[useBuilderAttendance] After filtering, ${filteredRecords.length} valid attendance records for builder ${builderId}`);
       
       if (filteredRecords.length === 0) {
         setAttendanceRate(null);
@@ -58,22 +60,23 @@ export const useBuilderAttendance = (builderId: string) => {
         record => record.status === 'present' || record.status === 'late'
       ).length;
       
-      console.log(`Builder ${builderId}: Present/late count: ${presentCount}, Total filtered: ${filteredRecords.length}`);
+      console.log(`[useBuilderAttendance] Builder ${builderId}: Present/late count: ${presentCount}, Total filtered: ${filteredRecords.length}`);
       
       // Calculate percentage - if all records are present/late, ensure we display exactly 100%
       let rate: number;
       if (presentCount === filteredRecords.length) {
         rate = 100;
-        console.log(`Setting PERFECT attendance rate for builder ${builderId}: ${rate}%`);
+        console.log(`[useBuilderAttendance] Setting PERFECT attendance rate for builder ${builderId}: ${rate}%`);
       } else {
         // Calculate percentage and round to whole number
         rate = Math.round((presentCount / filteredRecords.length) * 100);
-        console.log(`Calculated attendance rate for builder ${builderId}: ${rate}%`);
+        console.log(`[useBuilderAttendance] Calculated attendance rate for builder ${builderId}: ${rate}%`);
       }
       
       setAttendanceRate(rate);
     } catch (error) {
-      console.error('Error calculating attendance rate:', error);
+      console.error('[useBuilderAttendance] Error calculating attendance rate:', error);
+      setAttendanceRate(null);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +94,7 @@ export const useBuilderAttendance = (builderId: string) => {
         table: 'attendance',
         filter: `student_id=eq.${builderId}`
       }, () => {
-        console.log('Attendance changed, refreshing rate');
+        console.log('[useBuilderAttendance] Attendance changed, refreshing rate');
         fetchAttendanceRate();
       })
       .subscribe();

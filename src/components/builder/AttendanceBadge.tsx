@@ -13,7 +13,7 @@ const AttendanceBadge = ({ attendanceRate }: AttendanceBadgeProps) => {
   }
 
   // Debug output to verify the attendance rate being passed
-  console.log(`Rendering AttendanceBadge with perfect attendance rate: ${attendanceRate}%`);
+  console.log(`[AttendanceBadge] Rendering badge with perfect attendance rate: ${attendanceRate}%`);
 
   return (
     <Badge 

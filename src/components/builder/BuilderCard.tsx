@@ -1,3 +1,4 @@
+
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Builder, BuilderStatus, BuilderCardProps } from './types';
@@ -19,7 +20,10 @@ const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) =
   const [builderData, setBuilderData] = useState<Builder>(builder);
   
   // Use the custom hook to get attendance rate
-  const { attendanceRate } = useBuilderAttendance(builderData.id);
+  const { attendanceRate, isLoading } = useBuilderAttendance(builderData.id);
+
+  // Add debug log to trace attendance rate value
+  console.log(`[BuilderCard] Rendering ${builderData.name} (ID: ${builderData.id}). Rate from hook: ${attendanceRate}, Loading: ${isLoading}`);
 
   const handleStatusChange = (status: Builder['status']) => {
     if (status === 'excused') {

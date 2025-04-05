@@ -23,7 +23,7 @@ export const fetchStats = async () => {
     // Get attendance for today
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
-      .select('status, date');
+      .select('status, date, student_id');
       
     if (attendanceError) {
       console.error('Error fetching attendance:', attendanceError);
@@ -40,11 +40,14 @@ export const fetchStats = async () => {
                           date.getDate() === 4;
       return !isFriday && !isApril4th && date >= MINIMUM_DATE;
     }) || [];
+
+    // Get today's attendance
+    const todayAttendance = filteredAttendance.filter(record => record.date === today);
     
     // Process attendance data
     const totalBuilders = studentCount?.length || 0;
-    const presentCount = filteredAttendance?.filter(r => r.status === 'present').length || 0;
-    const lateCount = filteredAttendance?.filter(r => r.status === 'late').length || 0;
+    const presentCount = todayAttendance?.filter(r => r.status === 'present').length || 0;
+    const lateCount = todayAttendance?.filter(r => r.status === 'late').length || 0;
     
     // Calculate attendance rate (present + late)
     const attendanceRate = totalBuilders > 0 

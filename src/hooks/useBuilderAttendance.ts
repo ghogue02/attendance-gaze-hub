@@ -15,6 +15,7 @@ export const useBuilderAttendance = (builderId: string) => {
       
       setIsLoading(true);
       try {
+        // First, get all attendance records for this builder
         const { data, error } = await supabase
           .from('attendance')
           .select('*')
@@ -25,11 +26,14 @@ export const useBuilderAttendance = (builderId: string) => {
           return;
         }
 
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
           setAttendanceRate(null);
           return;
         }
 
+        // Debug logging
+        console.log(`[useBuilderAttendance] Found ${data.length} attendance records for builder ${builderId}`);
+        
         // Filter out Fridays, April 4th specifically, and dates before MINIMUM_DATE
         const filteredRecords = data.filter(record => {
           const date = new Date(record.date);
@@ -40,6 +44,8 @@ export const useBuilderAttendance = (builderId: string) => {
           return !isFriday && !isApril4th && date >= MINIMUM_DATE;
         });
 
+        console.log(`[useBuilderAttendance] After filtering, ${filteredRecords.length} valid attendance records remain`);
+        
         if (filteredRecords.length === 0) {
           setAttendanceRate(null);
           return;
@@ -50,9 +56,16 @@ export const useBuilderAttendance = (builderId: string) => {
           record => record.status === 'present' || record.status === 'late'
         ).length;
 
+        console.log(`[useBuilderAttendance] Present count: ${presentCount}, Total valid days: ${filteredRecords.length}`);
+        
         // Calculate the rate - always round to nearest integer
         const rate = (presentCount / filteredRecords.length) * 100;
-        setAttendanceRate(Math.round(rate));
+        
+        // If all records are present/late, ensure we display exactly 100% rather than rounding errors
+        const finalRate = presentCount === filteredRecords.length ? 100 : Math.round(rate);
+        console.log(`[useBuilderAttendance] Calculated rate: ${finalRate}%`);
+        
+        setAttendanceRate(finalRate);
       } catch (error) {
         console.error('Error in fetchAttendanceRate:', error);
       } finally {

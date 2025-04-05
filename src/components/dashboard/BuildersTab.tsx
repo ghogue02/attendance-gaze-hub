@@ -86,7 +86,12 @@ const BuildersTab = ({
             record => record.status === 'present' || record.status === 'late'
           ).length;
 
-          rates[builder.id] = Math.round((presentCount / filteredRecords.length) * 100);
+          // If all records are present/late, ensure we display exactly 100% rather than rounding errors
+          rates[builder.id] = presentCount === filteredRecords.length ? 
+            100 : 
+            Math.round((presentCount / filteredRecords.length) * 100);
+            
+          console.log(`Builder ${builder.name}: ${presentCount}/${filteredRecords.length} = ${rates[builder.id]}%`);
         } catch (error) {
           console.error('Error calculating attendance rate:', error);
           rates[builder.id] = null;

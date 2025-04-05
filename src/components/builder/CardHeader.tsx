@@ -12,6 +12,7 @@ interface CardHeaderProps {
 
 const CardHeader = ({ builder, attendanceRate, onNotesClick }: CardHeaderProps) => {
   const getAttendanceRateColor = (rate: number) => {
+    if (rate === 100) return "text-green-700 font-bold";
     if (rate >= 94) return "text-green-600";
     if (rate >= 80) return "text-green-600";
     if (rate >= 60) return "text-yellow-600";

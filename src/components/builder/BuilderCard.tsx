@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Builder, BuilderStatus, BuilderCardProps } from './types';
@@ -10,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import CardHeader from './CardHeader';
 import CardContent from './CardContent';
 import CardActions from './CardActions';
-import { useBuilderAttendance } from './useBuilderAttendance';
+import { useBuilderAttendance } from '@/hooks/useBuilderAttendance';
 
 const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) => {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);

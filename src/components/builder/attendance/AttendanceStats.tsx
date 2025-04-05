@@ -33,13 +33,16 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     record => record.status === 'present' || record.status === 'late'
   ).length;
   
-  const attendanceRate = Math.round((presentCount / filteredHistory.length) * 100);
+  // If all records are present/late, ensure we display exactly 100% rather than rounding errors
+  const attendanceRate = presentCount === filteredHistory.length ? 
+    100 : 
+    Math.round((presentCount / filteredHistory.length) * 100);
 
   return (
     <div className="mb-4 p-3 bg-muted/30 rounded-md">
       <p className="font-medium text-center">
         Overall Attendance Rate: 
-        <span className={`ml-2 ${attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+        <span className={`ml-2 ${attendanceRate >= 94 ? 'text-green-600' : attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
           {attendanceRate}%
         </span>
       </p>

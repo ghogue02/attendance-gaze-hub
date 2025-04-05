@@ -41,7 +41,8 @@ export const useBuilderAttendance = (builderId: string) => {
         const isApril4th = date.getFullYear() === 2025 && 
                           date.getMonth() === 3 && // April is month 3 (0-indexed)
                           date.getDate() === 4;
-        return !isFriday && !isApril4th && date >= MINIMUM_DATE;
+        const isBeforeMinDate = date < MINIMUM_DATE;
+        return !isFriday && !isApril4th && !isBeforeMinDate;
       });
       
       console.log(`After filtering, ${filteredRecords.length} valid attendance records for builder ${builderId}`);

@@ -180,3 +180,47 @@ export const processAttendanceForDate = async (dateString: string): Promise<numb
     return 0;
   }
 };
+
+// Function to remove April 4th (Friday) attendance records
+export const removeApril4thRecords = async (): Promise<number> => {
+  const targetDate = '2025-04-04'; // April 4th, 2025 (Friday)
+  console.log(`[removeApril4thRecords] Removing attendance records for ${targetDate}`);
+  
+  try {
+    // First, get all attendance records for April 4th
+    const { data: april4Records, error: fetchError } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('date', targetDate);
+      
+    if (fetchError) {
+      console.error('[removeApril4thRecords] Error fetching April 4th records:', fetchError);
+      return 0;
+    }
+    
+    if (!april4Records || april4Records.length === 0) {
+      console.log('[removeApril4thRecords] No records found for April 4th, 2025');
+      return 0;
+    }
+    
+    const recordCount = april4Records.length;
+    console.log(`[removeApril4thRecords] Found ${recordCount} records to delete`);
+    
+    // Delete the records
+    const { error: deleteError } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('date', targetDate);
+      
+    if (deleteError) {
+      console.error('[removeApril4thRecords] Error deleting April 4th records:', deleteError);
+      return 0;
+    }
+    
+    console.log(`[removeApril4thRecords] Successfully removed ${recordCount} records for April 4th, 2025`);
+    return recordCount;
+  } catch (error) {
+    console.error('[removeApril4thRecords] Unexpected error:', error);
+    return 0;
+  }
+};

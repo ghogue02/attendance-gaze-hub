@@ -43,10 +43,13 @@ export const useAttendanceHistoryState = ({ builder, isOpen }: UseAttendanceHist
         return;
       }
 
-      // Filter out dates before minimum date
+      // Filter out dates before minimum date and also filter out April 4th, 2025 (Friday)
       const filteredData = data.filter(record => {
         const date = new Date(record.date);
-        return date >= MINIMUM_DATE;
+        const isApril4 = record.date === '2025-04-04';
+        
+        // Skip April 4th and filter based on minimum date
+        return !isApril4 && date >= MINIMUM_DATE;
       });
 
       const history: AttendanceRecord[] = filteredData.map(record => {

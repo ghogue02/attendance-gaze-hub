@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -44,10 +43,11 @@ export const fetchAttendanceRecords = async (
       return [];
     }
     
-    // Filter by minimum date
+    // Filter by minimum date and exclude April 4th (Friday)
     const filteredData = data.filter(record => {
       const date = new Date(record.date);
-      return date >= MINIMUM_DATE;
+      const isApril4 = record.date === '2025-04-04';
+      return date >= MINIMUM_DATE && !isApril4;
     });
     
     console.log(`Fetched ${filteredData.length} attendance records after filtering`);

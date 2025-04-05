@@ -7,7 +7,8 @@ import {
   processAttendanceForDate, 
   processSpecificDateIssues, 
   processPendingAttendance, 
-  markPendingAsAbsent 
+  markPendingAsAbsent,
+  removeApril4thRecords
 } from '@/services/attendance';
 
 interface StatisticsCardsProps {
@@ -69,18 +70,35 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
           }
         }
         
-        // Define additional specific dates we want to process
+        // Remove April 4th records (Friday)
+        const april4StorageKey = 'april_4_2025_records_removed';
+        if (!localStorage.getItem(april4StorageKey)) {
+          console.log('Removing April 4, 2025 (Friday) records');
+          const removed = await removeApril4thRecords();
+          
+          if (removed > 0) {
+            toast.success(`Removed ${removed} records from April 4, 2025 (Friday)`);
+            localStorage.setItem(april4StorageKey, 'true');
+          }
+        }
+        
+        // Define additional specific dates we want to process - excluding Fridays
         const additionalDates = [
-          { date: '2025-04-05', storageKey: 'stats_april_5_2025_fix_applied' },
-          { date: '2025-04-04', storageKey: 'stats_april_4_2025_fix_applied' },
-          { date: '2025-04-03', storageKey: 'stats_april_3_2025_fix_applied' },
-          { date: '2025-04-02', storageKey: 'stats_april_2_2025_fix_applied' },
-          { date: '2025-04-01', storageKey: 'stats_april_1_2025_fix_applied' },
-          { date: '2025-03-31', storageKey: 'stats_march_31_2025_fix_applied' }
+          { date: '2025-04-05', storageKey: 'stats_april_5_2025_fix_applied', isFriday: false },
+          { date: '2025-04-04', storageKey: 'stats_april_4_2025_fix_applied', isFriday: true },
+          { date: '2025-04-03', storageKey: 'stats_april_3_2025_fix_applied', isFriday: false },
+          { date: '2025-04-02', storageKey: 'stats_april_2_2025_fix_applied', isFriday: false },
+          { date: '2025-04-01', storageKey: 'stats_april_1_2025_fix_applied', isFriday: false },
+          { date: '2025-03-31', storageKey: 'stats_march_31_2025_fix_applied', isFriday: false }
         ];
         
-        // Process each date only if it hasn't been processed before
-        for (const { date, storageKey } of additionalDates) {
+        // Process each date only if it hasn't been processed before - and not a Friday
+        for (const { date, storageKey, isFriday } of additionalDates) {
+          if (isFriday) {
+            console.log(`Skipping ${date} - it's a Friday (no classes)`);
+            continue;
+          }
+          
           if (!localStorage.getItem(storageKey)) {
             console.log(`Processing attendance for ${date} - not yet processed`);
             const result = await processAttendanceForDate(date);

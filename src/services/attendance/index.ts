@@ -5,7 +5,8 @@
 export { 
   markPendingAsAbsent, 
   processPendingAttendance, 
-  processAttendanceForDate 
+  processAttendanceForDate,
+  removeApril4thRecords
 } from './pendingAttendance';
 
 // Export from automatedNotes.ts

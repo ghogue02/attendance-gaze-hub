@@ -9,7 +9,8 @@ import {
   subscribeToAttendanceChanges, 
   fetchStats,
   processSpecificDateIssues,
-  processPendingAttendance 
+  processPendingAttendance,
+  clearAutomatedNotesForPresentStudents
 } from '@/services/attendanceService';
 
 export const StatsSection = () => {
@@ -103,6 +104,22 @@ export const StatsSection = () => {
     
     // Process attendance issues and previous day's pending records
     processAttendance();
+    
+    // Clear any automated absence notes for students who are present today
+    const clearAutomatedNotes = async () => {
+      try {
+        const clearedCount = await clearAutomatedNotesForPresentStudents();
+        if (clearedCount > 0) {
+          console.log(`Cleared automated absence notes for ${clearedCount} students who are present today`);
+          toast.success(`Updated ${clearedCount} attendance records`);
+        }
+      } catch (error) {
+        console.error('Error clearing automated notes:', error);
+      }
+    };
+    
+    // Run the clear function when the component mounts
+    clearAutomatedNotes();
     
     // Subscribe to attendance changes using the shared subscription service
     const unsubscribe = subscribeToAttendanceChanges(() => {

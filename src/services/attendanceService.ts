@@ -301,3 +301,69 @@ export const processAttendanceForDate = async (dateString: string): Promise<numb
     return 0;
   }
 };
+
+// Clear automated absence notes for students who are present today
+export const clearAutomatedNotesForPresentStudents = async (): Promise<number> => {
+  try {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`[clearAutomatedNotesForPresentStudents] Clearing automated notes for present/late students on ${today}`);
+    
+    // Find all records for today that have status 'present' or 'late' and have an automated note
+    const { data: recordsToUpdate, error: fetchError } = await supabase
+      .from('attendance')
+      .select('id, notes, status')
+      .eq('date', today)
+      .in('status', ['present', 'late'])
+      .not('notes', 'is', null);
+      
+    if (fetchError) {
+      console.error('Error fetching records to clean notes:', fetchError);
+      return 0;
+    }
+    
+    if (!recordsToUpdate || recordsToUpdate.length === 0) {
+      console.log('No records found with automated notes that need clearing');
+      return 0;
+    }
+    
+    // Filter out only records with automated notes
+    const recordsWithAutomatedNotes = recordsToUpdate.filter(record => {
+      const notes = record.notes?.toLowerCase() || '';
+      return notes.includes('automatically marked') || 
+             notes.includes('auto marked') || 
+             notes.includes('marked absent by system');
+    });
+    
+    console.log(`Found ${recordsWithAutomatedNotes.length} records with automated notes that need to be cleared`);
+    
+    if (recordsWithAutomatedNotes.length === 0) {
+      return 0;
+    }
+    
+    // Update each record to clear the notes
+    let updatedCount = 0;
+    for (const record of recordsWithAutomatedNotes) {
+      const { error: updateError } = await supabase
+        .from('attendance')
+        .update({ 
+          notes: null,
+          time_recorded: new Date().toISOString()
+        })
+        .eq('id', record.id);
+        
+      if (updateError) {
+        console.error(`Error clearing note for record ${record.id}:`, updateError);
+      } else {
+        updatedCount++;
+      }
+    }
+    
+    console.log(`Successfully cleared automated notes for ${updatedCount} records`);
+    return updatedCount;
+    
+  } catch (error) {
+    console.error('Error in clearAutomatedNotesForPresentStudents:', error);
+    return 0;
+  }
+};

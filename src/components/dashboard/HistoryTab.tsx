@@ -3,7 +3,10 @@ import { useState, useCallback, memo, useMemo, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
-import { subscribeToAttendanceChanges } from '@/services/attendanceService';
+import { subscribeToAttendanceChanges, clearAutomatedNotesForPresentStudents } from '@/services/attendanceService';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 interface HistoryTabProps {
   builders: Builder[];
@@ -12,6 +15,7 @@ interface HistoryTabProps {
 const HistoryTab = memo(({ builders }: HistoryTabProps) => {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isClearing, setIsClearing] = useState(false);
   
   const handleRetry = useCallback(() => {
     setError(null);
@@ -20,6 +24,25 @@ const HistoryTab = memo(({ builders }: HistoryTabProps) => {
   
   const handleError = useCallback((message: string) => {
     setError(message);
+  }, []);
+  
+  const handleClearAutomatedNotes = useCallback(async () => {
+    setIsClearing(true);
+    try {
+      const clearedCount = await clearAutomatedNotesForPresentStudents();
+      if (clearedCount > 0) {
+        toast.success(`Cleared automated absence notes for ${clearedCount} students`);
+        // Refresh the data
+        setRefreshKey(prev => prev + 1);
+      } else {
+        toast.info('No automated notes needed to be cleared');
+      }
+    } catch (error) {
+      console.error('Error clearing automated notes:', error);
+      toast.error('Error clearing automated notes');
+    } finally {
+      setIsClearing(false);
+    }
   }, []);
   
   // Set up a redundant subscription at the top level to ensure
@@ -42,6 +65,15 @@ const HistoryTab = memo(({ builders }: HistoryTabProps) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Attendance History</h2>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={handleClearAutomatedNotes} 
+          disabled={isClearing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isClearing ? 'animate-spin' : ''}`} />
+          Clear Automated Notes
+        </Button>
       </div>
       
       {error && (

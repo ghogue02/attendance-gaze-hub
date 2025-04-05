@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
-import { format, parseISO, subDays, isAfter } from 'date-fns';
+import { subDays, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 import { parseAsUTC, isLateArrivalUTC, getCurrentDateString } from '@/utils/date/dateUtils';
 
@@ -87,11 +87,8 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         
         console.log('Raw attendance data fetched for chart:', attendanceData?.length || 0, 'records');
         
-        if (!attendanceData || attendanceData.length === 0) {
-          setChartData([]);
-          setIsLoading(false);
-          return;
-        }
+        // Even if we don't have attendance data, we still want to create the date range
+        // to show zeros for days with no records
         
         // Create a map to aggregate attendance by date
         const dateMap = new Map<string, { Present: number; Late: number; Absent: number; Excused: number }>();
@@ -100,7 +97,6 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         // Generate all dates in the range - completely recreated to ensure consistency
         const startDateObj = parseAsUTC(dateRange.start);
         const endDateObj = parseAsUTC(dateRange.end);
-        const datesInRange: string[] = [];
         
         // Loop through each date in the range and add to the map
         const currentDate = new Date(startDateObj);
@@ -117,7 +113,6 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
               Absent: 0,
               Excused: 0
             });
-            datesInRange.push(dateStr);
             logDateDebug(dateStr, `Added to chart`);
           } else {
             logDateDebug(dateStr, `Excluding Friday from chart`);
@@ -127,114 +122,102 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
         
-        console.log("Dates included in chart:", datesInRange);
-        console.log("Day of week for each date in chart:");
-        datesInRange.forEach(dateStr => {
-          const date = parseAsUTC(dateStr);
-          console.log(`${dateStr}: UTC Day ${date.getUTCDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getUTCDay()]})`);
-        });
+        console.log("Dates included in chart:", Array.from(dateMap.keys()));
         
-        // Group attendance records by date for more accurate processing
-        const recordsByDate = new Map<string, any[]>();
-        attendanceData.forEach(record => {
-          const dateStr = record.date;
-          if (!recordsByDate.has(dateStr)) {
-            recordsByDate.set(dateStr, []);
-          }
-          recordsByDate.get(dateStr)!.push(record);
-        });
-        
-        // Process attendance records by date
-        recordsByDate.forEach((records, dateStr) => {
-          const recordDate = parseAsUTC(dateStr);
-          const dayOfWeek = recordDate.getUTCDay(); // Use UTC day
-          
-          // Skip Friday records
-          if (dayOfWeek === 5) {
-            logDateDebug(dateStr, `Skipping Friday records`);
-            return;
-          }
-          
-          if (!dateMap.has(dateStr)) {
-            // This could happen if the date is outside our range but still got returned
-            // Create the entry if it's in our dateRange but wasn't initialized
-            const checkDate = parseAsUTC(dateStr);
-            const startDateObj = parseAsUTC(dateRange.start);
-            const endDateObj = parseAsUTC(dateRange.end);
-            
-            if (checkDate >= startDateObj && checkDate <= endDateObj && checkDate.getUTCDay() !== 5) {
-              dateMap.set(dateStr, {
-                Present: 0,
-                Late: 0,
-                Absent: 0,
-                Excused: 0
-              });
-              logDateDebug(dateStr, `Added missing date to chart`);
-            } else {
-              logDateDebug(dateStr, `Skipping out-of-range date`);
-              return;
+        // If we have attendance data, process it
+        if (attendanceData && attendanceData.length > 0) {
+          // Group attendance records by date for more accurate processing
+          const recordsByDate = new Map<string, any[]>();
+          attendanceData.forEach(record => {
+            const dateStr = record.date;
+            if (!recordsByDate.has(dateStr)) {
+              recordsByDate.set(dateStr, []);
             }
-          }
-          
-          const dateStats = dateMap.get(dateStr)!;
-          
-          // Process all records for this date
-          records.forEach(record => {
-            // Map the status properly with late detection using UTC time
-            if (record.status === 'present') {
-              let isMarkedLate = false;
-              
-              if (record.time_recorded) {
-                try {
-                  // Parse time_recorded as a Date object
-                  const timeRecordedDate = new Date(record.time_recorded);
-                  
-                  if (!isNaN(timeRecordedDate.getTime())) {
-                    // Extract UTC hours and minutes
-                    const hourUTC = timeRecordedDate.getUTCHours();
-                    const minutesUTC = timeRecordedDate.getUTCMinutes();
-                    const dayOfWeekUTC = recordDate.getUTCDay();
-                    
-                    // Use the UTC-based late check
-                    isMarkedLate = isLateArrivalUTC(dayOfWeekUTC, hourUTC, minutesUTC);
-                    
-                    // Enhanced Debug logging for weekends/weekdays
-                    const timeStr = `${String(hourUTC).padStart(2, '0')}:${String(minutesUTC).padStart(2, '0')} UTC`;
-                    if (dayOfWeekUTC === 0 || dayOfWeekUTC === 6) { // Weekend
-                      console.log(`DEBUG ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeekUTC]} ${dateStr}: ` +
-                        `time=${record.time_recorded} (${timeStr}), Late if >= 14:00 UTC? -> ${isMarkedLate}`);
-                    } else if (dayOfWeekUTC >= 1 && dayOfWeekUTC <= 4) { // Weekday
-                      const totalMinutesUTC = hourUTC * 60 + minutesUTC;
-                      console.log(`DEBUG ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeekUTC]} ${dateStr}: ` +
-                        `time=${record.time_recorded} (${timeStr}), Late if >= 22:30 UTC? -> ${isMarkedLate} (Total UTC mins: ${totalMinutesUTC})`);
-                    }
-                  } else {
-                    console.warn(`Invalid time_recorded format for record on ${dateStr}: ${record.time_recorded}`);
-                  }
-                } catch (e) {
-                  console.error(`Error parsing time_recorded for record on ${dateStr}: ${record.time_recorded}`, e);
-                }
-              }
-              
-              if (isMarkedLate) {
-                dateStats.Late++;
-              } else {
-                dateStats.Present++;
-              }
-            } else if (record.status === 'late') {
-              dateStats.Late++;
-            } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
-              dateStats.Excused++;
-            } else if (record.status === 'absent') {
-              dateStats.Absent++;
-            }
+            recordsByDate.get(dateStr)!.push(record);
           });
           
-          // For debugging specific dates
-          if (dateStr === '2025-03-29' || dateStr === '2025-03-30') {
-            console.log(`Attendance counts for ${dateStr}:`, { ...dateStats });
-          }
-        });
+          // Process attendance records by date
+          recordsByDate.forEach((records, dateStr) => {
+            const recordDate = parseAsUTC(dateStr);
+            const dayOfWeek = recordDate.getUTCDay(); // Use UTC day
+            
+            // Skip Friday records
+            if (dayOfWeek === 5) {
+              logDateDebug(dateStr, `Skipping Friday records`);
+              return;
+            }
+            
+            if (!dateMap.has(dateStr)) {
+              // This could happen if the date is outside our range but still got returned
+              // Create the entry if it's in our dateRange but wasn't initialized
+              const checkDate = parseAsUTC(dateStr);
+              const startDateObj = parseAsUTC(dateRange.start);
+              const endDateObj = parseAsUTC(dateRange.end);
+              
+              if (checkDate >= startDateObj && checkDate <= endDateObj && checkDate.getUTCDay() !== 5) {
+                dateMap.set(dateStr, {
+                  Present: 0,
+                  Late: 0,
+                  Absent: 0,
+                  Excused: 0
+                });
+                logDateDebug(dateStr, `Added missing date to chart`);
+              } else {
+                logDateDebug(dateStr, `Skipping out-of-range date`);
+                return;
+              }
+            }
+            
+            const dateStats = dateMap.get(dateStr)!;
+            
+            // Process all records for this date
+            records.forEach(record => {
+              // Map the status properly
+              if (record.status === 'present') {
+                let isMarkedLate = false;
+                
+                if (record.time_recorded) {
+                  try {
+                    // Parse time_recorded as a Date object
+                    const timeRecordedDate = new Date(record.time_recorded);
+                    
+                    if (!isNaN(timeRecordedDate.getTime())) {
+                      // Extract UTC hours and minutes
+                      const hourUTC = timeRecordedDate.getUTCHours();
+                      const minutesUTC = timeRecordedDate.getUTCMinutes();
+                      const dayOfWeekUTC = recordDate.getUTCDay();
+                      
+                      // Use the UTC-based late check
+                      isMarkedLate = isLateArrivalUTC(dayOfWeekUTC, hourUTC, minutesUTC);
+                    }
+                  } catch (e) {
+                    console.error(`Error parsing time_recorded for record on ${dateStr}: ${record.time_recorded}`, e);
+                  }
+                }
+                
+                if (isMarkedLate) {
+                  dateStats.Late++;
+                } else {
+                  dateStats.Present++;
+                }
+              } else if (record.status === 'late') {
+                dateStats.Late++;
+              } else if (record.status === 'excused' || (record.status === 'absent' && record.excuse_reason)) {
+                dateStats.Excused++;
+              } else if (record.status === 'absent') {
+                dateStats.Absent++;
+              } else if (record.status === 'pending') {
+                // Count pending as absent in the chart
+                dateStats.Absent++;
+              }
+            });
+            
+            // For debugging specific dates
+            if (dateStr === '2025-04-01' || dateStr === '2025-04-02' || dateStr === '2025-04-03') {
+              console.log(`Attendance counts for ${dateStr}:`, { ...dateStats });
+            }
+          });
+        }
         
         // Convert the map to an array of chart data objects
         const formattedData: DailyAttendance[] = Array.from(dateMap.entries()).map(([dateStr, counts]) => {
@@ -280,10 +263,12 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         cleanedData.sort((a, b) => a.date.localeCompare(b.date));
         
         // Log specific dates data to debug
-        const mar29Data = cleanedData.find(d => d.date === '2025-03-29');
-        const mar30Data = cleanedData.find(d => d.date === '2025-03-30');
-        console.log('March 29 data:', mar29Data);
-        console.log('March 30 data:', mar30Data);
+        const apr1Data = cleanedData.find(d => d.date === '2025-04-01');
+        const apr2Data = cleanedData.find(d => d.date === '2025-04-02');
+        const apr3Data = cleanedData.find(d => d.date === '2025-04-03');
+        console.log('April 1 data:', apr1Data);
+        console.log('April 2 data:', apr2Data);
+        console.log('April 3 data:', apr3Data);
         
         console.log('Prepared chart data:', cleanedData);
         setChartData(cleanedData);

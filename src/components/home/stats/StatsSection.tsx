@@ -22,23 +22,29 @@ export const StatsSection = () => {
   // Check if we need to process specific dates or mark students absent from previous day
   const processAttendance = async () => {
     try {
-      // First process specific problematic dates, including 3/31/2025
+      // First process specific problematic dates
       await processSpecificDateIssues();
       
-      // Specifically check for 3/31/2025 and make sure it's processed
-      const march31_2025 = '2025-03-31';
-      const march31StorageKey = `fix_applied_${march31_2025.replace(/-/g, '_')}`;
+      // Specifically check for issue dates and make sure they're processed
+      const issueDates = [
+        { date: '2025-04-01', storageKey: `fix_applied_2025_04_01` },
+        { date: '2025-04-02', storageKey: `fix_applied_2025_04_02` },
+        { date: '2025-04-03', storageKey: `fix_applied_2025_04_03` }
+      ];
       
-      if (!localStorage.getItem(march31StorageKey)) {
-        console.log(`StatsSection: Specifically processing 3/31/2025`);
-        const result = await processPendingAttendance(march31_2025);
-        
-        if (result > 0) {
-          toast.success(`Fixed ${result} attendance records for March 31, 2025`);
+      for (const { date, storageKey } of issueDates) {
+        // Only process if not already done
+        if (!localStorage.getItem(storageKey)) {
+          console.log(`StatsSection: Specifically processing ${date}`);
+          const result = await processPendingAttendance(date);
+          
+          if (result > 0) {
+            toast.success(`Fixed ${result} attendance records for ${date}`);
+          }
+          
+          // Mark as processed
+          localStorage.setItem(storageKey, 'true');
         }
-        
-        // Mark as processed
-        localStorage.setItem(march31StorageKey, 'true');
       }
       
       // Also check previous day
@@ -106,17 +112,18 @@ export const StatsSection = () => {
     
     const refreshInterval = setInterval(updateStats, 60000);
     
-    // Set up midnight check
+    // Set up midnight check for automatic processing
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 1, 0);
+    tomorrow.setHours(0, 10, 0, 0); // Run 10 minutes after midnight
     
     const timeUntilMidnight = tomorrow.getTime() - now.getTime();
     
     const midnightCheck = setTimeout(() => {
-      const today = new Date().toISOString().split('T')[0];
-      markPendingAsAbsent(today);
+      // Run at midnight for yesterday (which is now today)
+      const todayStr = new Date().toISOString().split('T')[0];
+      markPendingAsAbsent(todayStr);
       
       const nextMidnightCheck = setInterval(() => {
         const currentDate = new Date().toISOString().split('T')[0];

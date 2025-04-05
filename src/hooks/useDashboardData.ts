@@ -1,7 +1,7 @@
 
 // src/hooks/useDashboardData.ts
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import { getAllBuilders } from '@/utils/faceRecognition/attendance';
 import { getCurrentDateString, getDisplayDateString, logDateDebugInfo } from '@/utils/date/dateUtils';
@@ -37,6 +37,8 @@ export const useDashboardData = () => {
         setBuilders(data);
         console.log(`[useDashboardData] setBuilders called with ${data.length} builders for ${targetDateString}.`);
         console.log(`[useDashboardData] Present count: ${data.filter(b => b.status === 'present').length}`);
+        console.log(`[useDashboardData] Absent count: ${data.filter(b => b.status === 'absent').length}`);
+        console.log(`[useDashboardData] Pending count: ${data.filter(b => b.status === 'pending').length}`);
       }
     } catch (error) {
       console.error('[useDashboardData] Error during loadData:', error);
@@ -53,15 +55,22 @@ export const useDashboardData = () => {
   });
 
   // Effect for initial load
-  useState(() => {
+  useEffect(() => {
     isMounted.current = true;
     console.log('[useDashboardData] Component mounted. Initial load starting.');
     loadData(); // Initial load for the target date
+    
+    // Set up auto-refresh interval (every 60 seconds)
+    const refreshInterval = setInterval(() => {
+      console.log('[useDashboardData] Auto-refresh triggered.');
+      loadData(false); // Don't show loading spinner for auto refresh
+    }, 60000);
 
     return () => {
       isMounted.current = false;
+      clearInterval(refreshInterval);
     };
-  });
+  }, [loadData]);
 
   // Use the filtering hook
   const {

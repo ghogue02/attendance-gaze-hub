@@ -61,17 +61,13 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
     return date.getUTCDay() !== 5; // Filter out Fridays (5) using UTC
   });
   
-  // Log the dates we're about to render with their UTC day info
-  console.log("Chart data to be rendered:", filteredData.map(d => {
-    const date = parseAsUTC(d.date);
-    return `${d.date} (${d.name}, UTC Day: ${date.getUTCDay()})`;
-  }));
-  
-  // Make sure to log the specific dates we're having issues with
-  const mar29Data = filteredData.find(d => d.date === '2025-03-29');
-  const mar30Data = filteredData.find(d => d.date === '2025-03-30');
-  console.log('Bar chart March 29 data:', mar29Data);
-  console.log('Bar chart March 30 data:', mar30Data);
+  // Log specific dates we care about
+  const apr1Data = filteredData.find(d => d.date === '2025-04-01');
+  const apr2Data = filteredData.find(d => d.date === '2025-04-02');
+  const apr3Data = filteredData.find(d => d.date === '2025-04-03');
+  console.log('Bar chart April 1 data:', apr1Data);
+  console.log('Bar chart April 2 data:', apr2Data);
+  console.log('Bar chart April 3 data:', apr3Data);
   
   // If after filtering Fridays we have no data, show empty state
   if (filteredData.length === 0) {

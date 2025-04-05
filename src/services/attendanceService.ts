@@ -1,159 +1,303 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { markPendingAsAbsent } from '@/utils/attendance/processing/pendingProcessor';
+import { toast } from 'sonner';
 
-/**
- * Fetches statistics about students and attendance
- * @returns Object containing total builders and attendance rate
- */
-export const fetchStats = async () => {
+// Export a function to mark pending attendance records as absent for a specific date
+export const markPendingAsAbsent = async (dateString: string): Promise<number> => {
+  console.log(`[markPendingAsAbsent] Processing pending attendance for ${dateString}`);
   try {
-    const { count: totalBuilders, error: buildersError } = await supabase
+    // 1. Find all students who have no attendance record or 'pending' status for the given date
+    const { data: studentsWithoutAttendance, error: studentsError } = await supabase
       .from('students')
-      .select('*', { count: 'exact', head: true });
-      
-    if (buildersError) {
-      console.error('Error fetching builders count:', buildersError);
-      return { totalBuilders: 0, attendanceRate: 0 };
+      .select('id, first_name, last_name')
+      .order('last_name');
+    
+    if (studentsError) {
+      console.error(`[markPendingAsAbsent] Error fetching students:`, studentsError);
+      return 0;
     }
     
-    const today = new Date().toISOString().split('T')[0];
-    const { data: attendanceData, error: attendanceError } = await supabase
+    if (!studentsWithoutAttendance || studentsWithoutAttendance.length === 0) {
+      console.log(`[markPendingAsAbsent] No students found in the database.`);
+      return 0;
+    }
+    
+    // 2. Get all attendance records for that date to compare
+    const { data: attendanceRecords, error: attendanceError } = await supabase
       .from('attendance')
-      .select('*')
-      .eq('date', today);
-      
+      .select('student_id, status')
+      .eq('date', dateString);
+    
     if (attendanceError) {
-      console.error('Error fetching attendance:', attendanceError);
-      return { totalBuilders: totalBuilders || 0, attendanceRate: 0 };
+      console.error(`[markPendingAsAbsent] Error fetching attendance:`, attendanceError);
+      return 0;
     }
     
-    const presentCount = attendanceData?.filter(record => 
-      record.status === 'present'
-    ).length || 0;
-    
-    const attendanceRate = totalBuilders ? 
-      Math.round((presentCount / totalBuilders) * 100) : 0;
-      
-    console.log('Stats updated:', {
-      totalBuilders,
-      presentCount,
-      attendanceRate
+    // 3. Create a map of student IDs with their attendance status
+    const attendanceMap = new Map();
+    attendanceRecords?.forEach(record => {
+      attendanceMap.set(record.student_id, record.status);
     });
-      
-    return {
-      totalBuilders: totalBuilders || 0,
-      attendanceRate
-    };
+    
+    // 4. Find students who need to be marked absent (no record or 'pending' status)
+    const studentsToMarkAbsent = studentsWithoutAttendance.filter(student => {
+      const status = attendanceMap.get(student.id);
+      return !status || status === 'pending';
+    });
+    
+    console.log(`[markPendingAsAbsent] Found ${studentsToMarkAbsent.length} students to mark as absent for ${dateString}`);
+    
+    if (studentsToMarkAbsent.length === 0) {
+      return 0;
+    }
+    
+    // 5. Create or update attendance records to 'absent'
+    const currentTime = new Date().toISOString();
+    const updates = studentsToMarkAbsent.map(student => ({
+      student_id: student.id,
+      date: dateString,
+      status: 'absent',
+      time_recorded: currentTime,
+      notes: 'Automatically marked absent by system'
+    }));
+    
+    // 6. Use upsert to create or update records
+    const { error: updateError, data } = await supabase
+      .from('attendance')
+      .upsert(updates, {
+        onConflict: 'student_id,date'
+      });
+    
+    if (updateError) {
+      console.error(`[markPendingAsAbsent] Error updating attendance:`, updateError);
+      return 0;
+    }
+    
+    console.log(`[markPendingAsAbsent] Successfully marked ${updates.length} students as absent for ${dateString}`);
+    return updates.length;
+    
   } catch (error) {
-    console.error('Error fetching stats:', error);
-    return { totalBuilders: 0, attendanceRate: 0 };
-  }
-};
-
-/**
- * Processes attendance for a specific date, marking pending as absent
- * @param dateString The date to process in YYYY-MM-DD format
- * @returns Promise with the number of records processed
- */
-export const processAttendanceForDate = async (dateString: string): Promise<number> => {
-  console.log(`Processing attendance records for ${dateString}`);
-  try {
-    return await markPendingAsAbsent(dateString);
-  } catch (error) {
-    console.error(`Error processing attendance for ${dateString}:`, error);
+    console.error(`[markPendingAsAbsent] Unexpected error:`, error);
     return 0;
   }
 };
 
-/**
- * Creates a Supabase subscription for attendance changes
- * @param callback Function to call when attendance changes
- * @returns Cleanup function to remove the subscription
- */
-export const subscribeToAttendanceChanges = (callback: () => void) => {
-  console.log('Setting up attendance subscription');
-  
-  // Use a channel name that includes a timestamp to ensure a unique channel each time
-  const channelName = `attendance-changes-${Date.now()}`;
-  
-  const channel = supabase
-    .channel(channelName)
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'attendance' }, 
-      (payload) => {
-        // Type-safe approach for accessing id
-        let recordId: string | undefined;
+// Process specific dates that had issues with absent marking
+export const processSpecificDateIssues = async (): Promise<void> => {
+  try {
+    // These dates need to be processed for missing absences
+    const specificDates = [
+      { date: '2025-04-01', storageKey: 'april_1_2025_fix_applied' },
+      { date: '2025-04-02', storageKey: 'april_2_2025_fix_applied' },
+      { date: '2025-04-03', storageKey: 'april_3_2025_fix_applied' }
+    ];
+    
+    for (const { date, storageKey } of specificDates) {
+      // Only process if not already done
+      if (!localStorage.getItem(storageKey)) {
+        console.log(`[processSpecificDateIssues] Processing ${date}`);
+        const result = await processPendingAttendance(date);
         
-        // Check if new payload exists and has id
-        if (payload.new && 
-            typeof payload.new === 'object' && 
-            payload.new !== null && 
-            'id' in payload.new && 
-            payload.new.id) {
-          recordId = String(payload.new.id);
-        } 
-        // Check if old payload exists and has id
-        else if (payload.old && 
-                typeof payload.old === 'object' && 
-                payload.old !== null && 
-                'id' in payload.old && 
-                payload.old.id) {
-          recordId = String(payload.old.id);
+        if (result > 0) {
+          console.log(`[processSpecificDateIssues] Fixed ${result} records for ${date}`);
         }
         
-        console.log('Attendance change detected:', payload.eventType, 'for record:', recordId || 'unknown');
+        // Mark as processed regardless of result
+        localStorage.setItem(storageKey, 'true');
+      }
+    }
+  } catch (error) {
+    console.error('[processSpecificDateIssues] Error:', error);
+  }
+};
+
+// Process pending attendance for a specific date
+export const processPendingAttendance = async (dateString: string): Promise<number> => {
+  console.log(`[processPendingAttendance] Processing attendance for ${dateString}`);
+  try {
+    // Find all attendance records for the date with 'pending' status
+    const { data: pendingRecords, error: pendingError } = await supabase
+      .from('attendance')
+      .select('id, student_id')
+      .eq('date', dateString)
+      .eq('status', 'pending');
+    
+    if (pendingError) {
+      console.error('[processPendingAttendance] Error fetching pending records:', pendingError);
+      return 0;
+    }
+    
+    if (!pendingRecords || pendingRecords.length === 0) {
+      console.log(`[processPendingAttendance] No pending records found for ${dateString}`);
+      
+      // Also try to find students with no records and create absent records for them
+      return await markPendingAsAbsent(dateString);
+    }
+    
+    // Update pending records to absent
+    const { error: updateError } = await supabase
+      .from('attendance')
+      .update({ 
+        status: 'absent',
+        time_recorded: new Date().toISOString(),
+        notes: 'Automatically updated from pending to absent'
+      })
+      .in('id', pendingRecords.map(r => r.id));
+    
+    if (updateError) {
+      console.error('[processPendingAttendance] Error updating pending records:', updateError);
+      return 0;
+    }
+    
+    console.log(`[processPendingAttendance] Updated ${pendingRecords.length} pending records to absent for ${dateString}`);
+    return pendingRecords.length;
+    
+  } catch (error) {
+    console.error('[processPendingAttendance] Error:', error);
+    return 0;
+  }
+};
+
+// Get attendance statistics for the front page
+export const fetchStats = async () => {
+  try {
+    // Get current date
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get total number of builders
+    const { data: studentCount, error: studentError } = await supabase
+      .from('students')
+      .select('id', { count: 'exact' });
+      
+    if (studentError) {
+      console.error('Error fetching student count:', studentError);
+      throw studentError;
+    }
+    
+    // Get attendance for today
+    const { data: attendanceData, error: attendanceError } = await supabase
+      .from('attendance')
+      .select('status')
+      .eq('date', today);
+      
+    if (attendanceError) {
+      console.error('Error fetching attendance:', attendanceError);
+      throw attendanceError;
+    }
+    
+    // Process attendance data
+    const totalBuilders = studentCount?.length || 0;
+    const presentCount = attendanceData?.filter(r => r.status === 'present').length || 0;
+    const lateCount = attendanceData?.filter(r => r.status === 'late').length || 0;
+    
+    // Calculate attendance rate (present + late)
+    const attendanceRate = totalBuilders > 0 
+      ? Math.round(((presentCount + lateCount) / totalBuilders) * 100)
+      : 0;
+      
+    return {
+      totalBuilders,
+      attendanceRate
+    };
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    return {
+      totalBuilders: 0,
+      attendanceRate: 0
+    };
+  }
+};
+
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+let attendanceChannel: RealtimeChannel | null = null;
+
+export const subscribeToAttendanceChanges = (callback: () => void) => {
+  if (!supabase) {
+    console.error('Supabase client is not initialized.');
+    return () => {};
+  }
+
+  if (attendanceChannel) {
+    console.log('Already subscribed to attendance changes, detaching previous subscription.');
+    supabase.removeChannel(attendanceChannel);
+    attendanceChannel = null;
+  }
+
+  attendanceChannel = supabase
+    .channel('attendance_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'attendance' },
+      (payload) => {
+        console.log('Attendance change detected!', payload);
         callback();
       }
     )
     .subscribe((status) => {
-      console.log(`Attendance subscription status: ${status}`);
+      if (status === 'SUBSCRIBED') {
+        console.log('Successfully subscribed to attendance changes.');
+      } else {
+        console.warn('Subscription status:', status);
+      }
     });
-  
-  // Return cleanup function
+
   return () => {
-    console.log('Cleaning up attendance subscription');
-    supabase.removeChannel(channel);
+    console.log('Unsubscribing from attendance changes.');
+    if (attendanceChannel) {
+      supabase.removeChannel(attendanceChannel);
+      attendanceChannel = null;
+    }
   };
 };
 
-/**
- * Manually triggers the process of marking pending students as absent
- * This can be called to mark all pending students as absent for a specific date
- * @param dateString Optional date string in YYYY-MM-DD format, defaults to today
- * @returns Promise with the number of records processed
- */
-export const processPendingAttendance = async (dateString?: string): Promise<number> => {
-  // Use provided date or default to today
-  const date = dateString || new Date().toISOString().split('T')[0];
-  console.log(`Manually processing pending attendance for ${date}`);
-  return await markPendingAsAbsent(date);
-};
-
-/**
- * Process specific dates that had issues with attendance marking
- * @returns Promise resolved when all processing is complete
- */
-export const processSpecificDateIssues = async (): Promise<void> => {
-  // Add specific dates that need to be reprocessed
-  const problemDates = [
-    { date: '2025-03-29', storageKey: 'fix_applied_march_29_2025' },
-    { date: '2025-03-30', storageKey: 'fix_applied_march_30_2025' },
-    { date: '2025-03-31', storageKey: 'fix_applied_march_31_2025' }  // Added March 31
-  ];
-  
-  for (const { date, storageKey } of problemDates) {
-    // Check if we've already processed this date
-    if (!localStorage.getItem(storageKey)) {
-      console.log(`Processing problem date: ${date}`);
-      const count = await processAttendanceForDate(date);
-      console.log(`Processed ${count} records for ${date}`);
-      
-      // Mark as processed
-      localStorage.setItem(storageKey, 'true');
+// Process attendance for a specific date
+export const processAttendanceForDate = async (dateString: string): Promise<number> => {
+  console.log(`Processing attendance for ${dateString}`);
+  try {
+    // Find all attendance records for the date
+    const { data: attendanceRecords, error: attendanceError } = await supabase
+      .from('attendance')
+      .select('id, student_id, status')
+      .eq('date', dateString);
+    
+    if (attendanceError) {
+      console.error('Error fetching attendance records:', attendanceError);
+      return 0;
     }
+    
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      console.log(`No attendance records found for ${dateString}`);
+      return 0;
+    }
+    
+    let updatedCount = 0;
+    
+    // Loop through each record and update if necessary
+    for (const record of attendanceRecords) {
+      if (record.status === 'pending') {
+        // Update pending records to absent
+        const { error: updateError } = await supabase
+          .from('attendance')
+          .update({ 
+            status: 'absent',
+            time_recorded: new Date().toISOString(),
+            notes: 'Automatically updated from pending to absent'
+          })
+          .eq('id', record.id);
+        
+        if (updateError) {
+          console.error('Error updating pending record:', updateError);
+        } else {
+          updatedCount++;
+        }
+      }
+    }
+    
+    console.log(`Updated ${updatedCount} pending records to absent for ${dateString}`);
+    return updatedCount;
+    
+  } catch (error) {
+    console.error('Error processing attendance:', error);
+    return 0;
   }
 };
-
-// Re-export the attendance marking utility since it's used in the frontend
-export { markPendingAsAbsent };

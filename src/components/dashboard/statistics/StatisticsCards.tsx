@@ -3,13 +3,20 @@ import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
 import { toast } from 'sonner';
-import { processAttendanceForDate, processSpecificDateIssues, processPendingAttendance } from '@/services/attendanceService';
+import { 
+  processAttendanceForDate, 
+  processSpecificDateIssues, 
+  processPendingAttendance, 
+  markPendingAsAbsent 
+} from '@/services/attendanceService';
 
 interface StatisticsCardsProps {
   builders: Builder[];
 }
 
 const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  
   // Calculate statistics based on builders data
   const stats = useMemo(() => {
     const totalBuilders = builders.length;
@@ -26,8 +33,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       excusedCount, 
       pendingCount,
       attendanceRate,
-      currentDate: new Date().toISOString().split('T')[0],
-      buildersSample: builders.slice(0, 2)
+      currentDate: new Date().toISOString().split('T')[0]
     });
     
     return {
@@ -43,48 +49,73 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   // Process specific dates with absent marking issues
   useEffect(() => {
     const processAttendanceIssues = async () => {
-      // Process the general set of problematic dates
-      await processSpecificDateIssues();
+      if (isProcessing) return; // Prevent concurrent processing
+      setIsProcessing(true);
       
-      // Define additional specific dates we want to process
-      const additionalDates = [
-        { date: '2025-03-31', storageKey: 'stats_march_31_2025_fix_applied' }, // Added March 31
-        { date: '2025-03-27', storageKey: 'march_27_2025_fix_applied' },
-        { date: '2025-03-26', storageKey: 'march_26_2025_fix_applied' }
-      ];
-      
-      // Process each date only if it hasn't been processed before
-      for (const { date, storageKey } of additionalDates) {
-        if (!localStorage.getItem(storageKey)) {
-          console.log(`Processing attendance for ${date} - not yet processed`);
-          const result = await processAttendanceForDate(date);
+      try {
+        // Process the general set of problematic dates
+        await processSpecificDateIssues();
+        
+        // Get current date for automatic processing
+        const today = new Date().toISOString().split('T')[0];
+        
+        // If we have a significant number of pending records, try to fix them
+        if (stats.pendingCount > 0 && stats.pendingCount / stats.totalBuilders > 0.5) {
+          console.log(`High pending count detected (${stats.pendingCount}/${stats.totalBuilders}), running auto-fix`);
+          const result = await markPendingAsAbsent(today);
           
           if (result > 0) {
-            toast.success(`Fixed ${result} attendance records for ${date}`);
-            console.log(`Successfully fixed ${result} attendance records for ${date}`);
-          } else {
-            // If no records were updated, try the alternative method
-            console.log(`No records updated via standard method for ${date}, trying direct processing`);
-            const directResult = await processPendingAttendance(date);
-            
-            if (directResult > 0) {
-              toast.success(`Fixed ${directResult} attendance records for ${date} (direct method)`);
-            } else {
-              console.log(`No pending attendance records found for ${date}`);
-            }
+            toast.success(`Updated attendance status for ${result} students`);
           }
-          
-          // Mark this fix as applied regardless of result
-          localStorage.setItem(storageKey, 'true');
-        } else {
-          console.log(`Skipping ${date} - already processed previously`);
         }
+        
+        // Define additional specific dates we want to process
+        const additionalDates = [
+          { date: '2025-04-05', storageKey: 'stats_april_5_2025_fix_applied' },
+          { date: '2025-04-04', storageKey: 'stats_april_4_2025_fix_applied' },
+          { date: '2025-04-03', storageKey: 'stats_april_3_2025_fix_applied' },
+          { date: '2025-04-02', storageKey: 'stats_april_2_2025_fix_applied' },
+          { date: '2025-04-01', storageKey: 'stats_april_1_2025_fix_applied' },
+          { date: '2025-03-31', storageKey: 'stats_march_31_2025_fix_applied' }
+        ];
+        
+        // Process each date only if it hasn't been processed before
+        for (const { date, storageKey } of additionalDates) {
+          if (!localStorage.getItem(storageKey)) {
+            console.log(`Processing attendance for ${date} - not yet processed`);
+            const result = await processAttendanceForDate(date);
+            
+            if (result > 0) {
+              toast.success(`Fixed ${result} attendance records for ${date}`);
+              console.log(`Successfully fixed ${result} attendance records for ${date}`);
+            } else {
+              // If no records were updated, try the alternative method
+              console.log(`No records updated via standard method for ${date}, trying direct processing`);
+              const directResult = await processPendingAttendance(date);
+              
+              if (directResult > 0) {
+                toast.success(`Fixed ${directResult} attendance records for ${date} (direct method)`);
+              } else {
+                console.log(`No pending attendance records found for ${date}`);
+              }
+            }
+            
+            // Mark this fix as applied regardless of result
+            localStorage.setItem(storageKey, 'true');
+          } else {
+            console.log(`Skipping ${date} - already processed previously`);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing attendance issues:', error);
+      } finally {
+        setIsProcessing(false);
       }
     };
     
     // Run the process on mount
     processAttendanceIssues();
-  }, []);
+  }, [stats.pendingCount, stats.totalBuilders]);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { BuilderStatus } from '@/components/builder/types';
 import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
-import { StatusRadioGroup } from '../BuilderStatusButtons';
+import { StatusRadioGroup } from '@/components/builder/BuilderStatusButtons';
 
 interface AddNewDateFormProps {
   onCancel: () => void;
@@ -17,14 +16,12 @@ interface AddNewDateFormProps {
   existingDates: string[];
 }
 
-// Function to check if a date is a Friday (day 5)
 const isFriday = (date: Date): boolean => {
-  return date.getDay() === 5; // Friday is day 5 (0-based, where Sunday is 0)
+  return date.getDay() === 5;
 };
 
-// Function to check if a date is April 4th, 2025
 const isApril4th2025 = (date: Date): boolean => {
-  return date.getFullYear() === 2025 && date.getMonth() === 3 && date.getDate() === 4; // April is month 3 (0-based)
+  return date.getFullYear() === 2025 && date.getMonth() === 3 && date.getDate() === 4;
 };
 
 const AddNewDateForm = ({ onCancel, onSave, isLoading, existingDates }: AddNewDateFormProps) => {
@@ -89,7 +86,6 @@ const AddNewDateForm = ({ onCancel, onSave, isLoading, existingDates }: AddNewDa
                 setOpen(false);
               }}
               disabled={(date) => {
-                // Disable Fridays and April 4th, 2025
                 return isFriday(date) || isApril4th2025(date);
               }}
               initialFocus

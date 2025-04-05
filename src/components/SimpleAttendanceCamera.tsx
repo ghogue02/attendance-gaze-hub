@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useCamera } from '@/hooks/camera/useCamera';

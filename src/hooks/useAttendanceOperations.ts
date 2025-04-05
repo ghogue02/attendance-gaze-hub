@@ -1,52 +1,56 @@
 
-import { useCallback } from 'react';
-import { Builder, BuilderStatus } from '@/components/builder/types';
-import { markAttendance } from '@/utils/attendance';
+import { useState } from 'react';
+import { BuilderStatus } from '@/components/builder/types';
+import { markAttendance } from '@/utils/attendance/markAttendance';
 import { toast } from 'sonner';
 
-interface AttendanceParams {
-  builders: Builder[];
+interface UseAttendanceOperationsProps {
+  builders: any[];
   targetDateString: string;
   onAttendanceMarked: () => void;
 }
 
-/**
- * Hook to manage attendance marking operations
- */
-export const useAttendanceOperations = ({ 
-  builders, 
+export const useAttendanceOperations = ({
+  builders,
   targetDateString,
-  onAttendanceMarked 
-}: AttendanceParams) => {
-  
-  // Handler for marking attendance
-  const handleMarkAttendance = useCallback(async (builderId: string, status: BuilderStatus, excuseReason?: string) => {
-    console.log(`[useAttendanceOperations] handleMarkAttendance called for ${builderId} with status ${status} for date ${targetDateString}`);
-    const originalBuilders = [...builders];
+  onAttendanceMarked
+}: UseAttendanceOperationsProps) => {
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+
+  const handleMarkAttendance = async (
+    builderId: string,
+    status: BuilderStatus,
+    excuseReason?: string
+  ) => {
+    if (isUpdating) return;
     
     try {
-      const newStatus = (status === 'absent' && excuseReason) ? 'excused' : status;
-      const newTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-      const newExcuse = (newStatus === 'excused') ? (excuseReason || originalBuilders.find(b => b.id === builderId)?.excuseReason) : undefined;
-
-      // Explicitly pass the current date to markAttendance to ensure correct date recording
+      setIsUpdating(builderId);
+      console.log(`Marking ${builderId} as ${status} for ${targetDateString}`);
+      
       const success = await markAttendance(builderId, status, excuseReason, targetDateString);
-
+      
       if (success) {
-        const statusText = newStatus === 'excused' ? 'Excused absence recorded' : `Attendance marked as ${newStatus}`;
-        toast.success(statusText);
-        // Call the callback to trigger data reload
-        onAttendanceMarked();
+        const statusText = status === 'excused' ? 'excused absence' : status;
+        toast.success(`Marked ${statusText} successfully`);
+        
+        // Refresh data after marking attendance
+        if (onAttendanceMarked) {
+          onAttendanceMarked();
+        }
       } else {
-        toast.error('Failed to save attendance update to database');
+        toast.error('Failed to update attendance');
       }
     } catch (error) {
-      console.error('[useAttendanceOperations] Error marking attendance:', error);
-      toast.error('An error occurred while updating attendance');
+      console.error('Error marking attendance:', error);
+      toast.error('Error updating attendance');
+    } finally {
+      setIsUpdating(null);
     }
-  }, [builders, targetDateString, onAttendanceMarked]);
+  };
 
   return {
+    isUpdating,
     handleMarkAttendance
   };
 };

@@ -36,7 +36,7 @@ export const markAttendance = async (
     // Check if attendance record already exists for this date
     const { data: existingRecord, error: checkError } = await supabase
       .from('attendance')
-      .select('id')
+      .select('id, status, notes')
       .eq('student_id', studentId)
       .eq('date', targetDate)
       .single();
@@ -49,12 +49,25 @@ export const markAttendance = async (
     let result;
     
     if (existingRecord) {
+      // Determine if we should clear automated notes
+      let notesToUpdate = existingRecord.notes;
+      
+      // If changing from absent/pending to present/late, and the note was automated, clear it
+      if ((status === 'present' || status === 'late') && 
+          (existingRecord.status === 'absent' || existingRecord.status === 'pending') && 
+          notesToUpdate && 
+          notesToUpdate.includes('Automatically marked')) {
+        notesToUpdate = null;
+        console.log('Clearing automated absence note as student is now present/late');
+      }
+      
       // Update the existing record
       result = await supabase
         .from('attendance')
         .update({
           status: dbStatus,
           excuse_reason: dbExcuseReason,
+          notes: notesToUpdate,
           time_recorded: new Date().toISOString()
         })
         .eq('id', existingRecord.id);

@@ -11,12 +11,26 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     return null;
   }
   
-  // Calculate attendance rate
-  const presentCount = attendanceHistory.filter(
+  // Filter out any records for Fridays or April 4th, 2025
+  const filteredHistory = attendanceHistory.filter(record => {
+    const date = new Date(record.date);
+    const isFriday = date.getDay() === 5;
+    const isApril4th = date.getFullYear() === 2025 && 
+                      date.getMonth() === 3 && // April is month 3 (0-indexed)
+                      date.getDate() === 4;
+    return !isFriday && !isApril4th;
+  });
+  
+  if (filteredHistory.length === 0) {
+    return null;
+  }
+  
+  // Calculate attendance rate based on filtered history
+  const presentCount = filteredHistory.filter(
     record => record.status === 'present' || record.status === 'late'
   ).length;
   
-  const attendanceRate = Math.round((presentCount / attendanceHistory.length) * 100);
+  const attendanceRate = Math.round((presentCount / filteredHistory.length) * 100);
 
   return (
     <div className="mb-4 p-3 bg-muted/30 rounded-md">
@@ -27,7 +41,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
         </span>
       </p>
       <p className="text-xs text-center text-muted-foreground mt-1">
-        Based on {attendanceHistory.length} class sessions
+        Based on {filteredHistory.length} class sessions
       </p>
     </div>
   );

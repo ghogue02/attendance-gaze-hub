@@ -11,6 +11,8 @@ export const useBuilderAttendance = (builderId: string) => {
 
   useEffect(() => {
     const fetchAttendanceRate = async () => {
+      if (!builderId) return;
+      
       setIsLoading(true);
       try {
         const { data, error } = await supabase
@@ -28,10 +30,14 @@ export const useBuilderAttendance = (builderId: string) => {
           return;
         }
 
-        // Filter out Fridays and dates before MINIMUM_DATE from attendance records
+        // Filter out Fridays, April 4th specifically, and dates before MINIMUM_DATE
         const filteredRecords = data.filter(record => {
           const date = new Date(record.date);
-          return date.getDay() !== 5 && date >= MINIMUM_DATE;
+          const isFriday = date.getDay() === 5;
+          const isApril4th = date.getFullYear() === 2025 && 
+                            date.getMonth() === 3 && // April is month 3 (0-indexed)
+                            date.getDate() === 4;
+          return !isFriday && !isApril4th && date >= MINIMUM_DATE;
         });
 
         if (filteredRecords.length === 0) {
@@ -44,7 +50,7 @@ export const useBuilderAttendance = (builderId: string) => {
           record => record.status === 'present' || record.status === 'late'
         ).length;
 
-        // Calculate the rate
+        // Calculate the rate - always round to nearest integer
         const rate = (presentCount / filteredRecords.length) * 100;
         setAttendanceRate(Math.round(rate));
       } catch (error) {
@@ -54,7 +60,9 @@ export const useBuilderAttendance = (builderId: string) => {
       }
     };
 
-    fetchAttendanceRate();
+    if (builderId) {
+      fetchAttendanceRate();
+    }
   }, [builderId]);
 
   return { attendanceRate, isLoading };

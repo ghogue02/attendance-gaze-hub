@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { PlusCircle, Download } from 'lucide-react';
 import { BuilderStatus } from '@/components/builder/types';
@@ -20,6 +21,9 @@ interface BuildersTabProps {
   onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
   refreshData: () => void;
 }
+
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
 
 const BuildersTab = ({
   isLoading,
@@ -63,21 +67,26 @@ const BuildersTab = ({
             continue;
           }
 
-          const nonFridayRecords = data.filter(record => {
+          // Filter out Fridays, April 4th, and dates before MINIMUM_DATE
+          const filteredRecords = data.filter(record => {
             const date = new Date(record.date);
-            return date.getDay() !== 5; // 5 is Friday
+            const isFriday = date.getDay() === 5;
+            const isApril4th = date.getFullYear() === 2025 && 
+                               date.getMonth() === 3 && // April is month 3 (0-indexed)
+                               date.getDate() === 4;
+            return !isFriday && !isApril4th && date >= MINIMUM_DATE;
           });
 
-          if (nonFridayRecords.length === 0) {
+          if (filteredRecords.length === 0) {
             rates[builder.id] = null;
             continue;
           }
 
-          const presentCount = nonFridayRecords.filter(
+          const presentCount = filteredRecords.filter(
             record => record.status === 'present' || record.status === 'late'
           ).length;
 
-          rates[builder.id] = Math.round((presentCount / nonFridayRecords.length) * 100);
+          rates[builder.id] = Math.round((presentCount / filteredRecords.length) * 100);
         } catch (error) {
           console.error('Error calculating attendance rate:', error);
           rates[builder.id] = null;

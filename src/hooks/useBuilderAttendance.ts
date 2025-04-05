@@ -48,15 +48,13 @@ export const useBuilderAttendance = (builderId: string) => {
       const filteredRecords = data.filter(record => {
         const date = new Date(record.date);
         const isFriday = date.getDay() === 5;
-        const isApril4th = date.getFullYear() === 2025 && 
-                          date.getMonth() === 3 && // April is month 3 (0-indexed)
-                          date.getDate() === 4;
+        const isApril4th = record.date === APRIL_4_2025;
         const isBeforeMinDate = date < MINIMUM_DATE;
         
         // Debug logs for specific builder if needed
-        // if (builderId === 'specific-id-here') {
-        //   console.log(`Date: ${record.date}, isFriday: ${isFriday}, isApril4th: ${isApril4th}, isBeforeMinDate: ${isBeforeMinDate}`);
-        // }
+        if (builderId === 'bf5b91ca-d727-46a2-a21c-76d82c8b39be') { // Gabriel Gomes-Pasker
+          console.log(`[DEBUG] ${record.date}, isFriday: ${isFriday}, isApril4th: ${isApril4th}, isBeforeMinDate: ${isBeforeMinDate}, keep: ${!isFriday && !isApril4th && !isBeforeMinDate}`);
+        }
         
         return !isFriday && !isApril4th && !isBeforeMinDate;
       });

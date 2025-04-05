@@ -20,7 +20,7 @@ const CardHeader = ({ builder, attendanceRate, onNotesClick }: CardHeaderProps) 
   };
 
   // Debug log to check attendance rate value
-  console.log(`CardHeader: Rendering for ${builder.name} with attendance rate: ${attendanceRate}%`);
+  console.log(`[CardHeader] Rendering for ${builder.name} with attendance rate: ${attendanceRate}%`);
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">

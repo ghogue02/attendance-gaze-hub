@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
+const APRIL_4_2025 = '2025-04-04';
 
 export const useBuilderAttendance = (builderId: string) => {
   const [attendanceRate, setAttendanceRate] = useState<number | null>(null);
@@ -31,7 +32,14 @@ export const useBuilderAttendance = (builderId: string) => {
         return;
       }
 
-      console.log(`[useBuilderAttendance] Got ${data.length} raw attendance records for builder ${builderId}`);
+      console.log(`[useBuilderAttendance] Got ${data?.length || 0} raw attendance records for builder ${builderId}`);
+      
+      if (!data || data.length === 0) {
+        console.log(`[useBuilderAttendance] No records found for builder ${builderId}. Setting null rate.`);
+        setAttendanceRate(null);
+        setIsLoading(false);
+        return;
+      }
       
       // Filter out records that are:
       // 1. For Fridays (day 5)
@@ -44,12 +52,19 @@ export const useBuilderAttendance = (builderId: string) => {
                           date.getMonth() === 3 && // April is month 3 (0-indexed)
                           date.getDate() === 4;
         const isBeforeMinDate = date < MINIMUM_DATE;
+        
+        // Debug logs for specific builder if needed
+        // if (builderId === 'specific-id-here') {
+        //   console.log(`Date: ${record.date}, isFriday: ${isFriday}, isApril4th: ${isApril4th}, isBeforeMinDate: ${isBeforeMinDate}`);
+        // }
+        
         return !isFriday && !isApril4th && !isBeforeMinDate;
       });
       
       console.log(`[useBuilderAttendance] After filtering, ${filteredRecords.length} valid attendance records for builder ${builderId}`);
       
       if (filteredRecords.length === 0) {
+        console.log(`[useBuilderAttendance] No valid records after filtering for builder ${builderId}. Setting null rate.`);
         setAttendanceRate(null);
         setIsLoading(false);
         return;
@@ -62,18 +77,16 @@ export const useBuilderAttendance = (builderId: string) => {
       
       console.log(`[useBuilderAttendance] Builder ${builderId}: Present/late count: ${presentCount}, Total filtered: ${filteredRecords.length}`);
       
-      // Calculate percentage - if all records are present/late, ensure we display exactly 100%
-      let rate: number;
+      // Calculate percentage - Handle exact 100% case explicitly
       if (presentCount === filteredRecords.length) {
-        rate = 100;
-        console.log(`[useBuilderAttendance] Setting PERFECT attendance rate for builder ${builderId}: ${rate}%`);
+        console.log(`[useBuilderAttendance] Setting PERFECT attendance rate for builder ${builderId}: 100%`);
+        setAttendanceRate(100);
       } else {
         // Calculate percentage and round to whole number
-        rate = Math.round((presentCount / filteredRecords.length) * 100);
+        const rate = Math.round((presentCount / filteredRecords.length) * 100);
         console.log(`[useBuilderAttendance] Calculated attendance rate for builder ${builderId}: ${rate}%`);
+        setAttendanceRate(rate);
       }
-      
-      setAttendanceRate(rate);
     } catch (error) {
       console.error('[useBuilderAttendance] Error calculating attendance rate:', error);
       setAttendanceRate(null);

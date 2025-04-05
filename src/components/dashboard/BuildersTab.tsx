@@ -12,6 +12,7 @@ import ExtractPhotosButton from '@/components/builders/ExtractPhotosButton';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
+const APRIL_4_2025 = '2025-04-04';
 
 interface BuildersTabProps {
   isLoading: boolean;
@@ -62,19 +63,20 @@ const BuildersTab = ({
             continue;
           }
 
-          if (data.length === 0) {
+          if (!data || data.length === 0) {
             rates[builder.id] = null;
             continue;
           }
 
-          // Filter out Fridays, April 4th, and dates before MINIMUM_DATE
+          // Apply EXACTLY the same filtering logic as in useBuilderAttendance
           const filteredRecords = data.filter(record => {
             const date = new Date(record.date);
             const isFriday = date.getDay() === 5;
             const isApril4th = date.getFullYear() === 2025 && 
                               date.getMonth() === 3 && // April is month 3 (0-indexed)
                               date.getDate() === 4;
-            return !isFriday && !isApril4th && date >= MINIMUM_DATE;
+            const isBeforeMinDate = date < MINIMUM_DATE;
+            return !isFriday && !isApril4th && !isBeforeMinDate;
           });
 
           if (filteredRecords.length === 0) {
@@ -86,10 +88,12 @@ const BuildersTab = ({
             record => record.status === 'present' || record.status === 'late'
           ).length;
 
-          // If all records are present/late, ensure we display exactly 100% rather than rounding errors
-          rates[builder.id] = presentCount === filteredRecords.length ? 
-            100 : 
-            Math.round((presentCount / filteredRecords.length) * 100);
+          // Handle 100% case explicitly the same way
+          if (presentCount === filteredRecords.length) {
+            rates[builder.id] = 100;
+          } else {
+            rates[builder.id] = Math.round((presentCount / filteredRecords.length) * 100);
+          }
             
           console.log(`Builder ${builder.name}: ${presentCount}/${filteredRecords.length} = ${rates[builder.id]}%`);
         } catch (error) {

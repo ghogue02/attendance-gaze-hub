@@ -52,13 +52,13 @@ export const markAttendance = async (
       // Determine if we should clear automated notes
       let notesToUpdate = existingRecord.notes;
       
-      // If changing from absent/pending to present/late, and the note was automated, clear it
+      // If changing from absent/pending to present/late, and the note contains "Automatically marked", clear it
       if ((status === 'present' || status === 'late') && 
           (existingRecord.status === 'absent' || existingRecord.status === 'pending') && 
           notesToUpdate && 
-          notesToUpdate.includes('Automatically marked')) {
-        notesToUpdate = null;
+          (notesToUpdate.includes('Automatically marked') || notesToUpdate.includes('automatically marked'))) {
         console.log('Clearing automated absence note as student is now present/late');
+        notesToUpdate = null;
       }
       
       // Update the existing record

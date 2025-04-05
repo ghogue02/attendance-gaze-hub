@@ -7,7 +7,7 @@ import { useAttendanceChartData } from '@/hooks/useAttendanceChartData';
 import AttendanceBarChart from './AttendanceBarChart';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { markPendingAsAbsent } from '@/services/attendanceService';
+import { markPendingAsAbsent } from '@/services/attendance';
 import { toast } from 'sonner';
 
 interface AttendanceChartProps {

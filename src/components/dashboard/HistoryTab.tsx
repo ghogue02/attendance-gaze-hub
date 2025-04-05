@@ -3,7 +3,7 @@ import { useState, useCallback, memo, useMemo, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
-import { subscribeToAttendanceChanges, clearAutomatedNotesForPresentStudents } from '@/services/attendanceService';
+import { subscribeToAttendanceChanges, clearAutomatedNotesForPresentStudents } from '@/services/attendance';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';

@@ -1,4 +1,3 @@
-
 import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
@@ -8,7 +7,7 @@ import {
   processSpecificDateIssues, 
   processPendingAttendance, 
   markPendingAsAbsent 
-} from '@/services/attendanceService';
+} from '@/services/attendance';
 
 interface StatisticsCardsProps {
   builders: Builder[];

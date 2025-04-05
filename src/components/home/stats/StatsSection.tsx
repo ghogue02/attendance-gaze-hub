@@ -1,4 +1,3 @@
-
 import { Users, CheckCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
@@ -11,7 +10,7 @@ import {
   processSpecificDateIssues,
   processPendingAttendance,
   clearAutomatedNotesForPresentStudents
-} from '@/services/attendanceService';
+} from '@/services/attendance';
 
 export const StatsSection = () => {
   const [stats, setStats] = useState({

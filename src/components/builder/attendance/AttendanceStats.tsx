@@ -33,10 +33,14 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     record => record.status === 'present' || record.status === 'late'
   ).length;
   
+  console.log(`AttendanceStats: Present/late count: ${presentCount}, Total filtered: ${filteredHistory.length}`);
+  
   // If all records are present/late, ensure we display exactly 100% rather than rounding errors
   const attendanceRate = presentCount === filteredHistory.length ? 
     100 : 
     Math.round((presentCount / filteredHistory.length) * 100);
+
+  console.log(`AttendanceStats: Final rate: ${attendanceRate}%`);
 
   return (
     <div className="mb-4 p-3 bg-muted/30 rounded-md">

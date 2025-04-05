@@ -41,6 +41,8 @@ export const fetchStats = async () => {
       return !isFriday && !isApril4th && date >= MINIMUM_DATE;
     }) || [];
 
+    console.log(`Stats: Filtered ${attendanceData?.length || 0} records down to ${filteredAttendance.length}`);
+
     // Get today's attendance
     const todayAttendance = filteredAttendance.filter(record => record.date === today);
     
@@ -53,6 +55,8 @@ export const fetchStats = async () => {
     const attendanceRate = totalBuilders > 0 
       ? Math.round(((presentCount + lateCount) / totalBuilders) * 100)
       : 0;
+
+    console.log(`Stats: Attendance rate for today: ${attendanceRate}%, Present: ${presentCount}, Late: ${lateCount}, Total: ${totalBuilders}`);
       
     return {
       totalBuilders,

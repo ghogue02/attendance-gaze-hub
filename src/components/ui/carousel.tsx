@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
@@ -17,6 +18,8 @@ type CarouselProps = {
   plugins?: CarouselPlugin
   orientation?: "horizontal" | "vertical"
   setApi?: (api: CarouselApi) => void
+  autoplay?: boolean
+  autoplayInterval?: number
 }
 
 type CarouselContextProps = {
@@ -26,6 +29,8 @@ type CarouselContextProps = {
   scrollNext: () => void
   canScrollPrev: boolean
   canScrollNext: boolean
+  autoplay?: boolean
+  autoplayInterval?: number
 } & CarouselProps
 
 const CarouselContext = React.createContext<CarouselContextProps | null>(null)
@@ -52,6 +57,8 @@ const Carousel = React.forwardRef<
       plugins,
       className,
       children,
+      autoplay = false,
+      autoplayInterval = 3000,
       ...props
     },
     ref
@@ -96,6 +103,25 @@ const Carousel = React.forwardRef<
       [scrollPrev, scrollNext]
     )
 
+    // Autoplay functionality
+    React.useEffect(() => {
+      if (!api || !autoplay) {
+        return
+      }
+
+      const intervalId = setInterval(() => {
+        if (api.canScrollNext()) {
+          api.scrollNext()
+        } else {
+          api.scrollTo(0) // Loop back to the beginning
+        }
+      }, autoplayInterval)
+
+      return () => {
+        clearInterval(intervalId)
+      }
+    }, [api, autoplay, autoplayInterval])
+
     React.useEffect(() => {
       if (!api || !setApi) {
         return
@@ -130,6 +156,8 @@ const Carousel = React.forwardRef<
           scrollNext,
           canScrollPrev,
           canScrollNext,
+          autoplay,
+          autoplayInterval,
         }}
       >
         <div
@@ -182,7 +210,7 @@ const CarouselItem = React.forwardRef<
       role="group"
       aria-roledescription="slide"
       className={cn(
-        "min-w-0 shrink-0 grow-0 basis-full",
+        "min-w-0 shrink-0 grow-0 basis-full transition-opacity duration-300",
         orientation === "horizontal" ? "pl-4" : "pt-4",
         className
       )}

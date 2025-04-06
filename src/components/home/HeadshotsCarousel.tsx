@@ -9,7 +9,7 @@ import {
   CarouselNext
 } from '@/components/ui/carousel';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, AlertCircle, ImageIcon } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
@@ -59,7 +59,7 @@ const HeadshotsCarousel = () => {
         
         // Get public URLs for all image files
         const imageFiles = files.filter(file => 
-          file.name.match(/\.(jpeg|jpg|png|webp|gif|bmp)$/i)
+          file.name.toLowerCase().match(/\.(jpeg|jpg|png|webp|gif|bmp)$/i)
         );
         
         if (imageFiles.length === 0) {
@@ -70,21 +70,49 @@ const HeadshotsCarousel = () => {
           return;
         }
         
-        const headshots = imageFiles.map(file => {
-          // Extract builder name from filename (removing extension)
-          const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-          
-          // Generate the public URL for the image
-          const url = supabase.storage
-            .from('headshots')
-            .getPublicUrl(file.name).data.publicUrl;
+        // First, try to download each file directly to handle CORS issues
+        const headshots = await Promise.all(imageFiles.map(async (file) => {
+          try {
+            // Extract builder name from filename (removing extension)
+            const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
             
-          console.log(`Generated URL for ${file.name}: ${url}`);
-          return { name, url };
-        });
+            // Try to get a signed URL first which may help with CORS issues
+            const { data: signedData, error: signedError } = await supabase
+              .storage
+              .from('headshots')
+              .createSignedUrl(file.name, 60 * 60); // 1 hour expiry
+              
+            if (signedData && !signedError) {
+              console.log(`Generated signed URL for ${file.name}`);
+              return { name, url: signedData.signedUrl };
+            }
+            
+            // Fallback to public URL if signed URL fails
+            const publicUrl = supabase.storage
+              .from('headshots')
+              .getPublicUrl(file.name).data.publicUrl;
+              
+            console.log(`Generated public URL for ${file.name}: ${publicUrl}`);
+            return { name, url: publicUrl };
+          } catch (err) {
+            console.error(`Error processing file ${file.name}:`, err);
+            return null;
+          }
+        }));
+        
+        // Filter out any nulls from failed processing
+        const validHeadshots = headshots.filter(Boolean) as HeadshotData[];
+        
+        if (validHeadshots.length === 0) {
+          console.error('Failed to process any headshot images');
+          setError('Failed to process headshot images');
+          toast.error('Failed to process headshot images');
+          setLoading(false);
+          return;
+        }
         
         // Shuffle the headshots array for random order
-        const shuffledHeadshots = [...headshots].sort(() => Math.random() - 0.5);
+        const shuffledHeadshots = [...validHeadshots].sort(() => Math.random() - 0.5);
         console.log(`Prepared ${shuffledHeadshots.length} headshots for carousel`);
         
         setHeadshots(shuffledHeadshots);
@@ -141,6 +169,8 @@ const HeadshotsCarousel = () => {
           loop: true,
           dragFree: true
         }}
+        autoplay={true}
+        autoplayInterval={5000}
       >
         <CarouselContent>
           {headshots.map((headshot, index) => (
@@ -152,7 +182,7 @@ const HeadshotsCarousel = () => {
                     alt={headshot.name}
                     className="object-cover" 
                     onError={(e) => {
-                      console.error(`Error loading image for ${headshot.name}`);
+                      console.error(`Error loading image for ${headshot.name}: ${headshot.url}`);
                       e.currentTarget.style.display = 'none';
                     }}
                   />

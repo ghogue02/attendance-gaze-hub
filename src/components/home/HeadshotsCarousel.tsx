@@ -4,10 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   Carousel, 
   CarouselContent, 
-  CarouselItem 
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext
 } from '@/components/ui/carousel';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, ImageIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
@@ -30,22 +32,25 @@ const HeadshotsCarousel = () => {
         console.log('Fetching headshots from Supabase storage...');
         
         // List all files in the headshots bucket
-        const { data: files, error } = await supabase
+        const { data: files, error: listError } = await supabase
           .storage
           .from('headshots')
           .list('', {
             sortBy: { column: 'name', order: 'asc' }
           });
           
-        if (error) {
-          console.error('Error fetching headshots:', error);
-          setError(`Error fetching headshots: ${error.message}`);
+        if (listError) {
+          console.error('Error fetching headshots:', listError);
+          setError(`Error fetching headshots: ${listError.message}`);
+          toast.error(`Error loading headshots: ${listError.message}`);
+          setLoading(false);
           return;
         }
         
         if (!files || files.length === 0) {
           console.log('No headshots found in the bucket');
           setError('No headshots found in the storage bucket');
+          toast.error('No headshots found in the storage bucket');
           setLoading(false);
           return;
         }
@@ -53,26 +58,30 @@ const HeadshotsCarousel = () => {
         console.log(`Found ${files.length} files in headshots bucket:`, files.map(f => f.name).join(', '));
         
         // Get public URLs for all image files
-        const headshots = files
-          .filter(file => file.name.match(/\.(jpeg|jpg|png|webp|gif|bmp)$/i))
-          .map(file => {
-            // Extract builder name from filename (removing extension)
-            const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-            
-            // Generate the public URL for the image
-            const url = supabase.storage
-              .from('headshots')
-              .getPublicUrl(file.name).data.publicUrl;
-              
-            console.log(`Generated URL for ${file.name}: ${url}`);
-            return { name, url };
-          });
+        const imageFiles = files.filter(file => 
+          file.name.match(/\.(jpeg|jpg|png|webp|gif|bmp)$/i)
+        );
         
-        if (headshots.length === 0) {
+        if (imageFiles.length === 0) {
+          console.error('No image files found in the headshots bucket');
           setError('No image files found in the headshots bucket');
+          toast.error('No image files found in the headshots bucket');
           setLoading(false);
           return;
         }
+        
+        const headshots = imageFiles.map(file => {
+          // Extract builder name from filename (removing extension)
+          const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+          
+          // Generate the public URL for the image
+          const url = supabase.storage
+            .from('headshots')
+            .getPublicUrl(file.name).data.publicUrl;
+            
+          console.log(`Generated URL for ${file.name}: ${url}`);
+          return { name, url };
+        });
         
         // Shuffle the headshots array for random order
         const shuffledHeadshots = [...headshots].sort(() => Math.random() - 0.5);
@@ -83,6 +92,7 @@ const HeadshotsCarousel = () => {
       } catch (error) {
         console.error('Error in headshots carousel:', error);
         setError('Failed to load headshots');
+        toast.error('Failed to load headshots');
       } finally {
         setLoading(false);
       }
@@ -95,10 +105,13 @@ const HeadshotsCarousel = () => {
     return (
       <div className="glass-card p-6 rounded-lg shadow-sm">
         <h2 className="text-xl font-semibold mb-4 text-center">Builder Spotlights</h2>
-        <div className="flex flex-col items-center justify-center space-y-4">
+        <div className="flex flex-col items-center justify-center space-y-4 p-4">
           <Skeleton className="w-40 h-40 rounded-full" />
           <Skeleton className="w-32 h-8" />
-          <p className="text-sm text-muted-foreground">Loading headshots...</p>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Loading headshots...
+          </div>
         </div>
       </div>
     );
@@ -108,9 +121,12 @@ const HeadshotsCarousel = () => {
     return (
       <div className="glass-card p-6 rounded-lg shadow-sm">
         <h2 className="text-xl font-semibold mb-4 text-center">Builder Spotlights</h2>
-        <div className="flex flex-col items-center justify-center h-[200px] text-center">
+        <div className="flex flex-col items-center justify-center h-[200px] text-center p-4">
           <AlertCircle className="h-10 w-10 text-muted-foreground mb-2" />
-          <p className="text-muted-foreground">{error || 'No headshots available'}</p>
+          <p className="text-muted-foreground mb-2">{error || 'No headshots available'}</p>
+          <p className="text-xs text-muted-foreground/80">
+            Check Supabase storage bucket "headshots" for image files
+          </p>
         </div>
       </div>
     );
@@ -120,31 +136,43 @@ const HeadshotsCarousel = () => {
     <div className="glass-card p-6 rounded-lg shadow-sm">
       <h2 className="text-xl font-semibold mb-4 text-center">Builder Spotlights</h2>
       <Carousel 
-        autoplay={true} 
-        autoplayInterval={3000} 
         className="w-full"
-        opts={{ loop: true }}
+        opts={{ 
+          loop: true,
+          dragFree: true
+        }}
       >
         <CarouselContent>
           {headshots.map((headshot, index) => (
-            <CarouselItem key={index} className="flex flex-col items-center">
+            <CarouselItem key={index} className="flex flex-col items-center basis-full md:basis-1/2 lg:basis-1/3">
               <div className="relative w-40 h-40 mx-auto mb-4">
-                <Avatar className="w-40 h-40">
+                <Avatar className="w-40 h-40 border-2 border-primary/10">
                   <AvatarImage 
                     src={headshot.url} 
                     alt={headshot.name}
                     className="object-cover" 
+                    onError={(e) => {
+                      console.error(`Error loading image for ${headshot.name}`);
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
-                  <AvatarFallback className="text-4xl">
-                    {headshot.name.charAt(0)}
+                  <AvatarFallback className="text-4xl bg-primary/10">
+                    {headshot.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </div>
-              <h3 className="text-center font-medium">{headshot.name}</h3>
+              <h3 className="text-center font-medium text-lg">{headshot.name}</h3>
             </CarouselItem>
           ))}
         </CarouselContent>
+        <div className="hidden md:block">
+          <CarouselPrevious className="absolute -left-4 top-1/2" />
+          <CarouselNext className="absolute -right-4 top-1/2" />
+        </div>
       </Carousel>
+      <p className="text-center text-xs text-muted-foreground mt-4">
+        {headshots.length} builder{headshots.length !== 1 ? 's' : ''} featured
+      </p>
     </div>
   );
 };

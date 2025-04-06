@@ -92,8 +92,9 @@ const HeadshotsCarousel = () => {
             
             console.log(`Generated public URL for ${file.name}: ${urlData.publicUrl}`);
             
-            // Add a cache-busting query parameter
-            const cacheBuster = file.last_modified ? `?t=${new Date(file.last_modified).getTime()}` : '';
+            // Add a cache-busting query parameter - use current timestamp
+            // instead of last_modified which doesn't exist in the FileObject type
+            const cacheBuster = `?t=${Date.now()}`;
             return { name, url: `${urlData.publicUrl}${cacheBuster}` };
           } catch (err) {
             console.error(`Error processing file ${file.name}:`, err);

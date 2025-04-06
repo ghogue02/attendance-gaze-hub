@@ -9,6 +9,7 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
 interface HeadshotData {
   name: string;
@@ -26,7 +27,7 @@ const HeadshotsCarousel = () => {
         setLoading(true);
         setError(null);
         
-        console.log('Fetching headshots from Supabase storage');
+        console.log('Fetching headshots from Supabase storage...');
         
         // List all files in the headshots bucket
         const { data: files, error } = await supabase
@@ -53,7 +54,7 @@ const HeadshotsCarousel = () => {
         
         // Get public URLs for all image files
         const headshots = files
-          .filter(file => file.name.match(/\.(jpeg|jpg|png|webp|gif)$/i))
+          .filter(file => file.name.match(/\.(jpeg|jpg|png|webp|gif|bmp)$/i))
           .map(file => {
             // Extract builder name from filename (removing extension)
             const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
@@ -78,6 +79,7 @@ const HeadshotsCarousel = () => {
         console.log(`Prepared ${shuffledHeadshots.length} headshots for carousel`);
         
         setHeadshots(shuffledHeadshots);
+        toast.success(`Loaded ${shuffledHeadshots.length} headshots`);
       } catch (error) {
         console.error('Error in headshots carousel:', error);
         setError('Failed to load headshots');

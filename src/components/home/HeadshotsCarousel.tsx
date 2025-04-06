@@ -36,75 +36,76 @@ const HeadshotsCarousel = () => {
           .storage
           .from('headshots')
           .list('', {
+            limit: 200,
+            offset: 0,
             sortBy: { column: 'name', order: 'asc' }
           });
           
         if (listError) {
-          console.error('Error fetching headshots:', listError);
-          setError(`Error fetching headshots: ${listError.message}`);
+          console.error('Error listing headshots bucket:', listError);
+          setError(`Error listing files: ${listError.message}`);
           toast.error(`Error loading headshots: ${listError.message}`);
           setLoading(false);
           return;
         }
         
         if (!files || files.length === 0) {
-          console.log('No headshots found in the bucket');
+          console.log('No files found in the headshots bucket by list operation.');
           setError('No headshots found in the storage bucket');
-          toast.error('No headshots found in the storage bucket');
           setLoading(false);
           return;
         }
         
-        console.log(`Found ${files.length} files in headshots bucket:`, files.map(f => f.name).join(', '));
+        console.log(`Found ${files.length} raw entries in headshots bucket:`, files.map(f => f.name).join(', '));
         
-        // Get public URLs for all image files
+        // Filter for image files
         const imageFiles = files.filter(file => 
-          file.name.toLowerCase().match(/\.(jpeg|jpg|png|webp|gif|bmp)$/i)
+          file.name.toLowerCase().match(/\.(jpeg|jpg|png|webp|gif|bmp)$/i) && file.id !== null
         );
         
         if (imageFiles.length === 0) {
-          console.error('No image files found in the headshots bucket');
+          console.error('No image files found after filtering.');
           setError('No image files found in the headshots bucket');
           toast.error('No image files found in the headshots bucket');
           setLoading(false);
           return;
         }
         
-        // First, try to download each file directly to handle CORS issues
-        const headshots = await Promise.all(imageFiles.map(async (file) => {
+        console.log(`Found ${imageFiles.length} image files after filtering.`);
+        
+        // Process each headshot with simplified URL generation
+        const headshotPromises = imageFiles.map(async (file) => {
           try {
             // Extract builder name from filename (removing extension)
             const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
             
-            // Try to get a signed URL first which may help with CORS issues
-            const { data: signedData, error: signedError } = await supabase
+            // Directly get the public URL since the bucket is public
+            const { data: urlData } = supabase
               .storage
               .from('headshots')
-              .createSignedUrl(file.name, 60 * 60); // 1 hour expiry
+              .getPublicUrl(file.name);
               
-            if (signedData && !signedError) {
-              console.log(`Generated signed URL for ${file.name}`);
-              return { name, url: signedData.signedUrl };
+            if (!urlData || !urlData.publicUrl) {
+              console.warn(`Could not get public URL for ${file.name}`);
+              return null;
             }
             
-            // Fallback to public URL if signed URL fails
-            const publicUrl = supabase.storage
-              .from('headshots')
-              .getPublicUrl(file.name).data.publicUrl;
-              
-            console.log(`Generated public URL for ${file.name}: ${publicUrl}`);
-            return { name, url: publicUrl };
+            console.log(`Generated public URL for ${file.name}: ${urlData.publicUrl}`);
+            
+            // Add a cache-busting query parameter
+            const cacheBuster = file.last_modified ? `?t=${new Date(file.last_modified).getTime()}` : '';
+            return { name, url: `${urlData.publicUrl}${cacheBuster}` };
           } catch (err) {
             console.error(`Error processing file ${file.name}:`, err);
             return null;
           }
-        }));
+        });
         
-        // Filter out any nulls from failed processing
-        const validHeadshots = headshots.filter(Boolean) as HeadshotData[];
+        const processedHeadshots = await Promise.all(headshotPromises);
+        const validHeadshots = processedHeadshots.filter(Boolean) as HeadshotData[];
         
         if (validHeadshots.length === 0) {
-          console.error('Failed to process any headshot images');
+          console.error('Failed to process any headshot images or get URLs.');
           setError('Failed to process headshot images');
           toast.error('Failed to process headshot images');
           setLoading(false);
@@ -187,7 +188,7 @@ const HeadshotsCarousel = () => {
                     }}
                   />
                   <AvatarFallback className="text-4xl bg-primary/10">
-                    {headshot.name.charAt(0).toUpperCase()}
+                    {headshot.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </div>

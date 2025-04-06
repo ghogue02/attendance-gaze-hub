@@ -7,7 +7,8 @@ import {
   CarouselItem 
 } from '@/components/ui/carousel';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface HeadshotData {
   name: string;
@@ -17,11 +18,15 @@ interface HeadshotData {
 const HeadshotsCarousel = () => {
   const [headshots, setHeadshots] = useState<HeadshotData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchHeadshots = async () => {
       try {
         setLoading(true);
+        setError(null);
+        
+        console.log('Fetching headshots from Supabase storage');
         
         // List all files in the headshots bucket
         const { data: files, error } = await supabase
@@ -33,18 +38,22 @@ const HeadshotsCarousel = () => {
           
         if (error) {
           console.error('Error fetching headshots:', error);
+          setError(`Error fetching headshots: ${error.message}`);
           return;
         }
         
         if (!files || files.length === 0) {
           console.log('No headshots found in the bucket');
+          setError('No headshots found in the storage bucket');
           setLoading(false);
           return;
         }
         
+        console.log(`Found ${files.length} files in headshots bucket:`, files.map(f => f.name).join(', '));
+        
         // Get public URLs for all image files
         const headshots = files
-          .filter(file => file.name.match(/\.(jpeg|jpg|png|webp)$/i))
+          .filter(file => file.name.match(/\.(jpeg|jpg|png|webp|gif)$/i))
           .map(file => {
             // Extract builder name from filename (removing extension)
             const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
@@ -54,15 +63,24 @@ const HeadshotsCarousel = () => {
               .from('headshots')
               .getPublicUrl(file.name).data.publicUrl;
               
+            console.log(`Generated URL for ${file.name}: ${url}`);
             return { name, url };
           });
         
+        if (headshots.length === 0) {
+          setError('No image files found in the headshots bucket');
+          setLoading(false);
+          return;
+        }
+        
         // Shuffle the headshots array for random order
         const shuffledHeadshots = [...headshots].sort(() => Math.random() - 0.5);
+        console.log(`Prepared ${shuffledHeadshots.length} headshots for carousel`);
         
         setHeadshots(shuffledHeadshots);
       } catch (error) {
         console.error('Error in headshots carousel:', error);
+        setError('Failed to load headshots');
       } finally {
         setLoading(false);
       }
@@ -73,16 +91,25 @@ const HeadshotsCarousel = () => {
   
   if (loading) {
     return (
-      <div className="flex h-full min-h-[300px] items-center justify-center rounded-md border border-dashed">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="glass-card p-6 rounded-lg shadow-sm">
+        <h2 className="text-xl font-semibold mb-4 text-center">Builder Spotlights</h2>
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <Skeleton className="w-40 h-40 rounded-full" />
+          <Skeleton className="w-32 h-8" />
+          <p className="text-sm text-muted-foreground">Loading headshots...</p>
+        </div>
       </div>
     );
   }
   
-  if (headshots.length === 0) {
+  if (error || headshots.length === 0) {
     return (
-      <div className="flex h-full min-h-[300px] items-center justify-center rounded-md border border-dashed">
-        <p className="text-sm text-muted-foreground">No headshots available</p>
+      <div className="glass-card p-6 rounded-lg shadow-sm">
+        <h2 className="text-xl font-semibold mb-4 text-center">Builder Spotlights</h2>
+        <div className="flex flex-col items-center justify-center h-[200px] text-center">
+          <AlertCircle className="h-10 w-10 text-muted-foreground mb-2" />
+          <p className="text-muted-foreground">{error || 'No headshots available'}</p>
+        </div>
       </div>
     );
   }

@@ -1,22 +1,15 @@
 
-import { memo, useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useAttendanceHistory } from '@/hooks/useAttendanceHistory';
-import AttendanceLoadingState from './AttendanceLoadingState';
-import AttendanceEmptyState from './AttendanceEmptyState';
-import AttendanceTable from './AttendanceTable';
-import DeleteAttendanceDialog from './DeleteAttendanceDialog';
-import AttendanceFilters from './AttendanceFilters';
-import AttendanceCopyOptions from './AttendanceCopyOptions';
-import { useNavigate } from 'react-router-dom';
+import { subMonths } from 'date-fns';
 import { toast } from 'sonner';
-import AttendanceHistoryDialog from '@/components/builder/AttendanceHistoryDialog';
-import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
-import AttendanceErrorDisplay from './AttendanceErrorDisplay';
-import { clearAutomatedNotesForPresentStudents } from '@/services/attendance';
-import { format, subMonths } from 'date-fns';
 import { AttendanceRecord } from './AttendanceTypes';
+import AttendanceErrorDisplay from './AttendanceErrorDisplay';
+import AttendanceHistoryHeader from './AttendanceHistoryHeader';
+import AttendanceHistoryContent from './AttendanceHistoryContent';
+import AttendanceHistoryDialogs from './AttendanceHistoryDialogs';
+import { useAttendanceClearNotes } from './useAttendanceClearNotes';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
@@ -26,11 +19,7 @@ interface AttendanceHistoryProps {
 const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const navigate = useNavigate();
-  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [isClearing, setIsClearing] = useState(false);
-  
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   
@@ -52,6 +41,8 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     closeDeleteDialog,
     refreshData
   } = useAttendanceHistory(onError);
+
+  const { isClearing, handleClearAutomatedNotes } = useAttendanceClearNotes(onError, refreshData);
   
   const clearDateFilter = useCallback(() => {
     setDate(undefined);
@@ -94,39 +85,13 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     setError(message);
     onError(message);
   }, [onError]);
-  
-  const handleClearAutomatedNotes = useCallback(async () => {
-    setIsClearing(true);
-    try {
-      const result = await clearAutomatedNotesForPresentStudents();
-      if (result > 0) {
-        toast.success(`Cleared automated notes for ${result} students`);
-        refreshData();
-      } else {
-        toast.info('No automated notes needed to be cleared');
-      }
-    } catch (e) {
-      console.error('Error clearing automated notes:', e);
-      localHandleError('Failed to clear automated notes');
-    } finally {
-      setIsClearing(false);
-    }
-  }, [refreshData, localHandleError]);
-  
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Attendance History</h2>
-        <Button 
-          size="sm" 
-          variant="outline" 
-          onClick={handleClearAutomatedNotes} 
-          disabled={isClearing}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isClearing ? 'animate-spin' : ''}`} />
-          Clear Automated Notes
-        </Button>
-      </div>
+      <AttendanceHistoryHeader 
+        onClearAutomatedNotes={handleClearAutomatedNotes}
+        isClearing={isClearing}
+      />
       
       {error && (
         <AttendanceErrorDisplay 
@@ -135,62 +100,36 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         />
       )}
       
-      <div>
-        {isLoading ? (
-          <AttendanceLoadingState />
-        ) : attendanceRecords.length === 0 ? (
-          <AttendanceEmptyState 
-            dateFiltered={!!dateFilter}
-            statusFiltered={statusFilter !== 'all'}
-          />
-        ) : (
-          <div className="space-y-4">
-            <AttendanceFilters 
-              dateFilter={dateFilter}
-              statusFilter={statusFilter}
-              setDateFilter={setDateFilter}
-              setStatusFilter={setStatusFilter}
-              date={date}
-              setDate={setDate}
-              calendarOpen={calendarOpen}
-              setCalendarOpen={setCalendarOpen}
-              clearDateFilter={clearDateFilter}
-              clearStatusFilter={clearStatusFilter}
-              clearAllFilters={clearAllFilters}
-              fromDate={fromDate}
-              toDate={toDate}
-              hasActiveFilters={hasActiveFilters}
-            />
-            
-            <AttendanceTable 
-              attendanceRecords={attendanceRecords}
-              formatDate={formatDate}
-              onDeleteRecord={handleDeleteRecord}
-              onNavigateToBuilder={handleShowBuilderHistory}
-            />
-            
-            <AttendanceCopyOptions 
-              attendanceRecords={attendanceRecords}
-              formatDate={formatDate}
-              dateFilter={dateFilter}
-            />
-          </div>
-        )}
-      </div>
-      
-      {selectedBuilder && (
-        <AttendanceHistoryDialog 
-          isOpen={historyDialogOpen}
-          onClose={handleCloseHistoryDialog}
-          builder={selectedBuilder}
-        />
-      )}
-      
-      <DeleteAttendanceDialog
-        isOpen={deleteDialogOpen}
+      <AttendanceHistoryContent 
+        attendanceRecords={attendanceRecords}
         isLoading={isLoading}
-        onClose={closeDeleteDialog}
-        onConfirm={confirmDelete}
+        dateFilter={dateFilter}
+        statusFilter={statusFilter}
+        setDateFilter={setDateFilter}
+        setStatusFilter={setStatusFilter}
+        date={date}
+        setDate={setDate}
+        calendarOpen={calendarOpen}
+        setCalendarOpen={setCalendarOpen}
+        fromDate={fromDate}
+        toDate={toDate}
+        formatDate={formatDate}
+        onDeleteRecord={handleDeleteRecord}
+        onNavigateToBuilder={handleShowBuilderHistory}
+        hasActiveFilters={hasActiveFilters}
+        clearDateFilter={clearDateFilter}
+        clearStatusFilter={clearStatusFilter}
+        clearAllFilters={clearAllFilters}
+      />
+      
+      <AttendanceHistoryDialogs 
+        selectedBuilder={selectedBuilder}
+        historyDialogOpen={historyDialogOpen}
+        onCloseHistoryDialog={handleCloseHistoryDialog}
+        deleteDialogOpen={deleteDialogOpen}
+        isLoading={isLoading}
+        onCloseDeleteDialog={closeDeleteDialog}
+        onConfirmDelete={confirmDelete}
       />
     </div>
   );

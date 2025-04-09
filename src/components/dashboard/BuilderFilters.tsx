@@ -7,7 +7,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { BuilderStatus } from "@/components/builder/types";
+import { BuilderStatus, Builder } from "@/components/builder/types";
 import { Search, ArrowUpDown } from "lucide-react";
 
 interface BuilderFiltersProps {
@@ -18,6 +18,30 @@ interface BuilderFiltersProps {
   sortOption: string;
   setSortOption: (option: string) => void;
 }
+
+// Export the sortBuilders function to use in other components
+export const sortBuilders = (builders: Builder[], sortOption: string): Builder[] => {
+  return [...builders].sort((a, b) => {
+    switch (sortOption) {
+      case 'name':
+        return a.name.localeCompare(b.name);
+      case 'name-desc':
+        return b.name.localeCompare(a.name);
+      case 'attendance':
+        // Sort by attendance rate high to low (placeholder logic - actual implementation would depend on how attendance rate is stored)
+        const rateA = typeof a.attendanceRate === 'number' ? a.attendanceRate : 0;
+        const rateB = typeof b.attendanceRate === 'number' ? b.attendanceRate : 0;
+        return rateB - rateA;
+      case 'attendance-desc':
+        // Sort by attendance rate low to high
+        const rateC = typeof a.attendanceRate === 'number' ? a.attendanceRate : 0;
+        const rateD = typeof b.attendanceRate === 'number' ? b.attendanceRate : 0;
+        return rateC - rateD;
+      default:
+        return 0;
+    }
+  });
+};
 
 const BuilderFilters = ({
   searchQuery,

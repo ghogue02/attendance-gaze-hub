@@ -1,5 +1,5 @@
 
-import { FC, useRef, useCallback } from 'react';
+import { FC, useCallback } from 'react';
 import { BuilderStatus, Builder } from '@/components/builder/types';
 import BuilderCard from '@/components/builder/BuilderCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,7 +31,16 @@ const BuildersList: FC<BuildersListProps> = ({
   const setBuilderRef = useCallback(
     (element: HTMLDivElement | null, builderId: string) => {
       if (highlightBuilderId === builderId && element && highlightedBuilderRef) {
-        highlightedBuilderRef.current = element;
+        // Instead of trying to assign to .current directly, we use the ref as a callback
+        if (typeof highlightedBuilderRef === 'function') {
+          highlightedBuilderRef(element);
+        } else {
+          // For React.RefObject we can assign to current
+          // But we shouldn't modify read-only properties
+          // This is a special case where TypeScript is being overprotective
+          // The ref is actually mutable at runtime
+          (highlightedBuilderRef as any).current = element;
+        }
       }
     },
     [highlightBuilderId, highlightedBuilderRef]

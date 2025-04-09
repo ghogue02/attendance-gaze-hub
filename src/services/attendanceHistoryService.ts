@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
+import { BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
 
 export const fetchAttendanceRecords = async (dateFilter: string | null, onError: (message: string) => void): Promise<AttendanceRecord[]> => {
@@ -47,10 +48,13 @@ export const fetchAttendanceRecords = async (dateFilter: string | null, onError:
       const student = record.students as any;
       const studentName = student ? `${student.first_name} ${student.last_name}` : 'Unknown';
       
+      // Ensure status is a valid BuilderStatus
+      const validStatus: BuilderStatus = validateStatus(status);
+      
       return {
         id: record.id,
         date: record.date,
-        status,
+        status: validStatus,
         timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString() : undefined,
         notes: record.notes,
         excuseReason: record.excuse_reason,
@@ -63,6 +67,19 @@ export const fetchAttendanceRecords = async (dateFilter: string | null, onError:
     onError('Failed to load attendance records');
     return [];
   }
+};
+
+// Function to validate and transform status strings to BuilderStatus
+const validateStatus = (status: string): BuilderStatus => {
+  const validStatuses: BuilderStatus[] = ['present', 'absent', 'excused', 'pending', 'late'];
+  
+  if (validStatuses.includes(status as BuilderStatus)) {
+    return status as BuilderStatus;
+  }
+  
+  // Default to 'pending' if the status is invalid
+  console.warn(`Invalid status value encountered: ${status}. Defaulting to 'pending'`);
+  return 'pending';
 };
 
 export const deleteAttendanceRecord = async (recordId: string, onError: (message: string) => void): Promise<boolean> => {

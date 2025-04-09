@@ -63,9 +63,10 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   
   const closeDeleteDialog = useCallback(() => {
     setDeleteDialogOpen(false);
+    // Use a short delay to avoid visual jumps
     setTimeout(() => {
       setRecordToDelete(null);
-    }, 100);
+    }, 200);
   }, []);
   
   const confirmDelete = useCallback(async () => {
@@ -89,6 +90,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         );
         
         console.log('Record deleted successfully, local state updated');
+        
         // Force a reload after a short delay to ensure database consistency
         setTimeout(() => loadAttendanceHistory(), 500);
       }
@@ -96,7 +98,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       console.error('Error confirming delete:', error);
       onError('Failed to delete attendance record');
     } finally {
-      // Ensure we close the dialog and reset loading state
+      // Close the dialog and reset loading state
       setIsDeleting(false);
       closeDeleteDialog();
     }
@@ -115,6 +117,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     handleDeleteRecord,
     confirmDelete,
     closeDeleteDialog,
-    refreshData: loadAttendanceHistory
+    refreshData: loadAttendanceHistory,
+    isDeleting
   };
 };

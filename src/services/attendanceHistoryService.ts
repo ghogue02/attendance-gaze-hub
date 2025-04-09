@@ -84,12 +84,11 @@ export const deleteAttendanceRecord = async (
   try {
     console.log(`Attempting to delete attendance record with ID: ${recordId}`);
     
-    // Make sure we're actually sending the delete request with proper parameters
-    const { error, count } = await supabase
+    // First, perform the delete operation without returning count
+    const { error } = await supabase
       .from('attendance')
       .delete()
-      .eq('id', recordId)
-      .select('count'); // Add select count to verify deletion
+      .eq('id', recordId);
     
     if (error) {
       console.error('Error deleting attendance record:', error.message);
@@ -98,12 +97,23 @@ export const deleteAttendanceRecord = async (
       return false;
     }
     
-    // Log the results for debugging
-    console.log(`Deletion response: ${count} records deleted`);
+    // Now verify the deletion by checking if the record still exists
+    const { data, error: checkError } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('id', recordId)
+      .single();
     
-    if (count === 0) {
-      console.warn('No records were deleted, ID may not exist');
-      toast.warning('No records were found to delete');
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned" which is what we want
+      console.warn('Error verifying deletion:', checkError.message);
+    }
+    
+    const wasDeleted = !data; // If data is null, deletion was successful
+    console.log(`Deletion verification: Record ${wasDeleted ? 'was' : 'was NOT'} deleted`);
+    
+    if (!wasDeleted) {
+      console.warn('Record may not have been deleted, ID might still exist');
+      toast.warning('Could not verify if the record was deleted');
       return false;
     }
     

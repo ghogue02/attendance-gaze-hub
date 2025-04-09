@@ -44,7 +44,9 @@ const DeleteAttendanceDialog = ({
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
       // Only allow closing if we're not in the middle of an operation
-      if (!open && !isLoading && !isDeleting) onClose();
+      if (!open && !isLoading && !isDeleting) {
+        onClose();
+      }
     }}>
       <AlertDialogContent>
         <AlertDialogHeader>

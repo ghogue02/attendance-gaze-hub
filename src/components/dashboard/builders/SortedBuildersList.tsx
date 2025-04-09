@@ -1,12 +1,12 @@
 
-import { memo } from 'react';
-import { BuilderStatus } from '@/components/builder/types';
-import BuildersList from '@/components/dashboard/BuildersList';
-import { sortBuilders } from '@/components/dashboard/BuilderFilters';
+import { useCallback } from 'react';
+import { Builder, BuilderStatus } from '@/components/builder/types';
+import BuildersList from '../BuildersList';
+import { sortBuilders } from '../BuilderFilters';
 
 interface SortedBuildersListProps {
   isLoading: boolean;
-  filteredBuilders: any[];
+  filteredBuilders: Builder[];
   searchQuery: string;
   sortOption: string;
   onClearFilters: () => void;
@@ -16,7 +16,7 @@ interface SortedBuildersListProps {
   highlightedBuilderRef?: React.RefObject<HTMLDivElement>;
 }
 
-const SortedBuildersList = memo(({
+const SortedBuildersList = ({
   isLoading,
   filteredBuilders,
   searchQuery,
@@ -27,23 +27,26 @@ const SortedBuildersList = memo(({
   highlightBuilderId,
   highlightedBuilderRef
 }: SortedBuildersListProps) => {
-  // Apply sorting to the filtered builders
+  // Sort builders based on the selected sort option
   const sortedBuilders = sortBuilders(filteredBuilders, sortOption);
   
+  // Handle verify action
+  const handleVerify = useCallback((builderId: string, status: BuilderStatus, reason?: string) => {
+    onVerify(builderId, status, reason);
+  }, [onVerify]);
+  
   return (
-    <BuildersList 
-      isLoading={isLoading}
+    <BuildersList
       builders={sortedBuilders}
+      isLoading={isLoading}
       searchQuery={searchQuery}
       onClearFilters={onClearFilters}
-      onVerify={onVerify}
+      onVerify={handleVerify}
       onDeleteRequest={onDeleteRequest}
       highlightBuilderId={highlightBuilderId}
       highlightedBuilderRef={highlightedBuilderRef}
     />
   );
-});
-
-SortedBuildersList.displayName = 'SortedBuildersList';
+};
 
 export default SortedBuildersList;

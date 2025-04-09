@@ -60,8 +60,13 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     const builder = builders.find(b => b.id === record.studentId);
     
     if (builder) {
-      // Switch to the Builders tab
-      navigate('/dashboard', { state: { activeTab: 'builders', highlightBuilderId: builder.id } });
+      // Switch to the Builders tab and highlight the builder's card
+      navigate('/dashboard', { 
+        state: { 
+          activeTab: 'builders', 
+          highlightBuilderId: builder.id 
+        } 
+      });
       toast.info(`Navigating to ${builder.name}'s card...`);
     } else {
       toast.error(`Could not find builder with ID ${record.studentId}`);

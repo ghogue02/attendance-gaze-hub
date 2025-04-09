@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarIcon, Trash2Icon, User } from 'lucide-react';
+import { Trash2Icon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AttendanceRecord } from './AttendanceTypes';
 
@@ -25,7 +25,7 @@ const AttendanceTable = ({
           <TableRow>
             <TableHead>Date</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead>Builder ID</TableHead>
+            {/* Builder ID column removed */}
             <TableHead>Status</TableHead>
             <TableHead>Time</TableHead>
             <TableHead>Notes</TableHead>
@@ -44,13 +44,12 @@ const AttendanceTable = ({
                     onClick={() => onNavigateToBuilder(record)}
                   >
                     <User className="h-3.5 w-3.5" />
-                    {record.studentName}
+                    {record.studentName || 'Unknown'}
                   </Button>
                 ) : (
-                  record.studentName
+                  record.studentName || 'Unknown'
                 )}
               </TableCell>
-              <TableCell>{record.studentId}</TableCell>
               <TableCell>
                 <span 
                   className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${

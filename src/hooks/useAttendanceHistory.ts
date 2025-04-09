@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -17,10 +16,8 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const loadAttendanceHistory = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Now we'll get records with student names included
       const records = await fetchAttendanceRecords(dateFilter, onError);
       
-      // Apply status filter
       let filteredRecords = records;
       if (statusFilter !== 'all') {
         filteredRecords = records.filter(record => record.status === statusFilter);
@@ -38,7 +35,6 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   useEffect(() => {
     loadAttendanceHistory();
     
-    // Subscribe to global attendance changes
     const unsubscribe = subscribeToAttendanceChanges(() => {
       console.log('Attendance changed, refreshing history from global subscription');
       loadAttendanceHistory();
@@ -62,7 +58,6 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   
   const closeDeleteDialog = () => {
     setDeleteDialogOpen(false);
-    // Use a small timeout to ensure React completes the state update before clearing the record
     setTimeout(() => {
       setRecordToDelete(null);
     }, 100);
@@ -80,12 +75,10 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       const success = await deleteAttendanceRecord(recordToDelete.id, onError);
       
       if (success) {
-        // Immediately update local state after successful deletion
         setAttendanceRecords(prev => 
           prev.filter(record => record.id !== recordToDelete.id)
         );
         
-        // The global attendance subscription will trigger a refresh as well
         console.log('Record deleted successfully, local state updated');
       }
     } finally {
@@ -107,6 +100,6 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     handleDeleteRecord,
     confirmDelete,
     closeDeleteDialog,
-    refreshData: loadAttendanceHistory // Expose refresh function
+    refreshData: loadAttendanceHistory
   };
 };

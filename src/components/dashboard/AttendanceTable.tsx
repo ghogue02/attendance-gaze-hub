@@ -1,91 +1,68 @@
 
-import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2Icon, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { AttendanceRecord } from './AttendanceTypes';
+import { Trash2Icon } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+
+interface AttendanceRecord {
+  id: string;
+  date: string;
+  studentId: string; 
+  studentName: string;
+  status: string;
+  notes?: string;
+}
 
 interface AttendanceTableProps {
   attendanceRecords: AttendanceRecord[];
-  formatDate: (dateString: string) => string;
+  formatDate: (date: string) => string;
   onDeleteRecord: (record: AttendanceRecord) => void;
-  onNavigateToBuilder?: (record: AttendanceRecord) => void;
+  onNavigateToBuilder: (record: AttendanceRecord) => void;
 }
 
-const AttendanceTable = ({
-  attendanceRecords,
+const AttendanceTable = ({ 
+  attendanceRecords, 
   formatDate,
   onDeleteRecord,
-  onNavigateToBuilder
+  onNavigateToBuilder,
 }: AttendanceTableProps) => {
   return (
-    <div className="rounded-md border overflow-auto">
+    <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Date</TableHead>
-            <TableHead>Name</TableHead>
-            {/* Builder ID column removed */}
+            <TableHead>Builder</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Time</TableHead>
             <TableHead>Notes</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead className="text-right w-16">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {attendanceRecords.map((record) => (
-            <TableRow key={record.id}>
-              <TableCell>{formatDate(record.date)}</TableCell>
+            <TableRow 
+              key={record.id}
+              onClick={() => onNavigateToBuilder(record)}
+              className="cursor-pointer hover:bg-muted/60"
+            >
+              <TableCell className="font-medium">{formatDate(record.date)}</TableCell>
+              <TableCell>{record.studentName}</TableCell>
               <TableCell>
-                {onNavigateToBuilder ? (
-                  <Button 
-                    variant="link" 
-                    className="p-0 h-auto font-normal text-primary hover:text-primary/80 flex items-center gap-1"
-                    onClick={() => onNavigateToBuilder(record)}
-                  >
-                    <User className="h-3.5 w-3.5" />
-                    {record.studentName || 'Unknown'}
-                  </Button>
-                ) : (
-                  record.studentName || 'Unknown'
-                )}
-              </TableCell>
-              <TableCell>
-                <span 
-                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    record.status === 'present' ? 'bg-green-100 text-green-800' : 
-                    record.status === 'absent' ? 'bg-red-100 text-red-800' : 
-                    record.status === 'excused' ? 'bg-amber-100 text-amber-800' : 
-                    'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                <span className={`font-medium ${getStatusClass(record.status)}`}>
+                  {formatStatus(record.status)}
                 </span>
               </TableCell>
-              <TableCell>{record.timeRecorded}</TableCell>
-              <TableCell>
-                <div className="max-w-[300px] truncate">
-                  {record.excuseReason && (
-                    <p className="italic text-muted-foreground text-xs">
-                      Excuse: {record.excuseReason}
-                    </p>
-                  )}
-                  {record.notes && (
-                    <p className="truncate text-xs">
-                      {record.notes}
-                    </p>
-                  )}
-                  {!record.notes && !record.excuseReason && "—"}
-                </div>
-              </TableCell>
+              <TableCell>{record.notes || '—'}</TableCell>
               <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDeleteRecord(record)}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent row click
+                    onDeleteRecord(record);
+                  }}
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
-                  <Trash2Icon className="h-4 w-4 text-destructive" />
-                  <span className="sr-only">Delete</span>
+                  <Trash2Icon className="h-4 w-4" />
                 </Button>
               </TableCell>
             </TableRow>
@@ -95,5 +72,30 @@ const AttendanceTable = ({
     </div>
   );
 };
+
+// Helper function to get appropriate CSS class for status
+function getStatusClass(status: string): string {
+  switch(status.toLowerCase()) {
+    case 'present':
+      return 'text-green-600';
+    case 'absent':
+      return 'text-red-600';
+    case 'excused':
+      return 'text-yellow-600';  
+    case 'late':
+      return 'text-orange-600';
+    default:
+      return 'text-gray-600';
+  }
+}
+
+// Helper function to format status for display
+function formatStatus(status: string): string {
+  if (status.toLowerCase() === 'excused') {
+    return 'Excused Absence';
+  }
+  
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
 
 export default AttendanceTable;

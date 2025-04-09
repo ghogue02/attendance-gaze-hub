@@ -1,5 +1,5 @@
 
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useMemo, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useAttendanceHistory } from '@/hooks/useAttendanceHistory';
 import AttendanceLoadingState from './AttendanceLoadingState';
@@ -10,6 +10,7 @@ import AttendanceFilters from './AttendanceFilters';
 import AttendanceCopyOptions from './AttendanceCopyOptions';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import AttendanceHistoryDialog from '@/components/builder/AttendanceHistoryDialog';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
@@ -20,6 +21,10 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const navigate = useNavigate();
+  
+  // State for the attendance history dialog
+  const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   
   const {
     attendanceRecords,
@@ -54,78 +59,76 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     clearStatusFilter();
   }, [clearDateFilter, clearStatusFilter]);
 
-  // Navigate to the builder's card
-  const handleNavigateToBuilder = useCallback((record: any) => {
-    // Need to find the builder in our list
+  // Handle showing builder history dialog
+  const handleShowBuilderHistory = useCallback((record: any) => {
+    // Find the builder in our list
     const builder = builders.find(b => b.id === record.studentId);
     
     if (builder) {
-      // Switch to the Builders tab and highlight the builder's card
-      navigate('/dashboard', { 
-        state: { 
-          activeTab: 'builders', 
-          highlightBuilderId: builder.id 
-        } 
-      });
-      toast.info(`Navigating to ${builder.name}'s card...`);
+      setSelectedBuilder(builder);
+      setHistoryDialogOpen(true);
     } else {
       toast.error(`Could not find builder with ID ${record.studentId}`);
     }
-  }, [builders, navigate]);
+  }, [builders]);
   
-  // Determine earliest valid date (March 15, 2025)
-  const fromDate = new Date('2025-03-15');
-  const toDate = new Date(); // Today
+  // Close history dialog
+  const handleCloseHistoryDialog = useCallback(() => {
+    setHistoryDialogOpen(false);
+  }, []);
   
-  // Check if any filters are active
-  const hasActiveFilters = !!dateFilter || statusFilter !== 'all';
+  // Set up a redundant subscription at the top level to ensure
+  // the entire component tree refreshes when attendance changes
+  useEffect(() => {
+    const unsubscribe = subscribeToAttendanceChanges(() => {
+      console.log('HistoryTab detected attendance change, forcing refresh');
+      setRefreshKey(prev => prev + 1);
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, []);
   
-  if (isLoading) {
-    return <AttendanceLoadingState />;
-  }
+  // Memoize the builders array to prevent unnecessary re-renders
+  const memoizedBuilders = useMemo(() => builders, [builders]);
   
   return (
-    <>
-      <div className="space-y-4">
-        <AttendanceFilters 
-          dateFilter={dateFilter}
-          statusFilter={statusFilter}
-          date={date}
-          setDate={setDate}
-          setDateFilter={setDateFilter}
-          setStatusFilter={setStatusFilter}
-          clearDateFilter={clearDateFilter}
-          clearStatusFilter={clearStatusFilter}
-          clearAllFilters={clearAllFilters}
-          calendarOpen={calendarOpen}
-          setCalendarOpen={setCalendarOpen}
-          fromDate={fromDate}
-          toDate={toDate}
-          hasActiveFilters={hasActiveFilters}
-        />
-        
-        <div className="flex justify-end">
-          <AttendanceCopyOptions
-            attendanceRecords={attendanceRecords}
-            formatDate={formatDate}
-            dateFilter={dateFilter}
-          />
-        </div>
-        
-        {attendanceRecords.length === 0 ? (
-          <AttendanceEmptyState 
-            dateFiltered={!!dateFilter} 
-            statusFiltered={statusFilter !== 'all'}
-          />
-        ) : (
-          <AttendanceTable 
-            attendanceRecords={attendanceRecords}
-            formatDate={formatDate}
-            onDeleteRecord={handleDeleteRecord}
-            onNavigateToBuilder={handleNavigateToBuilder}
-          />
-        )}
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold">Attendance History</h2>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={handleClearAutomatedNotes} 
+          disabled={isClearing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isClearing ? 'animate-spin' : ''}`} />
+          Clear Automated Notes
+        </Button>
       </div>
+      
+      {error && (
+        <AttendanceErrorDisplay 
+          message={error}
+          onRetry={handleRetry}
+        />
+      )}
+      
+      <AttendanceHistory 
+        key={refreshKey}
+        builders={memoizedBuilders} 
+        onError={handleError}
+      />
+      
+      {/* Add attendance history dialog */}
+      {selectedBuilder && (
+        <AttendanceHistoryDialog 
+          isOpen={historyDialogOpen}
+          onClose={handleCloseHistoryDialog}
+          builder={selectedBuilder}
+        />
+      )}
       
       <DeleteAttendanceDialog
         isOpen={deleteDialogOpen}
@@ -133,7 +136,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         onClose={closeDeleteDialog}
         onConfirm={confirmDelete}
       />
-    </>
+    </div>
   );
 });
 

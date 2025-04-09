@@ -84,16 +84,37 @@ export const deleteAttendanceRecord = async (
   try {
     console.log(`Attempting to delete attendance record with ID: ${recordId}`);
     
-    // Delete the record and return immediately after success/failure
-    const { error } = await supabase
+    // First, verify the record exists before attempting to delete
+    const { data: existingRecord, error: checkError } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('id', recordId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error('Error checking attendance record:', checkError.message);
+      onError(`Failed to verify attendance record: ${checkError.message}`);
+      toast.error(`Failed to verify record: ${checkError.message}`);
+      return false;
+    }
+    
+    if (!existingRecord) {
+      console.error('Record not found:', recordId);
+      onError(`Attendance record not found: ${recordId}`);
+      toast.error('Record not found');
+      return false;
+    }
+    
+    // Then perform the deletion
+    const { error: deleteError } = await supabase
       .from('attendance')
       .delete()
       .eq('id', recordId);
     
-    if (error) {
-      console.error('Error deleting attendance record:', error.message);
-      onError(`Failed to delete attendance record: ${error.message}`);
-      toast.error(`Failed to delete record: ${error.message}`);
+    if (deleteError) {
+      console.error('Error deleting attendance record:', deleteError.message);
+      onError(`Failed to delete attendance record: ${deleteError.message}`);
+      toast.error(`Failed to delete record: ${deleteError.message}`);
       return false;
     }
 

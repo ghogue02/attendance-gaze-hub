@@ -29,13 +29,22 @@ const DeleteAttendanceDialog = ({
   // Handle the confirm action with proper error handling
   const handleConfirm = async (e: React.MouseEvent) => {
     e.preventDefault();
+    
+    if (isDeleting) {
+      console.log('Delete operation already in progress, ignoring additional clicks');
+      return;
+    }
+    
     try {
       setIsDeleting(true);
+      console.log('Starting delete operation...');
       await onConfirm();
+      console.log('Delete operation completed');
     } catch (error) {
       console.error('Error in delete confirmation handler:', error);
     } finally {
       setIsDeleting(false);
+      console.log('Closing dialog after delete operation');
       onClose();
     }
   };
@@ -44,6 +53,7 @@ const DeleteAttendanceDialog = ({
     <AlertDialog open={isOpen} onOpenChange={(open) => {
       // Only allow closing if we're not in the middle of an operation
       if (!open && !isLoading && !isDeleting) {
+        console.log('User closed delete dialog');
         onClose();
       }
     }}>

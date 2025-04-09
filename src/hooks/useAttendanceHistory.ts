@@ -19,6 +19,8 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const loadAttendanceHistory = useCallback(async () => {
     setIsLoading(true);
     try {
+      console.log(`Loading attendance history with filters: date=${dateFilter}, status=${statusFilter}`);
+      
       const records = await fetchAttendanceRecords(dateFilter, onError);
       
       let filteredRecords = records;
@@ -63,6 +65,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   }, []);
   
   const closeDeleteDialog = useCallback(() => {
+    console.log('Closing delete dialog');
     setDeleteDialogOpen(false);
     setTimeout(() => {
       setRecordToDelete(null);
@@ -82,10 +85,11 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       const idToDelete = recordToDelete.id;
       const recordName = recordToDelete.studentName || 'Unknown';
       
+      console.log(`Attempting to delete record with ID: ${idToDelete}`);
       const success = await deleteAttendanceRecord(idToDelete, onError);
       
       if (success) {
-        // Update the local state immediately to remove the deleted record
+        // Immediately update the local state to remove the deleted record
         setAttendanceRecords(prev => 
           prev.filter(record => record.id !== idToDelete)
         );
@@ -94,7 +98,10 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         console.log('Record deleted successfully, local state updated');
         
         // Force a full reload to ensure all data is in sync with the database
-        loadAttendanceHistory();
+        // Use a slight delay to allow the database operation to complete fully
+        setTimeout(() => {
+          loadAttendanceHistory();
+        }, 500);
       }
     } catch (error) {
       console.error('Error confirming delete:', error);

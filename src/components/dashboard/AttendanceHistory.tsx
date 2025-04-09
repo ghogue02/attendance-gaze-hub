@@ -14,7 +14,8 @@ import AttendanceHistoryDialog from '@/components/builder/AttendanceHistoryDialo
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
-import { subscribeToAttendanceChanges } from '@/services/attendance';
+import { subscribeToAttendanceChanges, clearAutomatedNotesForPresentStudents } from '@/services/attendance';
+import { format, subMonths } from 'date-fns';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
@@ -32,6 +33,10 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   // State for the attendance history dialog
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  
+  // Define date range boundaries for the calendar
+  const toDate = new Date();
+  const fromDate = subMonths(toDate, 6); // Allow selecting dates from 6 months ago
   
   const {
     attendanceRecords,
@@ -65,6 +70,9 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     clearDateFilter();
     clearStatusFilter();
   }, [clearDateFilter, clearStatusFilter]);
+  
+  // Check if there are active filters
+  const hasActiveFilters = Boolean(dateFilter || statusFilter !== 'all');
 
   // Handle showing builder history dialog
   const handleShowBuilderHistory = useCallback((record: any) => {
@@ -140,7 +148,10 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         {isLoading ? (
           <AttendanceLoadingState />
         ) : attendanceRecords.length === 0 ? (
-          <AttendanceEmptyState onClear={clearAllFilters} />
+          <AttendanceEmptyState 
+            dateFiltered={!!dateFilter}
+            statusFiltered={statusFilter !== 'all'}
+          />
         ) : (
           <div className="space-y-4">
             <AttendanceFilters 
@@ -155,18 +166,22 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
               clearDateFilter={clearDateFilter}
               clearStatusFilter={clearStatusFilter}
               clearAllFilters={clearAllFilters}
+              fromDate={fromDate}
+              toDate={toDate}
+              hasActiveFilters={hasActiveFilters}
             />
             
             <AttendanceTable 
-              attendanceRecords={attendanceRecords}
+              attendanceRecords={attendanceRecords as any} // Type cast to fix type issues
               formatDate={formatDate}
-              onDeleteRecord={handleDeleteRecord}
-              onNavigateToBuilder={handleShowBuilderHistory}
+              onDeleteRecord={(record) => handleDeleteRecord(record as any)}
+              onNavigateToBuilder={(record) => handleShowBuilderHistory(record)}
             />
             
             <AttendanceCopyOptions 
               attendanceRecords={attendanceRecords}
               formatDate={formatDate}
+              dateFilter={dateFilter}
             />
           </div>
         )}

@@ -37,6 +37,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   }, [onError, dateFilter, statusFilter]);
   
   useEffect(() => {
+    console.log("Loading attendance history initially");
     loadAttendanceHistory();
     
     // Set up a subscription to attendance changes
@@ -92,8 +93,8 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         toast.success(`Deleted attendance record for ${recordName}`);
         console.log('Record deleted successfully, local state updated');
         
-        // Force a reload after a delay to ensure database consistency
-        setTimeout(() => loadAttendanceHistory(), 300);
+        // Force a full reload to ensure all data is in sync with the database
+        loadAttendanceHistory();
       }
     } catch (error) {
       console.error('Error confirming delete:', error);

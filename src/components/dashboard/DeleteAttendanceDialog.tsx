@@ -36,7 +36,6 @@ const DeleteAttendanceDialog = ({
       console.error('Error in delete confirmation handler:', error);
     } finally {
       setIsDeleting(false);
-      // Close dialog after operation completes (whether successful or not)
       onClose();
     }
   };

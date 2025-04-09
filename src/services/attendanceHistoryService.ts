@@ -84,7 +84,7 @@ export const deleteAttendanceRecord = async (
   try {
     console.log(`Attempting to delete attendance record with ID: ${recordId}`);
     
-    // Perform the delete operation without any select/count
+    // Delete the record and return immediately after success/failure
     const { error } = await supabase
       .from('attendance')
       .delete()
@@ -96,6 +96,8 @@ export const deleteAttendanceRecord = async (
       toast.error(`Failed to delete record: ${error.message}`);
       return false;
     }
+
+    console.log(`Successfully deleted attendance record with ID: ${recordId}`);
     
     // Successful deletion
     toast.success('Attendance record deleted successfully');
@@ -107,4 +109,3 @@ export const deleteAttendanceRecord = async (
     return false;
   }
 };
-

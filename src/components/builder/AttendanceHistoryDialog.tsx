@@ -6,6 +6,7 @@ import { Builder } from './types';
 import DeleteAttendanceConfirmation from './attendance/DeleteAttendanceConfirmation';
 import AttendanceHistoryContent from './attendance/AttendanceHistoryContent';
 import { useAttendanceHistoryState } from '@/hooks/useAttendanceHistoryState';
+import { useEffect } from 'react';
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -39,9 +40,23 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
     setDeleteDialogOpen
   } = useAttendanceHistoryState({ builder, isOpen });
 
+  // Cleanup when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setDeleteDialogOpen(false);
+    }
+  }, [isOpen, setDeleteDialogOpen]);
+
+  const handleCloseDialog = () => {
+    // Make sure we're not in the middle of an operation
+    if (!isLoading) {
+      onClose();
+    }
+  };
+
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -73,7 +88,7 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
           />
           
           <DialogFooter className="mt-4 pt-4 border-t">
-            <Button onClick={onClose}>
+            <Button onClick={handleCloseDialog} disabled={isLoading}>
               Close
             </Button>
           </DialogFooter>

@@ -24,6 +24,11 @@ const DeleteAttendanceConfirmation = ({
   onConfirm,
   isLoading
 }: DeleteAttendanceConfirmationProps) => {
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    await onConfirm();
+  };
+
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -36,7 +41,7 @@ const DeleteAttendanceConfirmation = ({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
           <AlertDialogAction 
-            onClick={onConfirm} 
+            onClick={handleConfirm} 
             disabled={isLoading}
             className="bg-destructive hover:bg-destructive/90"
           >

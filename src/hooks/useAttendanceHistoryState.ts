@@ -284,10 +284,13 @@ export const useAttendanceHistoryState = ({ builder, isOpen }: UseAttendanceHist
     
     setIsLoading(true);
     try {
+      // Capture record ID before deletion to avoid accessing it later
+      const recordIdToDelete = recordToDelete.id;
+      
       const { error } = await supabase
         .from('attendance')
         .delete()
-        .eq('id', recordToDelete.id);
+        .eq('id', recordIdToDelete);
 
       if (error) {
         console.error('Error deleting attendance record:', error);
@@ -297,9 +300,9 @@ export const useAttendanceHistoryState = ({ builder, isOpen }: UseAttendanceHist
       
       toast.success('Attendance record deleted');
       
-      // Update local state
+      // Update local state - filter out the deleted record
       setAttendanceHistory(prev => 
-        prev.filter(record => record.id !== recordToDelete.id)
+        prev.filter(record => record.id !== recordIdToDelete)
       );
       
       // Close the delete dialog

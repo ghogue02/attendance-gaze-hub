@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarIcon, PencilIcon, Trash2Icon } from 'lucide-react';
@@ -23,25 +22,21 @@ const AttendanceHistoryTable = ({
   onDeleteRecord
 }: AttendanceHistoryTableProps) => {
   
-  // Fixed: Removed the event parameter to simplify the function call
   const handleEdit = (record: AttendanceRecord) => {
-    console.log("Edit button clicked for record:", record);
     onEditRecord(record);
   };
   
   const handleEditDate = (record: AttendanceRecord, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
-    e.preventDefault(); // Prevent default action
-    console.log("Edit date button clicked for record:", record);
+    e.stopPropagation();
+    e.preventDefault();
     if (onEditDate) {
       onEditDate(record);
     }
   };
   
   const handleDelete = (record: AttendanceRecord, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
-    e.preventDefault(); // Prevent default action
-    console.log("Delete button clicked for record:", record);
+    e.stopPropagation();
+    e.preventDefault();
     if (onDeleteRecord) {
       onDeleteRecord(record);
     }
@@ -112,7 +107,7 @@ const AttendanceHistoryTable = ({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => handleEdit(record)} // Fixed: Changed to use the simplified handler
+                  onClick={() => handleEdit(record)}
                   title="Edit record"
                   className="h-8 w-8"
                 >

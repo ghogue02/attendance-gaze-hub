@@ -1,3 +1,4 @@
+
 import { memo, useState, useCallback, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useAttendanceHistory } from '@/hooks/useAttendanceHistory';

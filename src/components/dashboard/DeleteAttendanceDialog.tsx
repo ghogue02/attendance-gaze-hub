@@ -28,6 +28,8 @@ const DeleteAttendanceDialog = ({
     e.preventDefault();
     try {
       await onConfirm();
+      // Don't close the dialog here - let the parent component handle it
+      // This avoids race conditions
     } catch (error) {
       console.error('Error in delete confirmation handler:', error);
     }
@@ -35,6 +37,7 @@ const DeleteAttendanceDialog = ({
 
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
+      // Only allow closing if we're not in the middle of an operation
       if (!open && !isLoading) onClose();
     }}>
       <AlertDialogContent>

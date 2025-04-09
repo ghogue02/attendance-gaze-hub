@@ -5,6 +5,7 @@ import { BuilderStatus } from '@/components/builder/types';
 import { formatDate } from '@/utils/attendance/formatUtils';
 import { fetchAttendanceRecords, deleteAttendanceRecord } from '@/services/attendanceHistoryService';
 import { subscribeToAttendanceChanges } from '@/services/attendance';
+import { toast } from 'sonner';
 
 export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -87,6 +88,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         );
         
         console.log('Record deleted successfully, local state updated');
+        toast.success('Record deleted successfully');
       }
     } catch (error) {
       console.error('Error confirming delete:', error);

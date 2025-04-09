@@ -14,7 +14,7 @@ import AttendanceHistoryDialog from '@/components/builder/AttendanceHistoryDialo
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
-import { subscribeToAttendanceChanges, clearAutomatedNotesForPresentStudents } from '@/services/attendance';
+import { clearAutomatedNotesForPresentStudents } from '@/services/attendance';
 import { format, subMonths } from 'date-fns';
 
 interface AttendanceHistoryProps {
@@ -100,9 +100,10 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   }, [refreshData]);
   
   // Handle error
-  const handleError = useCallback((message: string) => {
+  const localHandleError = useCallback((message: string) => {
     setError(message);
-  }, []);
+    onError(message);
+  }, [onError]);
   
   // Handle clear automated notes
   const handleClearAutomatedNotes = useCallback(async () => {
@@ -117,11 +118,11 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
       }
     } catch (e) {
       console.error('Error clearing automated notes:', e);
-      setError('Failed to clear automated notes');
+      localHandleError('Failed to clear automated notes');
     } finally {
       setIsClearing(false);
     }
-  }, [refreshData]);
+  }, [refreshData, localHandleError]);
   
   return (
     <div className="space-y-6">
@@ -173,10 +174,10 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
             />
             
             <AttendanceTable 
-              attendanceRecords={attendanceRecords as any} // Type cast to fix type issues
+              attendanceRecords={attendanceRecords} 
               formatDate={formatDate}
-              onDeleteRecord={(record) => handleDeleteRecord(record as any)}
-              onNavigateToBuilder={(record) => handleShowBuilderHistory(record)}
+              onDeleteRecord={handleDeleteRecord}
+              onNavigateToBuilder={handleShowBuilderHistory}
             />
             
             <AttendanceCopyOptions 

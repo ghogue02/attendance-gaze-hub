@@ -23,8 +23,9 @@ const DeleteAttendanceDialog = ({
   onClose,
   onConfirm
 }: DeleteAttendanceDialogProps) => {
-  // Handle the confirm action
-  const handleConfirm = async () => {
+  // Handle the confirm action with proper error handling
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.preventDefault();
     try {
       await onConfirm();
     } catch (error) {
@@ -34,7 +35,7 @@ const DeleteAttendanceDialog = ({
 
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
-      if (!open) onClose();
+      if (!open && !isLoading) onClose();
     }}>
       <AlertDialogContent>
         <AlertDialogHeader>

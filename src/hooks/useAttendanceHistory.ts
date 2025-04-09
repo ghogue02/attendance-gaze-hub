@@ -28,6 +28,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       console.log('Attendance history loaded with', filteredRecords.length, 'records');
     } catch (error) {
       console.error('Error loading attendance history:', error);
+      onError('Failed to load attendance records');
     } finally {
       setIsLoading(false);
     }
@@ -36,6 +37,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   useEffect(() => {
     loadAttendanceHistory();
     
+    // Set up a subscription to attendance changes
     const unsubscribe = subscribeToAttendanceChanges(() => {
       console.log('Attendance changed, refreshing history from global subscription');
       loadAttendanceHistory();
@@ -73,11 +75,15 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     
     setIsLoading(true);
     try {
-      const success = await deleteAttendanceRecord(recordToDelete.id, onError);
+      // Store the ID before any state changes
+      const idToDelete = recordToDelete.id;
+      
+      const success = await deleteAttendanceRecord(idToDelete, onError);
       
       if (success) {
+        // Update the local state to remove the deleted record
         setAttendanceRecords(prev => 
-          prev.filter(record => record.id !== recordToDelete.id)
+          prev.filter(record => record.id !== idToDelete)
         );
         
         console.log('Record deleted successfully, local state updated');
@@ -86,8 +92,9 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       console.error('Error confirming delete:', error);
       onError('Failed to delete attendance record');
     } finally {
-      setIsLoading(false);
+      // Ensure we close the dialog and reset loading state
       closeDeleteDialog();
+      setIsLoading(false);
     }
   }, [recordToDelete, closeDeleteDialog, onError]);
 

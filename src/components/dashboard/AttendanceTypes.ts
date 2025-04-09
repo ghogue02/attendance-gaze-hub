@@ -8,7 +8,7 @@ export interface AttendanceRecord {
   timeRecorded?: string;
   notes?: string;
   excuseReason?: string;
-  studentId?: string;
+  studentId: string;
   studentName?: string;
 }
 

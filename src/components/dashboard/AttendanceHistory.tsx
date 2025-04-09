@@ -16,6 +16,7 @@ import { RefreshCw } from 'lucide-react';
 import AttendanceErrorDisplay from './AttendanceErrorDisplay';
 import { clearAutomatedNotesForPresentStudents } from '@/services/attendance';
 import { format, subMonths } from 'date-fns';
+import { AttendanceRecord } from './AttendanceTypes';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
@@ -75,7 +76,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   const hasActiveFilters = Boolean(dateFilter || statusFilter !== 'all');
 
   // Handle showing builder history dialog
-  const handleShowBuilderHistory = useCallback((record: any) => {
+  const handleShowBuilderHistory = useCallback((record: AttendanceRecord) => {
     // Find the builder in our list
     const builder = builders.find(b => b.id === record.studentId);
     
@@ -174,7 +175,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
             />
             
             <AttendanceTable 
-              attendanceRecords={attendanceRecords} 
+              attendanceRecords={attendanceRecords}
               formatDate={formatDate}
               onDeleteRecord={handleDeleteRecord}
               onNavigateToBuilder={handleShowBuilderHistory}

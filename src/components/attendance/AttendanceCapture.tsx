@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useAttendanceCapture } from '@/hooks/attendance-capture';

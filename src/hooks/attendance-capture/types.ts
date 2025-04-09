@@ -1,5 +1,6 @@
 
 import { Builder, BuilderStatus } from '@/components/builder/types';
+import { RefObject } from 'react';
 
 export interface AttendanceCaptureState {
   loading: boolean;
@@ -13,16 +14,26 @@ export interface AttendanceCaptureState {
 }
 
 export interface UseAttendanceCaptureProps {
-  onSuccess?: (builder: Builder) => void;
+  onAttendanceMarked: (builder: Builder) => void;
+  isCameraActive: boolean;
+  selectedBuilder?: Builder | null;
   onError?: (error: string) => void;
 }
 
 export interface UseAttendanceCaptureReturn {
-  state: AttendanceCaptureState;
-  capturePhoto: () => Promise<void>;
-  retake: () => void;
-  markAttendance: (status: BuilderStatus, reason?: string) => Promise<void>;
-  cancelRecognition: () => void;
+  videoRef: RefObject<HTMLVideoElement>;
+  canvasRef: RefObject<HTMLCanvasElement>;
+  isCapturing: boolean;
+  cameraError: string;
+  processing: boolean;
+  statusMessage: string | null;
+  handleRetryCamera: () => void;
+  handleCaptureAttendance: () => Promise<void>;
+  state?: AttendanceCaptureState;
+  capturePhoto?: () => Promise<void>;
+  retake?: () => void;
+  markAttendance?: (status: BuilderStatus, reason?: string) => Promise<void>;
+  cancelRecognition?: () => void;
 }
 
 export interface AttendanceNavigationState {

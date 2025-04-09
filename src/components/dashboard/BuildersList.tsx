@@ -1,72 +1,79 @@
 
-import { motion } from 'framer-motion';
-import { Builder, BuilderStatus } from '@/components/builder/types';
-import { DeleteBuilderDialog } from '@/components/builder/DeleteBuilderDialog';
-import { useState } from 'react';
-import { BuilderCard } from '@/components/builder';
+import { FC, useRef, useCallback } from 'react';
+import { BuilderStatus, Builder } from '@/components/builder/types';
+import BuilderCard from '@/components/builder/BuilderCard';
+import { Skeleton } from '@/components/ui/skeleton';
+import NoResultsState from './builders/NoResultsState';
 
 interface BuildersListProps {
+  builders: Builder[];
   isLoading: boolean;
-  filteredBuilders: Builder[];
   searchQuery: string;
   onClearFilters: () => void;
   onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
-  onDeleteRequest: (builderId: string, builderName: string) => void;
+  onDeleteRequest?: (builderId: string, builderName: string) => void;
+  highlightBuilderId?: string;
+  highlightedBuilderRef?: React.RefObject<HTMLDivElement>;
 }
 
-const BuildersList = ({ 
-  isLoading, 
-  filteredBuilders,
+const BuildersList: FC<BuildersListProps> = ({
+  builders,
+  isLoading,
   searchQuery,
   onClearFilters,
   onVerify,
-  onDeleteRequest
-}: BuildersListProps) => {
+  onDeleteRequest,
+  highlightBuilderId,
+  highlightedBuilderRef
+}) => {
+  
+  // Create a memoized ref callback function to set refs dynamically
+  const setBuilderRef = useCallback(
+    (element: HTMLDivElement | null, builderId: string) => {
+      if (highlightBuilderId === builderId && element && highlightedBuilderRef) {
+        highlightedBuilderRef.current = element;
+      }
+    },
+    [highlightBuilderId, highlightedBuilderRef]
+  );
+  
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-          <p className="mt-4 text-muted-foreground">Loading builder data...</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <Skeleton key={i} className="h-[200px] rounded-xl" />
+        ))}
       </div>
     );
   }
   
-  if (filteredBuilders.length === 0) {
+  if (builders.length === 0) {
     return (
-      <div className="glass-card p-10 text-center">
-        <h3 className="text-xl font-medium mb-2">No builders found</h3>
-        <p className="text-muted-foreground mb-4">
-          {searchQuery 
-            ? `No results matching "${searchQuery}"` 
-            : "There are no builders with the selected status"}
-        </p>
-        <button 
-          onClick={onClearFilters}
-          className="btn-secondary py-2 mx-auto"
-        >
-          Clear filters
-        </button>
-      </div>
+      <NoResultsState 
+        searchQuery={searchQuery} 
+        onClearFilters={onClearFilters}
+      />
     );
   }
   
   return (
-    <div className="space-y-4">
-      {filteredBuilders.map((builder) => (
-        <motion.div
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {builders.map(builder => (
+        <div 
           key={builder.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          ref={(element) => setBuilderRef(element, builder.id)}
+          className={`transition-all duration-500 ${
+            highlightBuilderId === builder.id
+              ? 'ring-4 ring-primary/40 ring-offset-4 ring-offset-background scale-105 z-10'
+              : ''
+          }`}
         >
-          <BuilderCard 
-            builder={builder} 
+          <BuilderCard
+            builder={builder}
             onVerify={onVerify}
-            onDeleteRequest={() => onDeleteRequest(builder.id, builder.name)} 
+            onDeleteRequest={onDeleteRequest ? () => onDeleteRequest(builder.id, builder.name) : undefined}
           />
-        </motion.div>
+        </div>
       ))}
     </div>
   );

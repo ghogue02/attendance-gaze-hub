@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BuilderStatus } from '@/components/builder/types';
 import BuilderFilters from './BuilderFilters';
 import { AddBuilderDialog } from '@/components/builder/AddBuilderDialog';
@@ -17,6 +17,7 @@ interface BuildersTabProps {
   onClearFilters: () => void;
   onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
   refreshData: () => void;
+  highlightBuilderId?: string;
 }
 
 const BuildersTab = ({
@@ -28,17 +29,30 @@ const BuildersTab = ({
   setStatusFilter,
   onClearFilters,
   onVerify,
-  refreshData
+  refreshData,
+  highlightBuilderId
 }: BuildersTabProps) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [builderToDelete, setBuilderToDelete] = useState<{ id: string, name: string } | null>(null);
   const [sortOption, setSortOption] = useState('name');
+  const highlightedBuilderRef = useRef<HTMLDivElement>(null);
   
   const handleDeleteRequest = (builderId: string, builderName: string) => {
     setBuilderToDelete({ id: builderId, name: builderName });
     setIsDeleteDialogOpen(true);
   };
+
+  // Effect to scroll to the highlighted builder
+  useEffect(() => {
+    if (highlightBuilderId && highlightedBuilderRef.current) {
+      // Smooth scroll to the highlighted builder
+      highlightedBuilderRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  }, [highlightBuilderId, filteredBuilders]);
 
   return (
     <div className="space-y-6">
@@ -61,6 +75,8 @@ const BuildersTab = ({
         onClearFilters={onClearFilters}
         onVerify={onVerify}
         onDeleteRequest={handleDeleteRequest}
+        highlightBuilderId={highlightBuilderId}
+        highlightedBuilderRef={highlightedBuilderRef}
       />
       
       <AddBuilderDialog 

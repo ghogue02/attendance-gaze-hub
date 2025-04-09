@@ -1,15 +1,24 @@
 
 // src/pages/Dashboard.tsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import { StatisticsCards } from '@/components/dashboard/statistics';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { AttendanceNavigationState } from '@/hooks/attendance-capture/types';
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('builders');
+  const location = useLocation();
+  const navigationState = location.state as AttendanceNavigationState | null;
+  const initialTab = navigationState?.activeTab || 'builders';
+  
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [highlightBuilderId, setHighlightBuilderId] = useState<string | undefined>(
+    navigationState?.highlightBuilderId
+  );
 
   // Destructure state and handlers from the custom hook
   const {
@@ -25,6 +34,28 @@ const Dashboard = () => {
     handleClearFilters, // Function to reset filters
     refreshData         // Function to manually refresh data
   } = useDashboardData();
+
+  // Effect to update the tab when navigation state changes
+  useEffect(() => {
+    if (navigationState?.activeTab) {
+      setActiveTab(navigationState.activeTab);
+    }
+    
+    if (navigationState?.highlightBuilderId) {
+      setHighlightBuilderId(navigationState.highlightBuilderId);
+    }
+  }, [navigationState]);
+
+  // Clear highlight after some time (to avoid it persisting forever)
+  useEffect(() => {
+    if (highlightBuilderId) {
+      const timer = setTimeout(() => {
+        setHighlightBuilderId(undefined);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [highlightBuilderId]);
 
   console.log(`[Dashboard Page] Rendering. isLoading: ${isLoading}, builders count: ${builders.length}, filtered count: ${filteredBuilders.length}`);
   console.log(`[Dashboard Page] Present count from builders state: ${builders.filter(b => b.status === 'present').length}`);
@@ -56,6 +87,7 @@ const Dashboard = () => {
           onClearFilters={handleClearFilters}
           onVerify={handleMarkAttendance} // Use the handler from the hook
           refreshData={refreshData}      // Pass the refresh function
+          highlightBuilderId={highlightBuilderId}
         />
       </main>
     </div>

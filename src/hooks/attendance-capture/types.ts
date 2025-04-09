@@ -1,19 +1,15 @@
 
-import { Builder } from '@/components/builder/types';
+import { BuilderStatus } from '@/components/builder/types';
 
-export interface UseAttendanceCaptureProps {
-  onAttendanceMarked: (builder: Builder) => void;
-  isCameraActive: boolean;
-  selectedBuilder?: Builder | null;
+export interface AttendanceData {
+  builderId: string;
+  status: BuilderStatus;
+  excuseReason?: string;
+  notes?: string;
+  date: string;
 }
 
-export interface UseAttendanceCaptureReturn {
-  videoRef: React.RefObject<HTMLVideoElement>;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
-  isCapturing: boolean;
-  cameraError: string;
-  processing: boolean;
-  statusMessage: string | null;
-  handleRetryCamera: () => void;
-  handleCaptureAttendance: () => Promise<void>;
+export interface AttendanceNavigationState {
+  activeTab?: string;
+  highlightBuilderId?: string;
 }

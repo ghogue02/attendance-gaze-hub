@@ -1,79 +1,100 @@
 
-import { memo } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import React from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CalendarIcon, Trash2Icon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Trash2Icon } from 'lucide-react';
 import { AttendanceRecord } from './AttendanceTypes';
-import { getStatusColor } from '@/components/builder/BuilderCardUtils';
 
 interface AttendanceTableProps {
   attendanceRecords: AttendanceRecord[];
-  formatDate: (dateStr: string) => string;
-  onDeleteRecord: (record: AttendanceRecord, e: React.MouseEvent) => void;
+  formatDate: (dateString: string) => string;
+  onDeleteRecord: (record: AttendanceRecord) => void;
+  onNavigateToBuilder?: (record: AttendanceRecord) => void;
 }
 
-const AttendanceTable = memo(({
+const AttendanceTable = ({
   attendanceRecords,
   formatDate,
-  onDeleteRecord
+  onDeleteRecord,
+  onNavigateToBuilder
 }: AttendanceTableProps) => {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Date</TableHead>
-          <TableHead>Name</TableHead>
-          <TableHead>Builder ID</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Time</TableHead>
-          <TableHead>Notes</TableHead>
-          <TableHead className="w-24 text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {attendanceRecords.map(record => (
-          <TableRow key={record.id}>
-            <TableCell>{formatDate(record.date)}</TableCell>
-            <TableCell>{record.studentName}</TableCell>
-            <TableCell>{record.studentId}</TableCell>
-            <TableCell>
-              <span className={`font-medium capitalize ${getStatusColor(record.status).split(' ')[1]}`}>
-                {record.status === 'excused' ? 'Excused Absence' : record.status}
-              </span>
-            </TableCell>
-            <TableCell>{record.timeRecorded || '—'}</TableCell>
-            <TableCell className="max-w-[250px] break-words">
-              {record.excuseReason ? (
-                <div>
-                  <p className="font-medium text-xs">Excuse:</p>
-                  <p className="text-sm">{record.excuseReason}</p>
-                </div>
-              ) : null}
-              {record.notes ? (
-                <div className={record.excuseReason ? "mt-1" : ""}>
-                  <p className="font-medium text-xs">Notes:</p>
-                  <p className="text-sm">{record.notes}</p>
-                </div>
-              ) : record.excuseReason ? null : '—'}
-            </TableCell>
-            <TableCell className="text-right">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={(e) => onDeleteRecord(record, e)}
-                title="Delete record"
-                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2Icon className="h-4 w-4" />
-              </Button>
-            </TableCell>
+    <div className="rounded-md border overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead>Builder ID</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Time</TableHead>
+            <TableHead>Notes</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {attendanceRecords.map((record) => (
+            <TableRow key={record.id}>
+              <TableCell>{formatDate(record.date)}</TableCell>
+              <TableCell>
+                {onNavigateToBuilder ? (
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto font-normal text-primary hover:text-primary/80 flex items-center gap-1"
+                    onClick={() => onNavigateToBuilder(record)}
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    {record.studentName}
+                  </Button>
+                ) : (
+                  record.studentName
+                )}
+              </TableCell>
+              <TableCell>{record.studentId}</TableCell>
+              <TableCell>
+                <span 
+                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    record.status === 'present' ? 'bg-green-100 text-green-800' : 
+                    record.status === 'absent' ? 'bg-red-100 text-red-800' : 
+                    record.status === 'excused' ? 'bg-amber-100 text-amber-800' : 
+                    'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                </span>
+              </TableCell>
+              <TableCell>{record.timeRecorded}</TableCell>
+              <TableCell>
+                <div className="max-w-[300px] truncate">
+                  {record.excuseReason && (
+                    <p className="italic text-muted-foreground text-xs">
+                      Excuse: {record.excuseReason}
+                    </p>
+                  )}
+                  {record.notes && (
+                    <p className="truncate text-xs">
+                      {record.notes}
+                    </p>
+                  )}
+                  {!record.notes && !record.excuseReason && "—"}
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteRecord(record)}
+                >
+                  <Trash2Icon className="h-4 w-4 text-destructive" />
+                  <span className="sr-only">Delete</span>
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
-});
-
-AttendanceTable.displayName = 'AttendanceTable';
+};
 
 export default AttendanceTable;

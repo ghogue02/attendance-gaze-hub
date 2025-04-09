@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -16,6 +17,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const loadAttendanceHistory = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Now we'll get records with student names included
       const records = await fetchAttendanceRecords(dateFilter, onError);
       
       // Apply status filter

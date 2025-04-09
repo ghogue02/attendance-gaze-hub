@@ -8,6 +8,8 @@ import AttendanceTable from './AttendanceTable';
 import DeleteAttendanceDialog from './DeleteAttendanceDialog';
 import AttendanceFilters from './AttendanceFilters';
 import AttendanceCopyOptions from './AttendanceCopyOptions';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
@@ -17,6 +19,7 @@ interface AttendanceHistoryProps {
 const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const navigate = useNavigate();
   
   const {
     attendanceRecords,
@@ -50,6 +53,20 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     clearDateFilter();
     clearStatusFilter();
   }, [clearDateFilter, clearStatusFilter]);
+
+  // Navigate to the builder's card
+  const handleNavigateToBuilder = useCallback((record: any) => {
+    // Need to find the builder in our list
+    const builder = builders.find(b => b.id === record.studentId);
+    
+    if (builder) {
+      // Switch to the Builders tab
+      navigate('/dashboard', { state: { activeTab: 'builders', highlightBuilderId: builder.id } });
+      toast.info(`Navigating to ${builder.name}'s card...`);
+    } else {
+      toast.error(`Could not find builder with ID ${record.studentId}`);
+    }
+  }, [builders, navigate]);
   
   // Determine earliest valid date (March 15, 2025)
   const fromDate = new Date('2025-03-15');
@@ -100,6 +117,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
             attendanceRecords={attendanceRecords}
             formatDate={formatDate}
             onDeleteRecord={handleDeleteRecord}
+            onNavigateToBuilder={handleNavigateToBuilder}
           />
         )}
       </div>

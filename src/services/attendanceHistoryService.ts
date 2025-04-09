@@ -84,31 +84,41 @@ export const deleteAttendanceRecord = async (
   try {
     console.log(`Attempting to delete attendance record with ID: ${recordId}`);
     
-    // Perform the deletion with direct error checking
-    const { error, count } = await supabase
+    // First check if the record exists
+    const { data: existingRecord, error: checkError } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('id', recordId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error('Error checking attendance record:', checkError.message);
+      onError(`Failed to verify attendance record: ${checkError.message}`);
+      toast.error(`Failed to verify record: ${checkError.message}`);
+      return false;
+    }
+    
+    if (!existingRecord) {
+      console.error('Record not found:', recordId);
+      onError(`Attendance record not found: ${recordId}`);
+      toast.error('Record not found');
+      return false;
+    }
+    
+    // Perform the delete operation without returning a count
+    const { error: deleteError } = await supabase
       .from('attendance')
       .delete()
-      .eq('id', recordId)
-      .select('count');
+      .eq('id', recordId);
     
-    if (error) {
-      console.error('Error deleting attendance record:', error.message);
-      onError(`Failed to delete attendance record: ${error.message}`);
-      toast.error(`Failed to delete record: ${error.message}`);
+    if (deleteError) {
+      console.error('Error deleting attendance record:', deleteError.message);
+      onError(`Failed to delete attendance record: ${deleteError.message}`);
+      toast.error(`Failed to delete record: ${deleteError.message}`);
       return false;
     }
     
-    // Check if any rows were actually affected
-    if (!count || count === 0) {
-      console.error('No records were deleted for ID:', recordId);
-      onError(`No records found with ID ${recordId}`);
-      toast.error('Record not found or already deleted');
-      return false;
-    }
-    
-    console.log(`Successfully deleted attendance record with ID: ${recordId} (confirmed ${count} rows affected)`);
-    
-    // Successful deletion
+    console.log(`Successfully deleted attendance record with ID: ${recordId}`);
     toast.success('Attendance record deleted successfully');
     return true;
   } catch (error) {

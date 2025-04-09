@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -14,7 +13,6 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<AttendanceRecord | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   
   const loadAttendanceHistory = useCallback(async () => {
     setIsLoading(true);
@@ -67,9 +65,10 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const closeDeleteDialog = useCallback(() => {
     console.log('Closing delete dialog');
     setDeleteDialogOpen(false);
+    // Use setTimeout to avoid state updates during render
     setTimeout(() => {
       setRecordToDelete(null);
-    }, 200);
+    }, 100);
   }, []);
   
   const confirmDelete = useCallback(async () => {
@@ -79,9 +78,9 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       return;
     }
     
-    setIsDeleting(true);
+    setIsLoading(true);
     try {
-      // Store the ID before any state changes
+      // Store the ID and record info before any state changes
       const idToDelete = recordToDelete.id;
       const recordName = recordToDelete.studentName || 'Unknown';
       
@@ -95,21 +94,21 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         );
         
         toast.success(`Deleted attendance record for ${recordName}`);
-        console.log('Record deleted successfully, local state updated');
+        closeDeleteDialog();
         
-        // Force a full reload to ensure all data is in sync with the database
-        // after a delay to ensure the deletion has propagated
+        // After a short delay, reload to ensure consistency with the database
         setTimeout(() => {
-          console.log('Executing delayed reload after deletion');
           loadAttendanceHistory();
-        }, 1000);
+        }, 500);
+      } else {
+        // If deletion failed, keep dialog open to allow retry
+        toast.error('Failed to delete record');
       }
     } catch (error) {
       console.error('Error confirming delete:', error);
       onError('Failed to delete attendance record');
     } finally {
-      setIsDeleting(false);
-      closeDeleteDialog();
+      setIsLoading(false);
     }
   }, [recordToDelete, closeDeleteDialog, onError, loadAttendanceHistory]);
 
@@ -126,7 +125,6 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     handleDeleteRecord,
     confirmDelete,
     closeDeleteDialog,
-    refreshData: loadAttendanceHistory,
-    isDeleting
+    refreshData: loadAttendanceHistory
   };
 };

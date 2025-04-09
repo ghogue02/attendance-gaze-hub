@@ -84,7 +84,7 @@ export const deleteAttendanceRecord = async (
   try {
     console.log(`Attempting to delete attendance record with ID: ${recordId}`);
     
-    // First check if the record exists
+    // First check if the record exists - this avoids race conditions
     const { data: existingRecord, error: checkError } = await supabase
       .from('attendance')
       .select('id')
@@ -94,18 +94,16 @@ export const deleteAttendanceRecord = async (
     if (checkError) {
       console.error('Error checking attendance record:', checkError.message);
       onError(`Failed to verify attendance record: ${checkError.message}`);
-      toast.error(`Failed to verify record: ${checkError.message}`);
       return false;
     }
     
     if (!existingRecord) {
       console.error('Record not found:', recordId);
       onError(`Attendance record not found: ${recordId}`);
-      toast.error('Record not found');
       return false;
     }
     
-    // Perform the delete operation without returning a count
+    // Perform the delete operation - don't try to select count or anything else
     const { error: deleteError } = await supabase
       .from('attendance')
       .delete()
@@ -114,17 +112,14 @@ export const deleteAttendanceRecord = async (
     if (deleteError) {
       console.error('Error deleting attendance record:', deleteError.message);
       onError(`Failed to delete attendance record: ${deleteError.message}`);
-      toast.error(`Failed to delete record: ${deleteError.message}`);
       return false;
     }
     
     console.log(`Successfully deleted attendance record with ID: ${recordId}`);
-    toast.success('Attendance record deleted successfully');
     return true;
   } catch (error) {
     console.error('Unexpected error deleting attendance record:', error);
     onError('An unexpected error occurred while deleting the attendance record');
-    toast.error('An unexpected error occurred while deleting the record');
     return false;
   }
 };

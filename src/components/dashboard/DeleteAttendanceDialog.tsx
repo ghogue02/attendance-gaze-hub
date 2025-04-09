@@ -9,7 +9,6 @@ import {
   AlertDialogCancel, 
   AlertDialogAction 
 } from '@/components/ui/alert-dialog';
-import { useState } from 'react';
 
 interface DeleteAttendanceDialogProps {
   isOpen: boolean;
@@ -24,36 +23,21 @@ const DeleteAttendanceDialog = ({
   onClose,
   onConfirm
 }: DeleteAttendanceDialogProps) => {
-  const [isDeleting, setIsDeleting] = useState(false);
   
-  // Handle the confirm action with proper error handling
   const handleConfirm = async (e: React.MouseEvent) => {
     e.preventDefault();
-    
-    if (isDeleting) {
-      console.log('Delete operation already in progress, ignoring additional clicks');
-      return;
-    }
-    
     try {
-      setIsDeleting(true);
-      console.log('Starting delete operation...');
       await onConfirm();
-      console.log('Delete operation completed');
-    } catch (error) {
-      console.error('Error in delete confirmation handler:', error);
     } finally {
-      setIsDeleting(false);
-      console.log('Closing dialog after delete operation');
-      onClose();
+      // Don't call onClose here - let the parent component handle this
+      // after the operation completes
     }
   };
 
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
       // Only allow closing if we're not in the middle of an operation
-      if (!open && !isLoading && !isDeleting) {
-        console.log('User closed delete dialog');
+      if (!open && !isLoading) {
         onClose();
       }
     }}>
@@ -65,13 +49,13 @@ const DeleteAttendanceDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading || isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleConfirm} 
-            disabled={isLoading || isDeleting}
+            disabled={isLoading}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isLoading ? 'Deleting...' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

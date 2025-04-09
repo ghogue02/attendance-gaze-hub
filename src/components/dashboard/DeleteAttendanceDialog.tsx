@@ -23,6 +23,15 @@ const DeleteAttendanceDialog = ({
   onClose,
   onConfirm
 }: DeleteAttendanceDialogProps) => {
+  // Handle the confirm action
+  const handleConfirm = async () => {
+    try {
+      await onConfirm();
+    } catch (error) {
+      console.error('Error in delete confirmation handler:', error);
+    }
+  };
+
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
       if (!open) onClose();
@@ -37,11 +46,11 @@ const DeleteAttendanceDialog = ({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
           <AlertDialogAction 
-            onClick={onConfirm} 
+            onClick={handleConfirm} 
             disabled={isLoading}
             className="bg-destructive hover:bg-destructive/90"
           >
-            Delete
+            {isLoading ? 'Deleting...' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

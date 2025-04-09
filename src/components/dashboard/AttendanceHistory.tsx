@@ -90,6 +90,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   // Close history dialog
   const handleCloseHistoryDialog = useCallback(() => {
     setHistoryDialogOpen(false);
+    setSelectedBuilder(null); // Make sure to clear the selected builder
   }, []);
   
   // Handle retry

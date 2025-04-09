@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
+import { toast } from 'sonner';
 
 /**
  * Fetches all attendance records with student names
@@ -81,6 +82,8 @@ export const deleteAttendanceRecord = async (
   onError: (message: string) => void
 ): Promise<boolean> => {
   try {
+    console.log(`Attempting to delete attendance record with ID: ${recordId}`);
+    
     const { error } = await supabase
       .from('attendance')
       .delete()
@@ -89,13 +92,16 @@ export const deleteAttendanceRecord = async (
     if (error) {
       console.error('Error deleting attendance record:', error.message);
       onError(`Failed to delete attendance record: ${error.message}`);
+      toast.error(`Failed to delete attendance record: ${error.message}`);
       return false;
     }
     
+    toast.success('Attendance record deleted successfully');
     return true;
   } catch (error) {
     console.error('Unexpected error deleting attendance record:', error);
     onError('An unexpected error occurred while deleting the attendance record');
+    toast.error('An unexpected error occurred while deleting the attendance record');
     return false;
   }
 };

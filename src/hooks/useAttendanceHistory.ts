@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -45,7 +46,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     };
   }, [loadAttendanceHistory]);
   
-  const handleDeleteRecord = (record: AttendanceRecord, e?: React.MouseEvent) => {
+  const handleDeleteRecord = useCallback((record: AttendanceRecord, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -54,16 +55,16 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     console.log("Opening delete dialog for record:", record);
     setRecordToDelete(record);
     setDeleteDialogOpen(true);
-  };
+  }, []);
   
-  const closeDeleteDialog = () => {
+  const closeDeleteDialog = useCallback(() => {
     setDeleteDialogOpen(false);
     setTimeout(() => {
       setRecordToDelete(null);
     }, 100);
-  };
+  }, []);
   
-  const confirmDelete = async () => {
+  const confirmDelete = useCallback(async () => {
     if (!recordToDelete) {
       console.log("No record to delete");
       closeDeleteDialog();
@@ -81,11 +82,14 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         
         console.log('Record deleted successfully, local state updated');
       }
+    } catch (error) {
+      console.error('Error confirming delete:', error);
+      onError('Failed to delete attendance record');
     } finally {
       setIsLoading(false);
       closeDeleteDialog();
     }
-  };
+  }, [recordToDelete, closeDeleteDialog, onError]);
 
   return {
     attendanceRecords,

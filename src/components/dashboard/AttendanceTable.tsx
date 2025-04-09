@@ -2,20 +2,12 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2Icon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-
-interface AttendanceRecord {
-  id: string;
-  date: string;
-  studentId: string; 
-  studentName: string;
-  status: string;
-  notes?: string;
-}
+import { AttendanceRecord } from './AttendanceTypes';
 
 interface AttendanceTableProps {
   attendanceRecords: AttendanceRecord[];
   formatDate: (date: string) => string;
-  onDeleteRecord: (record: AttendanceRecord) => void;
+  onDeleteRecord: (record: AttendanceRecord, e?: React.MouseEvent) => void;
   onNavigateToBuilder: (record: AttendanceRecord) => void;
 }
 
@@ -45,7 +37,7 @@ const AttendanceTable = ({
               className="cursor-pointer hover:bg-muted/60"
             >
               <TableCell className="font-medium">{formatDate(record.date)}</TableCell>
-              <TableCell>{record.studentName}</TableCell>
+              <TableCell>{record.studentName || 'Unknown'}</TableCell>
               <TableCell>
                 <span className={`font-medium ${getStatusClass(record.status)}`}>
                   {formatStatus(record.status)}
@@ -58,7 +50,7 @@ const AttendanceTable = ({
                   size="icon" 
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent row click
-                    onDeleteRecord(record);
+                    onDeleteRecord(record, e);
                   }}
                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                 >

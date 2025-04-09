@@ -1,4 +1,3 @@
-
 import { memo, useState, useCallback, useMemo } from 'react';
 import { Builder } from '@/components/builder/types';
 import { useAttendanceHistory } from '@/hooks/useAttendanceHistory';
@@ -31,13 +30,11 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
   const [error, setError] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   
-  // State for the attendance history dialog
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   
-  // Define date range boundaries for the calendar
   const toDate = new Date();
-  const fromDate = subMonths(toDate, 6); // Allow selecting dates from 6 months ago
+  const fromDate = subMonths(toDate, 6);
   
   const {
     attendanceRecords,
@@ -55,29 +52,23 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     refreshData
   } = useAttendanceHistory(onError);
   
-  // Clear date filter
   const clearDateFilter = useCallback(() => {
     setDate(undefined);
     setDateFilter(null);
   }, [setDateFilter]);
   
-  // Clear status filter
   const clearStatusFilter = useCallback(() => {
     setStatusFilter('all');
   }, [setStatusFilter]);
   
-  // Clear all filters
   const clearAllFilters = useCallback(() => {
     clearDateFilter();
     clearStatusFilter();
   }, [clearDateFilter, clearStatusFilter]);
   
-  // Check if there are active filters
   const hasActiveFilters = Boolean(dateFilter || statusFilter !== 'all');
-
-  // Handle showing builder history dialog
+  
   const handleShowBuilderHistory = useCallback((record: AttendanceRecord) => {
-    // Find the builder in our list
     const builder = builders.find(b => b.id === record.studentId);
     
     if (builder) {
@@ -88,25 +79,21 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     }
   }, [builders]);
   
-  // Close history dialog
   const handleCloseHistoryDialog = useCallback(() => {
     setHistoryDialogOpen(false);
-    setSelectedBuilder(null); // Make sure to clear the selected builder
+    setSelectedBuilder(null);
   }, []);
   
-  // Handle retry
   const handleRetry = useCallback(() => {
     setError(null);
     refreshData();
   }, [refreshData]);
   
-  // Handle error
   const localHandleError = useCallback((message: string) => {
     setError(message);
     onError(message);
   }, [onError]);
   
-  // Handle clear automated notes
   const handleClearAutomatedNotes = useCallback(async () => {
     setIsClearing(true);
     try {
@@ -190,7 +177,6 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
         )}
       </div>
       
-      {/* Add attendance history dialog */}
       {selectedBuilder && (
         <AttendanceHistoryDialog 
           isOpen={historyDialogOpen}

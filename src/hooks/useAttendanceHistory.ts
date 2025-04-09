@@ -14,6 +14,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<AttendanceRecord | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const loadAttendanceHistory = useCallback(async () => {
     setIsLoading(true);
@@ -74,7 +75,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       return;
     }
     
-    setIsLoading(true);
+    setIsDeleting(true);
     try {
       // Store the ID before any state changes
       const idToDelete = recordToDelete.id;
@@ -88,17 +89,18 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         );
         
         console.log('Record deleted successfully, local state updated');
-        toast.success('Record deleted successfully');
+        // Force a reload after a short delay to ensure database consistency
+        setTimeout(() => loadAttendanceHistory(), 500);
       }
     } catch (error) {
       console.error('Error confirming delete:', error);
       onError('Failed to delete attendance record');
     } finally {
       // Ensure we close the dialog and reset loading state
+      setIsDeleting(false);
       closeDeleteDialog();
-      setIsLoading(false);
     }
-  }, [recordToDelete, closeDeleteDialog, onError]);
+  }, [recordToDelete, closeDeleteDialog, onError, loadAttendanceHistory]);
 
   return {
     attendanceRecords,

@@ -9,6 +9,7 @@ import {
   AlertDialogCancel, 
   AlertDialogAction 
 } from '@/components/ui/alert-dialog';
+import { useState } from 'react';
 
 interface DeleteAttendanceDialogProps {
   isOpen: boolean;
@@ -23,22 +24,27 @@ const DeleteAttendanceDialog = ({
   onClose,
   onConfirm
 }: DeleteAttendanceDialogProps) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   // Handle the confirm action with proper error handling
   const handleConfirm = async (e: React.MouseEvent) => {
     e.preventDefault();
     try {
+      setIsDeleting(true);
       await onConfirm();
-      // Don't close the dialog here - let the parent component handle it
-      // This avoids race conditions
+      // Close dialog after successful operation
+      onClose();
     } catch (error) {
       console.error('Error in delete confirmation handler:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
       // Only allow closing if we're not in the middle of an operation
-      if (!open && !isLoading) onClose();
+      if (!open && !isLoading && !isDeleting) onClose();
     }}>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -48,13 +54,13 @@ const DeleteAttendanceDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading || isDeleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleConfirm} 
-            disabled={isLoading}
+            disabled={isLoading || isDeleting}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {isLoading ? 'Deleting...' : 'Delete'}
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

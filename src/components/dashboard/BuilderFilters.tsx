@@ -8,7 +8,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { BuilderStatus, Builder } from "@/components/builder/types";
-import { Search, ArrowUpDown } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface BuilderFiltersProps {
   searchQuery: string;
@@ -28,14 +28,15 @@ export const sortBuilders = (builders: Builder[], sortOption: string): Builder[]
       case 'name-desc':
         return b.name.localeCompare(a.name);
       case 'attendance':
-        // Sort by attendance rate high to low (placeholder logic - actual implementation would depend on how attendance rate is stored)
-        const rateA = typeof a.attendanceRate === 'number' ? a.attendanceRate : 0;
-        const rateB = typeof b.attendanceRate === 'number' ? b.attendanceRate : 0;
+        // Use optional chaining with the attendanceRate as it might be added dynamically
+        // by hooks like useBuilderAttendance or useBuilderAttendanceRates
+        const rateA = (a as any).attendanceRate || 0;
+        const rateB = (b as any).attendanceRate || 0;
         return rateB - rateA;
       case 'attendance-desc':
         // Sort by attendance rate low to high
-        const rateC = typeof a.attendanceRate === 'number' ? a.attendanceRate : 0;
-        const rateD = typeof b.attendanceRate === 'number' ? b.attendanceRate : 0;
+        const rateC = (a as any).attendanceRate || 0;
+        const rateD = (b as any).attendanceRate || 0;
         return rateC - rateD;
       default:
         return 0;

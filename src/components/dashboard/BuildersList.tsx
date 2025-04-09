@@ -31,15 +31,10 @@ const BuildersList: FC<BuildersListProps> = ({
   const setBuilderRef = useCallback(
     (element: HTMLDivElement | null, builderId: string) => {
       if (highlightBuilderId === builderId && element && highlightedBuilderRef) {
-        // Instead of trying to assign to .current directly, we use the ref as a callback
-        if (typeof highlightedBuilderRef === 'function') {
-          highlightedBuilderRef(element);
-        } else {
-          // For React.RefObject we can assign to current
-          // But we shouldn't modify read-only properties
-          // This is a special case where TypeScript is being overprotective
-          // The ref is actually mutable at runtime
-          (highlightedBuilderRef as any).current = element;
+        // Fix the ref assignment by ensuring we're working with RefObject
+        if (highlightedBuilderRef && 'current' in highlightedBuilderRef) {
+          // This is a safe cast since we've verified 'current' exists
+          (highlightedBuilderRef as React.MutableRefObject<HTMLDivElement | null>).current = element;
         }
       }
     },

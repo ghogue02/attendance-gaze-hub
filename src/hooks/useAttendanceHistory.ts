@@ -67,6 +67,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
   const closeDeleteDialog = useCallback(() => {
     console.log('Closing delete dialog');
     setDeleteDialogOpen(false);
+    // Using setTimeout to ensure state updates don't clash
     setTimeout(() => {
       setRecordToDelete(null);
     }, 200);
@@ -98,10 +99,11 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         console.log('Record deleted successfully, local state updated');
         
         // Force a full reload to ensure all data is in sync with the database
-        // Use a slight delay to allow the database operation to complete fully
+        // Use a longer delay to ensure the deletion has fully propagated in the database
         setTimeout(() => {
+          console.log('Executing delayed reload after deletion');
           loadAttendanceHistory();
-        }, 500);
+        }, 1000);
       }
     } catch (error) {
       console.error('Error confirming delete:', error);

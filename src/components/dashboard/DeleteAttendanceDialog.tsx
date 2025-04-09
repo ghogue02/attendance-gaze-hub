@@ -38,12 +38,14 @@ const DeleteAttendanceDialog = ({
     try {
       setIsDeleting(true);
       console.log('Starting delete operation...');
+      // We don't call onClose here to prevent UI state updates during deletion
       await onConfirm();
       console.log('Delete operation completed');
     } catch (error) {
       console.error('Error in delete confirmation handler:', error);
     } finally {
       setIsDeleting(false);
+      // Only now do we close the dialog after the operation is complete
       console.log('Closing dialog after delete operation');
       onClose();
     }

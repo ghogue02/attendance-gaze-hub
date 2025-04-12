@@ -21,7 +21,7 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
       try {
         console.log(`Calculating attendance rate for builder ${builderId}`);
         
-        // Get all attendance records for this student
+        // First, get all attendance records for this student
         const { data, error } = await supabase
           .from('attendance')
           .select('status, date')
@@ -38,8 +38,44 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
           return;
         }
         
-        // Filter out records for Fridays or April 4th/11th, 2025, or before MINIMUM_DATE
-        const filteredData = data.filter(record => {
+        // Get all possible class dates from all students' records
+        const { data: allAttendanceData, error: allAttendanceError } = await supabase
+          .from('attendance')
+          .select('date')
+          .order('date');
+          
+        if (allAttendanceError) {
+          console.error('Failed to fetch all attendance dates:', allAttendanceError);
+          return;
+        }
+        
+        // Create a Set of all unique dates
+        const allDatesSet = new Set<string>();
+        allAttendanceData?.forEach(record => {
+          const recordDate = new Date(record.date);
+          const isFriday = recordDate.getDay() === 5;
+          const isApril4th = record.date === APRIL_4_2025;
+          const isApril11th = record.date === APRIL_11_2025;
+          const isBeforeMinDate = recordDate < MINIMUM_DATE;
+          
+          // Only add valid class dates to our set
+          if (!isFriday && !isApril4th && !isApril11th && !isBeforeMinDate) {
+            allDatesSet.add(record.date);
+          }
+        });
+        
+        const allValidClassDates = Array.from(allDatesSet);
+        
+        console.log(`Total valid class dates: ${allValidClassDates.length}`);
+        
+        if (allValidClassDates.length === 0) {
+          console.log('No valid class dates found');
+          setAttendanceRate(0);
+          return;
+        }
+        
+        // Now filter the student's records to count present/late days
+        const studentRecords = data.filter(record => {
           const recordDate = new Date(record.date);
           const isFriday = recordDate.getDay() === 5;
           const isApril4th = record.date === APRIL_4_2025;
@@ -49,24 +85,14 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
           return !isFriday && !isApril4th && !isApril11th && !isBeforeMinDate;
         });
         
-        if (filteredData.length === 0) {
-          console.log('No valid attendance records after filtering');
-          setAttendanceRate(0);
-          return;
-        }
-        
-        // Debug the filtered attendance data
-        console.log(`Total records: ${data.length}, filtered records: ${filteredData.length}`);
-        console.log(`Records after filtering:`, filteredData);
-        
-        const presentCount = filteredData.filter(record => 
+        // Count days when student was present or late
+        const presentCount = studentRecords.filter(record => 
           record.status === 'present' || record.status === 'late'
         ).length;
         
-        console.log(`Present/late count: ${presentCount}, total: ${filteredData.length}`);
-        
-        // Calculate attendance rate as a percentage
-        const rate = Math.round((presentCount / filteredData.length) * 100);
+        // Calculate attendance rate using ALL valid class dates as denominator
+        const rate = Math.round((presentCount / allValidClassDates.length) * 100);
+        console.log(`Student present days: ${presentCount}, Total class days: ${allValidClassDates.length}`);
         console.log(`Calculated attendance rate: ${rate}%`);
         
         setAttendanceRate(rate);

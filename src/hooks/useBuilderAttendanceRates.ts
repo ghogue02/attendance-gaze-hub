@@ -29,14 +29,14 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       console.log(`[useBuilderAttendanceRates] Fetching attendance rates for ${builders.length} builders`);
       
       // Process all builders at once rather than one by one
-      // Create a combined query to fetch all attendance records for all builders
       const builderIds = builders.map(builder => builder.id);
       
       try {
+        // Step 1: Get all attendance records from the database
         const { data: allAttendanceRecords, error } = await supabase
           .from('attendance')
           .select('student_id, status, date')
-          .in('student_id', builderIds);
+          .order('date');
         
         if (error) {
           console.error('[useBuilderAttendanceRates] Error fetching attendance records:', error);
@@ -45,59 +45,62 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           return;
         }
         
-        // Filter out any records for Fridays or April 4th/11th, 2025, or before MINIMUM_DATE
-        const validAttendanceRecords = allAttendanceRecords?.filter(record => {
+        // Step 2: Determine all valid class dates
+        const allDatesSet = new Set<string>();
+        allAttendanceRecords?.forEach(record => {
           const recordDate = new Date(record.date);
           const isFriday = recordDate.getDay() === 5;
           const isApril4th = record.date === APRIL_4_2025;
           const isApril11th = record.date === APRIL_11_2025;
           const isBeforeMinDate = recordDate < MINIMUM_DATE;
           
-          return !isFriday && !isApril4th && !isApril11th && !isBeforeMinDate;
-        }) || [];
-        
-        // Group records by student_id
-        const attendanceByBuilder: Record<string, any[]> = {};
-        
-        validAttendanceRecords.forEach(record => {
-          if (!attendanceByBuilder[record.student_id]) {
-            attendanceByBuilder[record.student_id] = [];
+          // Only add valid class dates to our set
+          if (!isFriday && !isApril4th && !isApril11th && !isBeforeMinDate) {
+            allDatesSet.add(record.date);
           }
-          attendanceByBuilder[record.student_id].push(record);
-        });
-
-        // Get the complete set of class dates for accurate denominator
-        const allDates = new Set<string>();
-        validAttendanceRecords.forEach(record => {
-          allDates.add(record.date);
         });
         
-        const totalClassDates = Array.from(allDates);
+        const validClassDates = Array.from(allDatesSet);
         
-        // Log the complete set of class dates
-        console.log(`[useBuilderAttendanceRates] Found ${totalClassDates.length} total class dates`);
+        if (validClassDates.length === 0) {
+          console.log('[useBuilderAttendanceRates] No valid class dates found');
+          setBuilderAttendanceRates({});
+          setIsLoading(false);
+          return;
+        }
         
-        // Process each builder's records
+        console.log(`[useBuilderAttendanceRates] Found ${validClassDates.length} total class dates`);
+        
+        // Step 3: Filter attendance records for each builder
         for (const builder of builders) {
-          const records = attendanceByBuilder[builder.id] || [];
+          // Get this builder's attendance records
+          const builderRecords = allAttendanceRecords?.filter(record => 
+            record.student_id === builder.id
+          ) || [];
           
-          if (records.length === 0 || totalClassDates.length === 0) {
-            rates[builder.id] = null;
-            continue;
-          }
-
-          // Count present or late records for this builder
-          const presentCount = records.filter(
+          // Filter out any records for Fridays, April 4th/11th, 2025, or before MINIMUM_DATE
+          const validBuilderRecords = builderRecords.filter(record => {
+            const recordDate = new Date(record.date);
+            const isFriday = recordDate.getDay() === 5;
+            const isApril4th = record.date === APRIL_4_2025;
+            const isApril11th = record.date === APRIL_11_2025;
+            const isBeforeMinDate = recordDate < MINIMUM_DATE;
+            
+            return !isFriday && !isApril4th && !isApril11th && !isBeforeMinDate;
+          });
+          
+          // Count days when builder was present or late
+          const presentCount = validBuilderRecords.filter(
             record => record.status === 'present' || record.status === 'late'
           ).length;
-
-          // Calculate attendance percentage - present count divided by total class days
-          const attendanceRate = Math.round((presentCount / totalClassDates.length) * 100);
+          
+          // Calculate attendance rate using ALL valid class dates as denominator
+          const attendanceRate = Math.round((presentCount / validClassDates.length) * 100);
           rates[builder.id] = attendanceRate;
           
           // Log attendance calculation for a sample of builders
           if (builders.indexOf(builder) < 3) {
-            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): ${presentCount}/${totalClassDates.length} = ${rates[builder.id]}%`);
+            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): ${presentCount}/${validClassDates.length} = ${rates[builder.id]}%`);
           }
         }
       } catch (error) {

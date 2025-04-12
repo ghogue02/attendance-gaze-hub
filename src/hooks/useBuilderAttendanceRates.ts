@@ -6,6 +6,8 @@ import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUti
 
 // Define the start date for fetching records (align with calculation start date)
 const ATTENDANCE_START_DATE = '2025-03-15';
+// Set a higher limit to ensure we get all records
+const MAX_RECORDS_LIMIT = 10000;
 
 /**
  * Hook to calculate attendance rates for a list of builders
@@ -31,7 +33,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       const stats: {[key: string]: AttendanceStats | null} = {};
       
       // Log start of batch processing
-      console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records since ${ATTENDANCE_START_DATE} for ${builders.length} builders`);
+      console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records since ${ATTENDANCE_START_DATE} for ${builders.length} builders (Limit: ${MAX_RECORDS_LIMIT})`);
       console.log(`[useBuilderAttendanceRates] Builders list sample:`, builders.slice(0, 3).map(b => ({id: b.id, name: b.name})));
       
       try {
@@ -41,6 +43,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           .select('student_id, status, date')
           .in('student_id', builderIds)       // Filter for the builders in the current list
           .gte('date', ATTENDANCE_START_DATE) // Get records on or after the start date
+          .limit(MAX_RECORDS_LIMIT)          // Explicitly set a high limit to overcome default 1000
           .order('date');
         
         if (error) {
@@ -52,6 +55,11 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
         }
 
         console.log(`[useBuilderAttendanceRates] Fetched ${allAttendanceRecords?.length || 0} total attendance records`);
+        
+        // Warn if we hit the limit
+        if ((allAttendanceRecords?.length || 0) === MAX_RECORDS_LIMIT) {
+          console.warn(`[useBuilderAttendanceRates] WARNING: Fetched the maximum limit (${MAX_RECORDS_LIMIT}) of records. Some data might be missing.`);
+        }
         
         // Process each builder's attendance
         for (const builder of builders) {

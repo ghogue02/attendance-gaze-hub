@@ -60,11 +60,11 @@ export const useDashboardData = () => {
     console.log('[useDashboardData] Component mounted. Initial load starting.');
     loadData(); // Initial load for the target date
     
-    // Set up auto-refresh interval (every 60 seconds)
+    // Set up auto-refresh interval (every 5 minutes instead of every 60 seconds)
     const refreshInterval = setInterval(() => {
       console.log('[useDashboardData] Auto-refresh triggered.');
       loadData(false); // Don't show loading spinner for auto refresh
-    }, 60000);
+    }, 300000); // Changed from 60000 (1 minute) to 300000 (5 minutes)
 
     return () => {
       isMounted.current = false;

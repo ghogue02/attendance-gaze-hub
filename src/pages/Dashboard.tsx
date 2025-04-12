@@ -63,15 +63,20 @@ const Dashboard = () => {
   // Function to force delete records using direct SQL if necessary
   const forceDeleteRecords = async (dateString: string) => {
     try {
-      const { error } = await supabase.rpc('force_delete_attendance_by_date', {
-        target_date: dateString
+      console.log(`Attempting to force delete attendance records for ${dateString} via Edge Function...`);
+      const response = await supabase.functions.invoke('index', {
+        body: { 
+          name: 'force_delete_attendance_by_date',
+          params: { target_date: dateString } 
+        }
       });
       
-      if (error) {
-        console.error('RPC error:', error);
+      if (response.error) {
+        console.error('Edge function error:', response.error);
         return false;
       }
       
+      console.log('Edge function response:', response.data);
       return true;
     } catch (error) {
       console.error('Force delete error:', error);
@@ -79,55 +84,61 @@ const Dashboard = () => {
     }
   };
 
-  // Delete attendance records for April 11, 2025 when the component loads
+  // Delete attendance records for problematic dates when the component loads
   useEffect(() => {
-    // Track deletion attempts to prevent infinite loops
-    const maxAttempts = 3;
-    const attemptsKey = 'april11_deletion_attempts';
-    const attemptsMade = parseInt(localStorage.getItem(attemptsKey) || '0', 10);
-    
-    if (attemptsMade >= maxAttempts) {
-      console.log("Maximum deletion attempts reached for April 11 records");
-      return;
-    }
-    
-    const deleteApril11Records = async () => {
-      try {
-        console.log("Initiating deletion of attendance records for April 11, 2025");
-        localStorage.setItem(attemptsKey, (attemptsMade + 1).toString());
+    const deleteProblematicDates = async () => {
+      const dates = [
+        { date: '2025-04-11', storageKey: 'deleted_april11_2025_records' },
+        { date: '2025-04-04', storageKey: 'deleted_april04_2025_records' }
+      ];
+      
+      for (const { date, storageKey } of dates) {
+        // Track deletion attempts to prevent infinite loops
+        const maxAttempts = 3;
+        const attemptsKey = `${date.replace(/-/g, '')}_deletion_attempts`;
+        const attemptsMade = parseInt(localStorage.getItem(attemptsKey) || '0', 10);
         
-        // First try with standard delete
-        const result = await deleteAttendanceRecordsByDate("2025-04-11", (errorMessage) => {
-          toast.error(errorMessage);
-        });
-        
-        if (result) {
-          toast.success("Successfully removed all attendance records from April 11, 2025");
-          // Mark that we've completed this operation
-          localStorage.setItem('deleted_april11_2025_records', 'true');
-          // Refresh the dashboard data to reflect the changes
-          refreshData();
-          return;
+        // Skip if we've already deleted this date's records or made max attempts
+        if (localStorage.getItem(storageKey) || attemptsMade >= maxAttempts) {
+          console.log(`Skipping deletion for ${date} - already processed or max attempts reached`);
+          continue;
         }
         
-        // If standard delete failed, try with direct SQL approach
-        console.log("Standard delete failed, attempting force delete via RPC");
-        const forceResult = await forceDeleteRecords("2025-04-11");
-        
-        if (forceResult) {
-          toast.success("Successfully force-deleted all records from April 11, 2025");
-          localStorage.setItem('deleted_april11_2025_records', 'true');
-          refreshData();
-        } else {
-          toast.error("Failed to delete April 11, 2025 records even with force method");
+        try {
+          console.log(`Initiating deletion of attendance records for ${date}`);
+          localStorage.setItem(attemptsKey, (attemptsMade + 1).toString());
+          
+          // First try with standard delete
+          const result = await deleteAttendanceRecordsByDate(date, (errorMessage) => {
+            toast.error(errorMessage);
+          });
+          
+          if (result) {
+            toast.success(`Successfully removed all attendance records from ${date}`);
+            localStorage.setItem(storageKey, 'true');
+            refreshData();
+            continue;
+          }
+          
+          // If standard delete failed, try with direct SQL approach
+          console.log(`Standard delete failed for ${date}, attempting force delete via Edge Function`);
+          const forceResult = await forceDeleteRecords(date);
+          
+          if (forceResult) {
+            toast.success(`Successfully force-deleted all records from ${date}`);
+            localStorage.setItem(storageKey, 'true');
+            refreshData();
+          } else {
+            toast.error(`Failed to delete ${date} records even with force method`);
+          }
+        } catch (error) {
+          console.error(`Failed to delete ${date} records:`, error);
+          toast.error(`Failed to delete ${date} records`);
         }
-      } catch (error) {
-        console.error("Failed to delete April 11, 2025 records:", error);
-        toast.error("Failed to delete April 11, 2025 records");
       }
     };
     
-    deleteApril11Records();
+    deleteProblematicDates();
   }, [refreshData]);
 
   console.log(`[Dashboard Page] Rendering. isLoading: ${isLoading}, builders count: ${builders.length}, filtered count: ${filteredBuilders.length}`);

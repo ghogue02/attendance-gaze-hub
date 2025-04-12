@@ -39,8 +39,10 @@ export const fetchAttendanceRecords = async (
       return [];
     }
     
-    // Filter out April 11, 2025 records directly in the client-side code
-    const filteredData = data.filter(record => record.date !== '2025-04-11');
+    // Filter out April 11 and April 4, 2025 records directly in the client-side code
+    const filteredData = data.filter(record => 
+      record.date !== '2025-04-11' && record.date !== '2025-04-04'
+    );
     
     // Map and validate the status to ensure it's a valid BuilderStatus
     return filteredData.map(record => {

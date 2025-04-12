@@ -40,8 +40,10 @@ export const useAttendanceHistoryState = ({ builder, isOpen }: UseAttendanceHist
       }
       
       if (data) {
-        // Filter out April 11, 2025 records as they've been deleted from the database
-        const filteredData = data.filter(record => record.date !== '2025-04-11');
+        // Filter out April 11, 2025 and April 4, 2025 records as they've been deleted from the database
+        const filteredData = data.filter(record => 
+          record.date !== '2025-04-11' && record.date !== '2025-04-04'
+        );
         
         const formattedHistory = filteredData.map(record => ({
           id: record.id,

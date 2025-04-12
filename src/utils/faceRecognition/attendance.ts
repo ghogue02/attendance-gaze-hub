@@ -1,3 +1,4 @@
+
 // src/utils/faceRecognition/attendance.ts
 
 import { supabase } from '@/integrations/supabase/client';
@@ -13,8 +14,8 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
   try {
     console.log(`${functionName} Starting fetch for date: ${targetDateString}`);
     
-    // Skip processing if the date is April 11, 2025 (problematic date)
-    if (targetDateString === '2025-04-11') {
+    // Skip processing if the date is April 11 or April 4, 2025 (problematic dates)
+    if (targetDateString === '2025-04-11' || targetDateString === '2025-04-04') {
       console.warn(`${functionName} Skipping problematic date: ${targetDateString}`);
       return [];
     }

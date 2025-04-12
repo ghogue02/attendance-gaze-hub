@@ -29,18 +29,38 @@ serve(async (req) => {
         console.log(`Force deleting attendance records for date: ${target_date}`);
         
         // Execute direct SQL to delete records
-        const { data, error } = await supabaseClient.rpc(
-          'force_delete_attendance_by_date',
-          { target_date }
-        );
+        const { data, error } = await supabaseClient
+          .from('attendance')
+          .delete()
+          .eq('date', target_date)
+          .select('count');
+        
+        if (error) throw error;
+        return data || { count: 0 };
+      },
+      
+      count_face_registrations: async () => {
+        const { data, error } = await supabaseClient
+          .from('face_registrations')
+          .select('*', { count: 'exact', head: true });
+        
+        if (error) throw error;
+        return { count: data };
+      },
+      
+      insert_face_registration: async (params: any) => {
+        const { data, error } = await supabaseClient
+          .from('face_registrations')
+          .insert(params)
+          .select();
         
         if (error) throw error;
         return data;
-      },
+      }
     };
 
     // Check if requested function exists
-    if (!rpcFunctions[name]) {
+    if (!rpcFunctions[name as keyof typeof rpcFunctions]) {
       return new Response(
         JSON.stringify({
           error: `Function "${name}" not found`,
@@ -53,7 +73,7 @@ serve(async (req) => {
     }
 
     // Call the requested function
-    const result = await rpcFunctions[name](params);
+    const result = await rpcFunctions[name as keyof typeof rpcFunctions](params);
 
     // Return success response
     return new Response(

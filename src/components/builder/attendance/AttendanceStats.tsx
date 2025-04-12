@@ -85,8 +85,8 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
         
         setPresentCount(present);
         
-        // Calculate the attendance percentage
-        const rate = Math.round((present / validClassDates.length) * 100);
+        // Calculate the attendance percentage and cap it at 100%
+        const rate = Math.min(100, Math.round((present / validClassDates.length) * 100));
 
         console.log(`AttendanceStats: Present days: ${present}, Total class days: ${validClassDates.length}`);
         console.log(`AttendanceStats: Final rate: ${rate}%`);

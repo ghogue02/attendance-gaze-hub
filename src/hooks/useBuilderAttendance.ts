@@ -91,7 +91,8 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
         ).length;
         
         // Calculate attendance rate using ALL valid class dates as denominator
-        const rate = Math.round((presentCount / allValidClassDates.length) * 100);
+        // Cap the attendance rate at 100%
+        const rate = Math.min(100, Math.round((presentCount / allValidClassDates.length) * 100));
         console.log(`Student present days: ${presentCount}, Total class days: ${allValidClassDates.length}`);
         console.log(`Calculated attendance rate: ${rate}%`);
         

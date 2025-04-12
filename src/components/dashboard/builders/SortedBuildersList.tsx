@@ -1,52 +1,44 @@
 
-import { useCallback } from 'react';
-import { Builder, BuilderStatus } from '@/components/builder/types';
-import BuildersList from '../BuildersList';
-import { sortBuilders } from '../BuilderFilters';
+import React, { useMemo, memo } from 'react';
+import { Builder } from '@/components/builder/types';
+import BuilderCard from '@/components/builder/BuilderCard';
+import { useBuilderAttendanceRates } from '@/hooks/useBuilderAttendanceRates';
 
 interface SortedBuildersListProps {
-  isLoading: boolean;
-  filteredBuilders: Builder[];
-  searchQuery: string;
-  sortOption: string;
-  onClearFilters: () => void;
-  onVerify: (builderId: string, status: BuilderStatus, reason?: string) => void;
-  onDeleteRequest: (builderId: string, builderName: string) => void;
+  builders: Builder[];
+  onVerify?: (builderId: string, status: Builder['status'], reason?: string) => void;
   highlightBuilderId?: string;
-  highlightedBuilderRef?: React.RefObject<HTMLDivElement>;
 }
 
-const SortedBuildersList = ({
-  isLoading,
-  filteredBuilders,
-  searchQuery,
-  sortOption,
-  onClearFilters,
-  onVerify,
-  onDeleteRequest,
-  highlightBuilderId,
-  highlightedBuilderRef
-}: SortedBuildersListProps) => {
-  // Sort builders based on the selected sort option
-  const sortedBuilders = sortBuilders(filteredBuilders, sortOption);
+const SortedBuildersList = memo(({ builders, onVerify, highlightBuilderId }: SortedBuildersListProps) => {
+  // Fetch attendance rates for all builders
+  const { builderAttendanceRates, isLoading } = useBuilderAttendanceRates(builders);
   
-  // Handle verify action
-  const handleVerify = useCallback((builderId: string, status: BuilderStatus, reason?: string) => {
-    onVerify(builderId, status, reason);
-  }, [onVerify]);
+  // Log to help debug attendance rate issues
+  useMemo(() => {
+    console.log(`[SortedBuildersList] Rendering with ${builders.length} builders`);
+    console.log(`[SortedBuildersList] Attendance rates for first few builders:`, 
+      Object.entries(builderAttendanceRates).slice(0, 3));
+  }, [builders.length, builderAttendanceRates]);
   
   return (
-    <BuildersList
-      builders={sortedBuilders}
-      isLoading={isLoading}
-      searchQuery={searchQuery}
-      onClearFilters={onClearFilters}
-      onVerify={handleVerify}
-      onDeleteRequest={onDeleteRequest}
-      highlightBuilderId={highlightBuilderId}
-      highlightedBuilderRef={highlightedBuilderRef}
-    />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {builders.map((builder) => (
+        <div 
+          key={builder.id}
+          className={highlightBuilderId === builder.id ? 'highlight-card' : ''}
+        >
+          <BuilderCard 
+            builder={builder} 
+            onVerify={onVerify} 
+            attendanceRate={builderAttendanceRates[builder.id] || null}
+          />
+        </div>
+      ))}
+    </div>
   );
-};
+});
+
+SortedBuildersList.displayName = 'SortedBuildersList';
 
 export default SortedBuildersList;

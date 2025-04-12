@@ -15,6 +15,8 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
     const calculateAttendanceRate = async () => {
       setIsLoading(true);
       try {
+        console.log(`Calculating attendance rate for builder ${builderId}`);
+        
         const { data, error } = await supabase
           .from('attendance')
           .select('status, date')
@@ -26,6 +28,7 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
         }
         
         if (!data || data.length === 0) {
+          console.log('No attendance records found for student');
           setAttendanceRate(0);
           return;
         }
@@ -36,16 +39,24 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
         );
         
         if (filteredData.length === 0) {
+          console.log('No valid attendance records after filtering');
           setAttendanceRate(0);
           return;
         }
+        
+        // Debug the filtered attendance data
+        console.log(`Total records: ${data.length}, filtered records: ${filteredData.length}`);
+        console.log(`Records after filtering:`, filteredData);
         
         const presentCount = filteredData.filter(record => 
           record.status === 'present' || record.status === 'late'
         ).length;
         
-        const totalRecords = filteredData.length;
-        const rate = Math.round((presentCount / totalRecords) * 100);
+        console.log(`Present/late count: ${presentCount}, total: ${filteredData.length}`);
+        
+        // Calculate attendance rate as a percentage
+        const rate = Math.round((presentCount / filteredData.length) * 100);
+        console.log(`Calculated attendance rate: ${rate}%`);
         
         setAttendanceRate(rate);
       } catch (error) {

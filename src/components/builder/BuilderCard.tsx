@@ -5,25 +5,30 @@ import { Builder, BuilderStatus, BuilderCardProps } from './types';
 import ExcuseDialog from './ExcuseDialog';
 import AttendanceHistoryDialog from './AttendanceHistoryDialog';
 import BuilderNotesDialog from './BuilderNotesDialog';
-import { FileTextIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CardHeader from './CardHeader';
 import CardContent from './CardContent';
 import CardActions from './CardActions';
 import { useBuilderAttendance } from '@/hooks/useBuilderAttendance';
 
-const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) => {
+const BuilderCard = ({ builder, onVerify, onDeleteRequest, attendanceRate }: BuilderCardProps & { attendanceRate?: number | null }) => {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [excuseReason, setExcuseReason] = useState(builder.excuseReason || '');
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [builderData, setBuilderData] = useState<Builder>(builder);
   
-  // Fix: Add the second parameter (isOpen) to the hook call
-  const { attendanceRate, isLoading } = useBuilderAttendance(builderData.id, isHistoryDialogOpen);
+  // Use the provided attendance rate or load it with the hook when needed
+  const { attendanceRate: hookAttendanceRate, isLoading } = useBuilderAttendance(
+    builderData.id, 
+    isHistoryDialogOpen
+  );
+  
+  // Use the externally provided attendanceRate if available, otherwise use the one from the hook
+  const finalAttendanceRate = attendanceRate !== undefined ? attendanceRate : hookAttendanceRate;
 
   // Add debug log to trace attendance rate value
-  console.log(`[BuilderCard] Rendering ${builderData.name} (ID: ${builderData.id}). Rate from hook: ${attendanceRate}, Loading: ${isLoading}`);
+  console.log(`[BuilderCard] Rendering ${builderData.name} (ID: ${builderData.id}). Final attendance rate: ${finalAttendanceRate}, Loading: ${isLoading}`);
 
   const handleStatusChange = (status: Builder['status']) => {
     if (status === 'excused') {
@@ -68,7 +73,7 @@ const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) =
         <div className="flex flex-col gap-4">
           <CardHeader 
             builder={builderData}
-            attendanceRate={attendanceRate}
+            attendanceRate={finalAttendanceRate}
             onNotesClick={handleNotesClick}
           />
           

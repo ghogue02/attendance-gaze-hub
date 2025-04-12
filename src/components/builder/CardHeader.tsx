@@ -1,23 +1,30 @@
 
 import UserProfileImage from '@/components/dashboard/UserProfileImage';
-import { Builder } from './types';
-import { CalendarIcon } from 'lucide-react';
+import { Builder, AttendanceStats } from './types';
+import { CalendarIcon, Loader2 } from 'lucide-react';
 import AttendanceBadge from './AttendanceBadge';
 
 interface CardHeaderProps {
   builder: Builder;
-  attendanceRate: number | null;
+  attendanceStats: AttendanceStats | null; // Accept full stats object instead of just rate
   onNotesClick: (e: React.MouseEvent) => void;
 }
 
-const CardHeader = ({ builder, attendanceRate, onNotesClick }: CardHeaderProps) => {
-  const getAttendanceRateColor = (rate: number) => {
+const CardHeader = ({ builder, attendanceStats, onNotesClick }: CardHeaderProps) => {
+  const getAttendanceRateColor = (rate: number | null | undefined) => {
+    if (rate === null || rate === undefined) return "text-muted-foreground";
     if (rate === 100) return "text-green-700 font-bold";
     if (rate >= 94) return "text-green-600";
     if (rate >= 80) return "text-green-600";
     if (rate >= 60) return "text-yellow-600";
     return "text-red-600";
   };
+
+  // Extract values from the stats object
+  const rate = attendanceStats?.rate;
+  const presentCount = attendanceStats?.presentCount;
+  const totalClassDays = attendanceStats?.totalClassDays;
+  const isLoading = attendanceStats === null;
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
@@ -27,7 +34,7 @@ const CardHeader = ({ builder, attendanceRate, onNotesClick }: CardHeaderProps) 
           userId={builder.id}
           className="w-full h-full"
         />
-        <AttendanceBadge attendanceRate={attendanceRate} />
+        <AttendanceBadge attendanceRate={rate} />
       </div>
       
       <div className="flex-1 text-center sm:text-left">
@@ -38,15 +45,25 @@ const CardHeader = ({ builder, attendanceRate, onNotesClick }: CardHeaderProps) 
           </div>
           
           <div className="flex flex-col items-end gap-1">
-            {attendanceRate !== null && (
-              <div className="flex items-center gap-1 text-xs bg-muted/40 px-2 py-1 rounded-full">
-                <CalendarIcon className="h-3 w-3" />
-                <span>Attendance:</span>
-                <span className={`font-bold ${getAttendanceRateColor(attendanceRate)}`}>
-                  {attendanceRate}%
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-1 text-xs bg-muted/40 px-2 py-1 rounded-full min-w-[100px] justify-center">
+              <CalendarIcon className="h-3 w-3" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  <span>Loading...</span>
+                </>
+              ) : totalClassDays && totalClassDays > 0 ? (
+                <>
+                  <span>Attendance:</span>
+                  <span className={`font-bold ${getAttendanceRateColor(rate)}`}>
+                    {rate}%
+                  </span>
+                  <span className="text-muted-foreground/80 ml-1">({presentCount}/{totalClassDays})</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground/80">No classes yet</span>
+              )}
+            </div>
             
             <button 
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"

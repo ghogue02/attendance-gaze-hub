@@ -49,8 +49,18 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
             record.student_id === builder.id
           ) || [];
           
+          // Add debugging for Saeed
+          if (builder.name.toLowerCase().includes("seyedmostafa") || builder.name.toLowerCase().includes("zargarchi")) {
+            console.log(`[useBuilderAttendanceRates] Records for ${builder.name}:`, builderRecords);
+          }
+          
           // Calculate rate using the updated utility function
           const calculatedStats = calculateAttendanceStatistics(builderRecords);
+          
+          // Add debugging for Saeed
+          if (builder.name.toLowerCase().includes("seyedmostafa") || builder.name.toLowerCase().includes("zargarchi")) {
+            console.log(`[useBuilderAttendanceRates] Calculated stats for ${builder.name}:`, calculatedStats);
+          }
           
           // Store both the rate and the full stats object
           rates[builder.id] = calculatedStats.rate;

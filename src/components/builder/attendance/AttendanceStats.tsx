@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { AttendanceRecord } from '../types';
-import { supabase } from '@/integrations/supabase/client';
 import { calculateAttendanceRate } from '@/utils/attendance/calculationUtils';
 
 interface AttendanceStatsProps {
@@ -15,7 +14,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
   useEffect(() => {
-    // Function to calculate attendance rate
+    // Function to calculate attendance rate using shared utility
     const calculateStats = async () => {
       if (attendanceHistory.length === 0) {
         setIsLoading(false);
@@ -50,9 +49,8 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
           return (record.status === 'present' || record.status === 'late');
         }).length;
         
-        // Calculate attendance rate
-        // Cap the rate at 100% maximum
-        const rate = Math.min(100, Math.round((presentOrLateDays / totalClassDaysCount) * 100) || 0);
+        // Use the shared utility for calculation
+        const rate = calculateAttendanceRate(attendanceHistory);
         
         console.log(`AttendanceStats: Present days: ${presentOrLateDays}, Total class days: ${totalClassDaysCount}`);
         console.log(`AttendanceStats: Final rate: ${rate}%`);

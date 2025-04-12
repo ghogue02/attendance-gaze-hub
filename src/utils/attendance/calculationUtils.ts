@@ -19,7 +19,7 @@ export function calculateAttendanceRate(
   // Start date is March 15, 2025
   const startDate = new Date(MINIMUM_DATE);
   
-  // Calculate total days between start date and current date
+  // Calculate total days between start date and current date (inclusive)
   const totalDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   
   // Count the Fridays between the start date and current date
@@ -45,7 +45,7 @@ export function calculateAttendanceRate(
   
   // Calculate attendance rate based on the formula
   // Cap the rate at 100% maximum
-  const rate = Math.min(100, Math.round((presentOrLateDays / denominator) * 100) || 0);
+  const rate = Math.min(100, Math.round((presentOrLateDays / Math.max(1, denominator)) * 100) || 0);
   
   console.log(`Attendance calculation: Present or late days: ${presentOrLateDays}, Rate: ${rate}%`);
   

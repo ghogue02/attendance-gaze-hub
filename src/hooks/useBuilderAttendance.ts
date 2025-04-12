@@ -1,119 +1,57 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { formatDate } from '@/utils/attendance/formatUtils';
 
-// Minimum allowed date - Saturday, March 15, 2025
-const MINIMUM_DATE = new Date('2025-03-15');
-const APRIL_4_2025 = '2025-04-04';
-
-export const useBuilderAttendance = (builderId: string) => {
-  const [attendanceRate, setAttendanceRate] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchAttendanceRate = useCallback(async () => {
-    if (!builderId) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
+export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
+  const [attendanceRate, setAttendanceRate] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // Calculate the attendance rate when the dialog is opened
+  useEffect(() => {
+    if (!isOpen || !builderId) return;
+    
+    const calculateAttendanceRate = async () => {
       setIsLoading(true);
-      console.log(`[useBuilderAttendance] Fetching attendance for builder ${builderId}`);
-      
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('student_id', builderId);
-      
-      if (error) {
-        console.error('[useBuilderAttendance] Error fetching attendance:', error);
-        setAttendanceRate(null);
-        setIsLoading(false);
-        return;
-      }
-
-      console.log(`[useBuilderAttendance] Got ${data?.length || 0} raw attendance records for builder ${builderId}`);
-      
-      if (!data || data.length === 0) {
-        console.log(`[useBuilderAttendance] No records found for builder ${builderId}. Setting null rate.`);
-        setAttendanceRate(null);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Filter out records that are:
-      // 1. For Fridays (day 5)
-      // 2. For April 4th, 2025
-      // 3. Before minimum date (March 15, 2025)
-      const filteredRecords = data.filter(record => {
-        const date = new Date(record.date);
-        const isFriday = date.getDay() === 5;
-        const isApril4th = record.date === APRIL_4_2025;
-        const isBeforeMinDate = date < MINIMUM_DATE;
-        
-        // Debug logs for specific builder if needed
-        if (builderId === 'bf5b91ca-d727-46a2-a21c-76d82c8b39be') { // Gabriel Gomes-Pasker
-          console.log(`[DEBUG] ${record.date}, isFriday: ${isFriday}, isApril4th: ${isApril4th}, isBeforeMinDate: ${isBeforeMinDate}, keep: ${!isFriday && !isApril4th && !isBeforeMinDate}`);
+      try {
+        const { data, error } = await supabase
+          .from('attendance')
+          .select('status')
+          .eq('student_id', builderId)
+          .neq('date', '2025-04-11'); // Skip April 11 records
+          
+        if (error) {
+          console.error('Failed to fetch attendance records:', error);
+          return;
         }
         
-        return !isFriday && !isApril4th && !isBeforeMinDate;
-      });
-      
-      console.log(`[useBuilderAttendance] After filtering, ${filteredRecords.length} valid attendance records for builder ${builderId}`);
-      
-      if (filteredRecords.length === 0) {
-        console.log(`[useBuilderAttendance] No valid records after filtering for builder ${builderId}. Setting null rate.`);
-        setAttendanceRate(null);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Count present or late records
-      const presentCount = filteredRecords.filter(
-        record => record.status === 'present' || record.status === 'late'
-      ).length;
-      
-      console.log(`[useBuilderAttendance] Builder ${builderId}: Present/late count: ${presentCount}, Total filtered: ${filteredRecords.length}`);
-      
-      // Calculate percentage - Handle exact 100% case explicitly
-      if (presentCount === filteredRecords.length) {
-        console.log(`[useBuilderAttendance] Setting PERFECT attendance rate for builder ${builderId}: 100%`);
-        setAttendanceRate(100);
-      } else {
-        // Calculate percentage and round to whole number
-        const rate = Math.round((presentCount / filteredRecords.length) * 100);
-        console.log(`[useBuilderAttendance] Calculated attendance rate for builder ${builderId}: ${rate}%`);
+        if (!data || data.length === 0) {
+          setAttendanceRate(0);
+          return;
+        }
+        
+        const presentCount = data.filter(record => 
+          record.status === 'present' || record.status === 'late'
+        ).length;
+        
+        const totalRecords = data.length;
+        const rate = Math.round((presentCount / totalRecords) * 100);
+        
         setAttendanceRate(rate);
+      } catch (error) {
+        console.error('Error calculating attendance rate:', error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('[useBuilderAttendance] Error calculating attendance rate:', error);
-      setAttendanceRate(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [builderId]);
-
-  useEffect(() => {
-    fetchAttendanceRate();
-    
-    // Subscribe to changes in the attendance table for this builder
-    const channel = supabase
-      .channel('attendance-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'attendance',
-        filter: `student_id=eq.${builderId}`
-      }, () => {
-        console.log('[useBuilderAttendance] Attendance changed, refreshing rate');
-        fetchAttendanceRate();
-      })
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
     };
-  }, [builderId, fetchAttendanceRate]);
-
-  return { attendanceRate, isLoading };
+    
+    calculateAttendanceRate();
+  }, [builderId, isOpen]);
+  
+  return { 
+    attendanceRate,
+    isLoading,
+    formatDate
+  };
 };

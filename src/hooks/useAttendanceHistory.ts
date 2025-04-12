@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -21,9 +22,12 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       
       const records = await fetchAttendanceRecords(dateFilter, onError);
       
-      let filteredRecords = records;
+      // Filter out April 11, 2025 records as they've been deleted from the database
+      const filteredByDate = records.filter(record => record.date !== '2025-04-11');
+      
+      let filteredRecords = filteredByDate;
       if (statusFilter !== 'all') {
-        filteredRecords = records.filter(record => record.status === statusFilter);
+        filteredRecords = filteredByDate.filter(record => record.status === statusFilter);
       }
       
       setAttendanceRecords(filteredRecords);

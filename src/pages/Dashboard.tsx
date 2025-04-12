@@ -61,6 +61,14 @@ const Dashboard = () => {
 
   // Delete attendance records for April 11, 2025 when the component loads
   useEffect(() => {
+    // Check local storage to see if we've already run this operation
+    const hasDeletedApril11 = localStorage.getItem('deleted_april11_2025_records');
+    
+    if (hasDeletedApril11) {
+      console.log("April 11, 2025 records have already been deleted in a previous session");
+      return;
+    }
+    
     const deleteApril11Records = async () => {
       try {
         console.log("Initiating deletion of attendance records for April 11, 2025");
@@ -70,7 +78,10 @@ const Dashboard = () => {
         
         if (result) {
           toast.success("Successfully removed all attendance records from April 11, 2025");
-          refreshData(); // Refresh the dashboard data to reflect the changes
+          // Mark that we've completed this operation
+          localStorage.setItem('deleted_april11_2025_records', 'true');
+          // Refresh the dashboard data to reflect the changes
+          refreshData(); 
         }
       } catch (error) {
         console.error("Failed to delete April 11, 2025 records:", error);

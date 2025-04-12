@@ -14,7 +14,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
   useEffect(() => {
-    // Function to calculate attendance rate using shared utility
+    // Function to calculate attendance rates
     const calculateStats = async () => {
       if (attendanceHistory.length === 0) {
         setIsLoading(false);
@@ -28,7 +28,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
         // Start date is March 15, 2025
         const startDate = new Date('2025-03-15');
         
-        // Calculate total days between start date and current date
+        // Calculate total days between start date and current date (inclusive)
         const totalDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         
         // Count the Fridays between the start date and current date
@@ -49,7 +49,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
           return (record.status === 'present' || record.status === 'late');
         }).length;
         
-        // Use the shared utility for calculation
+        // Calculate the rate using the shared utility function
         const rate = calculateAttendanceRate(attendanceHistory);
         
         console.log(`AttendanceStats: Present days: ${presentOrLateDays}, Total class days: ${totalClassDaysCount}`);
@@ -82,7 +82,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     <div className="mb-4 p-3 bg-muted/30 rounded-md">
       <p className="font-medium text-center">
         Overall Attendance Rate: 
-        <span className={`ml-2 ${attendanceRate === 100 ? 'text-green-600 font-bold' : attendanceRate >= 94 ? 'text-green-600' : attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+        <span className={`ml-2 ${attendanceRate >= 95 ? 'text-green-600 font-bold' : attendanceRate >= 85 ? 'text-green-600' : attendanceRate >= 75 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
           {attendanceRate}%
         </span>
       </p>

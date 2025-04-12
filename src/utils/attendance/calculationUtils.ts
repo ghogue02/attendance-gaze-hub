@@ -45,7 +45,7 @@ export function calculateAttendanceRate(
   
   // Calculate attendance rate based on the formula
   // Cap the rate at 100% maximum
-  const rate = Math.min(100, Math.round((presentOrLateDays / Math.max(1, denominator)) * 100) || 0);
+  const rate = Math.min(100, Math.round((presentOrLateDays / denominator) * 100) || 0);
   
   console.log(`Attendance calculation: Present or late days: ${presentOrLateDays}, Rate: ${rate}%`);
   

@@ -21,7 +21,8 @@ export function calculateAttendanceStatistics(
   const studentName = attendanceRecords.length > 0 && 
                       attendanceRecords[0].student_id === "c80ac741-bee0-441d-aa3b-02aafa3dc018" ? "Saeed" : "";
   
-  const isSaeed = studentName === "Saeed";
+  const isSaeed = studentName === "Saeed" || 
+                  studentId === "c80ac741-bee0-441d-aa3b-02aafa3dc018";
   
   if (isSaeed) {
     console.log(`[calculateAttendanceStatistics] Calculating for Saeed (${studentId}). Received ${attendanceRecords.length} records.`);

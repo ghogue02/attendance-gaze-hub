@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Builder } from '@/components/builder/types';
+import { Builder, AttendanceStats } from '@/components/builder/types';
 import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
 
 /**
@@ -9,17 +9,20 @@ import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUti
  */
 export const useBuilderAttendanceRates = (builders: Builder[]) => {
   const [builderAttendanceRates, setBuilderAttendanceRates] = useState<{[key: string]: number | null}>({});
+  const [builderAttendanceStats, setBuilderAttendanceStats] = useState<{[key: string]: AttendanceStats | null}>({});
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchAttendanceRates = async () => {
       if (builders.length === 0) {
         setBuilderAttendanceRates({});
+        setBuilderAttendanceStats({});
         return;
       }
       
       setIsLoading(true);
       const rates: {[key: string]: number | null} = {};
+      const stats: {[key: string]: AttendanceStats | null} = {};
       
       // Log start of batch processing
       console.log(`[useBuilderAttendanceRates] Fetching attendance rates for ${builders.length} builders`);
@@ -34,6 +37,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
         if (error) {
           console.error('[useBuilderAttendanceRates] Error fetching attendance records:', error);
           setBuilderAttendanceRates({});
+          setBuilderAttendanceStats({});
           setIsLoading(false);
           return;
         }
@@ -46,12 +50,15 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           ) || [];
           
           // Calculate rate using the updated utility function
-          const stats = calculateAttendanceStatistics(builderRecords);
-          rates[builder.id] = stats.rate;
+          const calculatedStats = calculateAttendanceStatistics(builderRecords);
+          
+          // Store both the rate and the full stats object
+          rates[builder.id] = calculatedStats.rate;
+          stats[builder.id] = calculatedStats;
           
           // Log attendance calculation for a sample of builders
           if (builders.indexOf(builder) < 3) {
-            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Attendance rate: ${rates[builder.id]}%, Present: ${stats.presentCount}/${stats.totalClassDays}`);
+            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Attendance rate: ${rates[builder.id]}%, Present: ${calculatedStats.presentCount}/${calculatedStats.totalClassDays}`);
           }
         }
       } catch (error) {
@@ -60,11 +67,12 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       
       console.log(`[useBuilderAttendanceRates] Completed calculating rates for ${builders.length} builders`);
       setBuilderAttendanceRates(rates);
+      setBuilderAttendanceStats(stats);
       setIsLoading(false);
     };
 
     fetchAttendanceRates();
   }, [builders]);
 
-  return { builderAttendanceRates, isLoading };
+  return { builderAttendanceRates, builderAttendanceStats, isLoading };
 };

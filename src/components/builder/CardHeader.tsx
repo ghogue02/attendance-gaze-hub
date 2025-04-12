@@ -19,9 +19,6 @@ const CardHeader = ({ builder, attendanceRate, onNotesClick }: CardHeaderProps) 
     return "text-red-600";
   };
 
-  // Debug log to check attendance rate value
-  console.log(`[CardHeader] Rendering for ${builder.name} with attendance rate: ${attendanceRate}%`);
-
   return (
     <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
       <div className="relative w-20 h-20 rounded-full overflow-hidden flex-shrink-0 shadow-sm border-2 border-white/20">

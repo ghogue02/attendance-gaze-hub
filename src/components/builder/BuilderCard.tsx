@@ -1,7 +1,7 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { Builder, BuilderStatus, BuilderCardProps } from './types';
+import { Builder, BuilderStatus, BuilderCardProps, AttendanceStats } from './types';
 import ExcuseDialog from './ExcuseDialog';
 import AttendanceHistoryDialog from './AttendanceHistoryDialog';
 import BuilderNotesDialog from './BuilderNotesDialog';
@@ -11,24 +11,39 @@ import CardContent from './CardContent';
 import CardActions from './CardActions';
 import { useBuilderAttendance } from '@/hooks/useBuilderAttendance';
 
-const BuilderCard = ({ builder, onVerify, onDeleteRequest, attendanceRate }: BuilderCardProps & { attendanceRate?: number | null }) => {
+const BuilderCard = ({ builder, onVerify, onDeleteRequest, attendanceStats }: BuilderCardProps) => {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [excuseReason, setExcuseReason] = useState(builder.excuseReason || '');
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [builderData, setBuilderData] = useState<Builder>(builder);
   
-  // Use the provided attendance rate or load it with the hook when needed
+  // Only use the hook for attendance history when the dialog is open
+  // This is more efficient than always loading attendance data
   const { attendanceRate: hookAttendanceRate, isLoading } = useBuilderAttendance(
     builderData.id, 
     isHistoryDialogOpen
   );
   
-  // Use the externally provided attendanceRate if available, otherwise use the one from the hook
-  const finalAttendanceRate = attendanceRate !== undefined ? attendanceRate : hookAttendanceRate;
+  // Determine which attendance stats to use - prefer props over hook for efficiency
+  let finalAttendanceStats: AttendanceStats | null = null;
+  
+  if (attendanceStats) {
+    // Use the full stats object from props (preferred, pre-calculated by parent)
+    finalAttendanceStats = attendanceStats;
+  } else if (hookAttendanceRate !== null) {
+    // Fallback to the hook's rate if props aren't available
+    finalAttendanceStats = {
+      rate: hookAttendanceRate,
+      presentCount: 0, // We don't have these values from the hook
+      totalClassDays: 0 // We don't have these values from the hook
+    };
+  }
+  
+  // Extract rate for backward compatibility with components expecting just the rate
+  const finalAttendanceRate = finalAttendanceStats?.rate ?? null;
 
-  // Add debug log to trace attendance rate value
-  console.log(`[BuilderCard] Rendering ${builderData.name} (ID: ${builderData.id}). Final attendance rate: ${finalAttendanceRate}, Loading: ${isLoading}`);
+  console.log(`[BuilderCard] Rendering ${builderData.name} with stats:`, finalAttendanceStats);
 
   const handleStatusChange = (status: Builder['status']) => {
     if (status === 'excused') {

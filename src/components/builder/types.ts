@@ -21,9 +21,15 @@ export interface AttendanceRecord {
   notes?: string; // Added notes field
 }
 
+export interface AttendanceStats {
+  rate: number;
+  presentCount: number;
+  totalClassDays: number;
+}
+
 export interface BuilderCardProps {
   builder: Builder;
   onVerify?: (builderId: string, status: BuilderStatus, reason?: string) => void;
   onDeleteRequest?: () => void;
-  attendanceRate?: number | null; // Added attendance rate prop
+  attendanceStats?: AttendanceStats | null; // Now accepts full stats object instead of just rate
 }

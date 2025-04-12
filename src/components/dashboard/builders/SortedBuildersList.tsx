@@ -1,6 +1,6 @@
 
 import React, { useMemo, memo } from 'react';
-import { Builder } from '@/components/builder/types';
+import { Builder, AttendanceStats } from '@/components/builder/types';
 import BuilderCard from '@/components/builder/BuilderCard';
 import { useBuilderAttendanceRates } from '@/hooks/useBuilderAttendanceRates';
 
@@ -32,15 +32,15 @@ const SortedBuildersList = memo(({
   onDeleteRequest,
   highlightedBuilderRef
 }: SortedBuildersListProps) => {
-  // Fetch attendance rates for all builders
-  const { builderAttendanceRates, isLoading: attendanceRatesLoading } = useBuilderAttendanceRates(builders);
+  // Fetch attendance stats for all builders
+  const { builderAttendanceRates, builderAttendanceStats, isLoading: attendanceRatesLoading } = useBuilderAttendanceRates(builders);
   
   // Log to help debug attendance rate issues
   useMemo(() => {
     console.log(`[SortedBuildersList] Rendering with ${builders.length} builders`);
-    console.log(`[SortedBuildersList] Attendance rates for first few builders:`, 
-      Object.entries(builderAttendanceRates).slice(0, 3));
-  }, [builders.length, builderAttendanceRates]);
+    console.log(`[SortedBuildersList] Attendance stats for first few builders:`, 
+      Object.entries(builderAttendanceStats || {}).slice(0, 3));
+  }, [builders.length, builderAttendanceStats]);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -62,7 +62,7 @@ const SortedBuildersList = memo(({
             <BuilderCard 
               builder={builder} 
               onVerify={onVerify} 
-              attendanceRate={builderAttendanceRates[builder.id] || null}
+              attendanceStats={builderAttendanceStats?.[builder.id] || null}
               onDeleteRequest={onDeleteRequest ? () => onDeleteRequest(builder.id, builder.name) : undefined}
             />
           </div>

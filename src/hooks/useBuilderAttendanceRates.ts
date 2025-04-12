@@ -49,16 +49,20 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
             record.student_id === builder.id
           ) || [];
           
-          // Add debugging for Saeed
-          if (builder.name.toLowerCase().includes("seyedmostafa") || builder.name.toLowerCase().includes("zargarchi")) {
+          // Special debug for Saeed/Zargarchi
+          const isSaeed = builder.name.toLowerCase().includes("seyedmostafa") || 
+                         builder.name.toLowerCase().includes("zargarchi") || 
+                         builder.id === "c80ac741-bee0-441d-aa3b-02aafa3dc018";
+          
+          if (isSaeed) {
+            console.log(`[useBuilderAttendanceRates] Found Saeed with ID: ${builder.id}`);
             console.log(`[useBuilderAttendanceRates] Records for ${builder.name}:`, builderRecords);
           }
           
           // Calculate rate using the updated utility function
           const calculatedStats = calculateAttendanceStatistics(builderRecords);
           
-          // Add debugging for Saeed
-          if (builder.name.toLowerCase().includes("seyedmostafa") || builder.name.toLowerCase().includes("zargarchi")) {
+          if (isSaeed) {
             console.log(`[useBuilderAttendanceRates] Calculated stats for ${builder.name}:`, calculatedStats);
           }
           
@@ -67,7 +71,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           stats[builder.id] = calculatedStats;
           
           // Log attendance calculation for a sample of builders
-          if (builders.indexOf(builder) < 3) {
+          if (builders.indexOf(builder) < 3 || isSaeed) {
             console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Attendance rate: ${rates[builder.id]}%, Present: ${calculatedStats.presentCount}/${calculatedStats.totalClassDays}`);
           }
         }

@@ -7,7 +7,7 @@ interface AttendanceBadgeProps {
 }
 
 const AttendanceBadge = ({ attendanceRate }: AttendanceBadgeProps) => {
-  // Don't show any badge if attendance rate is null or not 100%
+  // Only show badge for perfect attendance (exactly 100%)
   if (attendanceRate === null || attendanceRate !== 100) {
     return null;
   }

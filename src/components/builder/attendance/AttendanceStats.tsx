@@ -21,7 +21,10 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     const isApril4th = date.getFullYear() === 2025 && 
                       date.getMonth() === 3 && // April is month 3 (0-indexed)
                       date.getDate() === 4;
-    return !isFriday && !isApril4th && date >= MINIMUM_DATE;
+    const isApril11th = date.getFullYear() === 2025 && 
+                       date.getMonth() === 3 && 
+                       date.getDate() === 11;
+    return !isFriday && !isApril4th && !isApril11th && date >= MINIMUM_DATE;
   });
   
   if (filteredHistory.length === 0) {
@@ -35,10 +38,10 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
   
   console.log(`AttendanceStats: Present/late count: ${presentCount}, Total filtered: ${filteredHistory.length}`);
   
-  // If all records are present/late, ensure we display exactly 100% rather than rounding errors
-  const attendanceRate = presentCount === filteredHistory.length ? 
-    100 : 
-    Math.round((presentCount / filteredHistory.length) * 100);
+  // Calculate the attendance percentage
+  const attendanceRate = filteredHistory.length > 0 
+    ? Math.round((presentCount / filteredHistory.length) * 100) 
+    : 0;
 
   console.log(`AttendanceStats: Final rate: ${attendanceRate}%`);
 
@@ -46,7 +49,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     <div className="mb-4 p-3 bg-muted/30 rounded-md">
       <p className="font-medium text-center">
         Overall Attendance Rate: 
-        <span className={`ml-2 ${attendanceRate >= 94 ? 'text-green-600' : attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+        <span className={`ml-2 ${attendanceRate === 100 ? 'text-green-600 font-bold' : attendanceRate >= 94 ? 'text-green-600' : attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
           {attendanceRate}%
         </span>
       </p>

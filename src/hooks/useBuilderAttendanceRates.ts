@@ -54,6 +54,26 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           }
           attendanceByBuilder[record.student_id].push(record);
         });
+
+        // Get the complete set of class dates for accurate denominator
+        const allDates = new Set<string>();
+        allAttendanceRecords?.forEach(record => {
+          const date = record.date;
+          const recordDate = new Date(date);
+          
+          // Only add valid class dates (not Fridays, not special dates, not before minimum date)
+          const isFriday = recordDate.getDay() === 5;
+          const isApril4th = date === APRIL_4_2025;
+          const isApril11th = date === APRIL_11_2025;
+          const isBeforeMinDate = recordDate < MINIMUM_DATE;
+          
+          if (!isFriday && !isApril4th && !isApril11th && !isBeforeMinDate) {
+            allDates.add(date);
+          }
+        });
+        
+        // Log the complete set of class dates
+        console.log(`[useBuilderAttendanceRates] Found ${allDates.size} total class dates`);
         
         // Process each builder's records
         for (const builder of builders) {
@@ -84,16 +104,24 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
             record => record.status === 'present' || record.status === 'late'
           ).length;
 
-          // Handle 100% case explicitly
-          if (presentCount === filteredRecords.length) {
+          // Calculate the attendance rate based on the number of classes they SHOULD have attended
+          // This ensures we're calculating based on total classes, not just their records
+          const totalClasses = allDates.size;
+          
+          // Calculate the final rate
+          if (totalClasses === 0) {
+            rates[builder.id] = null;
+          } else if (presentCount === filteredRecords.length && filteredRecords.length === totalClasses) {
+            // Perfect attendance - both 100% attendance for all classes they should have attended
             rates[builder.id] = 100;
           } else {
-            rates[builder.id] = Math.round((presentCount / filteredRecords.length) * 100);
+            // Calculate based on attended vs. total classes they should have attended
+            rates[builder.id] = Math.round((presentCount / totalClasses) * 100);
           }
           
           // Log attendance calculation for a sample of builders
           if (builders.indexOf(builder) < 3) {
-            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): ${presentCount}/${filteredRecords.length} = ${rates[builder.id]}%`);
+            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): ${presentCount}/${totalClasses} = ${rates[builder.id]}%`);
           }
         }
       } catch (error) {

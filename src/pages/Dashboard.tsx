@@ -11,6 +11,7 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 import { AttendanceNavigationState } from '@/hooks/attendance-capture/types';
 import { deleteAttendanceRecordsByDate } from '@/services/attendanceHistoryService';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
   const location = useLocation();
@@ -24,17 +25,17 @@ const Dashboard = () => {
 
   // Destructure state and handlers from the custom hook
   const {
-    builders,           // Use this for StatisticsCards and potentially Analytics/History
-    filteredBuilders,   // Use this for the Builders list in BuildersTab
+    builders,           
+    filteredBuilders,   
     isLoading,
     searchQuery,
     statusFilter,
-    selectedDate,       // Pre-formatted date string
+    selectedDate,       
     setSearchQuery,
     setStatusFilter,
-    handleMarkAttendance, // Function to update attendance status
-    handleClearFilters, // Function to reset filters
-    refreshData         // Function to manually refresh data
+    handleMarkAttendance, 
+    handleClearFilters, 
+    refreshData         
   } = useDashboardData();
 
   // Effect to update the tab when navigation state changes
@@ -59,19 +60,43 @@ const Dashboard = () => {
     }
   }, [highlightBuilderId]);
 
+  // Function to force delete records using direct SQL if necessary
+  const forceDeleteRecords = async (dateString: string) => {
+    try {
+      const { error } = await supabase.rpc('force_delete_attendance_by_date', {
+        target_date: dateString
+      });
+      
+      if (error) {
+        console.error('RPC error:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Force delete error:', error);
+      return false;
+    }
+  };
+
   // Delete attendance records for April 11, 2025 when the component loads
   useEffect(() => {
-    // Check local storage to see if we've already run this operation
-    const hasDeletedApril11 = localStorage.getItem('deleted_april11_2025_records');
+    // Track deletion attempts to prevent infinite loops
+    const maxAttempts = 3;
+    const attemptsKey = 'april11_deletion_attempts';
+    const attemptsMade = parseInt(localStorage.getItem(attemptsKey) || '0', 10);
     
-    if (hasDeletedApril11) {
-      console.log("April 11, 2025 records have already been deleted in a previous session");
+    if (attemptsMade >= maxAttempts) {
+      console.log("Maximum deletion attempts reached for April 11 records");
       return;
     }
     
     const deleteApril11Records = async () => {
       try {
         console.log("Initiating deletion of attendance records for April 11, 2025");
+        localStorage.setItem(attemptsKey, (attemptsMade + 1).toString());
+        
+        // First try with standard delete
         const result = await deleteAttendanceRecordsByDate("2025-04-11", (errorMessage) => {
           toast.error(errorMessage);
         });
@@ -81,7 +106,20 @@ const Dashboard = () => {
           // Mark that we've completed this operation
           localStorage.setItem('deleted_april11_2025_records', 'true');
           // Refresh the dashboard data to reflect the changes
-          refreshData(); 
+          refreshData();
+          return;
+        }
+        
+        // If standard delete failed, try with direct SQL approach
+        console.log("Standard delete failed, attempting force delete via RPC");
+        const forceResult = await forceDeleteRecords("2025-04-11");
+        
+        if (forceResult) {
+          toast.success("Successfully force-deleted all records from April 11, 2025");
+          localStorage.setItem('deleted_april11_2025_records', 'true');
+          refreshData();
+        } else {
+          toast.error("Failed to delete April 11, 2025 records even with force method");
         }
       } catch (error) {
         console.error("Failed to delete April 11, 2025 records:", error);

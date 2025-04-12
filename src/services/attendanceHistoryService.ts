@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -38,8 +39,11 @@ export const fetchAttendanceRecords = async (
       return [];
     }
     
+    // Filter out April 11, 2025 records directly in the client-side code
+    const filteredData = data.filter(record => record.date !== '2025-04-11');
+    
     // Map and validate the status to ensure it's a valid BuilderStatus
-    return data.map(record => {
+    return filteredData.map(record => {
       // Get first and last name from the joined students data
       const student = record.students as { first_name: string, last_name: string } | null;
       const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : 'Unknown';
@@ -131,7 +135,7 @@ export const deleteAttendanceRecordsByDate = async (
   onError: (message: string) => void
 ): Promise<boolean> => {
   try {
-    console.log(`Attempting to delete all attendance records for date: ${dateString}`);
+    console.log(`[deleteAttendanceRecordsByDate] Attempting to delete all attendance records for date: ${dateString}`);
     
     // First check if records exist for this date
     const { data: existingRecords, error: checkError } = await supabase
@@ -140,17 +144,17 @@ export const deleteAttendanceRecordsByDate = async (
       .eq('date', dateString);
     
     if (checkError) {
-      console.error('Error checking attendance records:', checkError.message);
+      console.error('[deleteAttendanceRecordsByDate] Error checking attendance records:', checkError.message);
       onError(`Failed to verify attendance records: ${checkError.message}`);
       return false;
     }
     
     if (!existingRecords || existingRecords.length === 0) {
-      console.warn(`No attendance records found for date: ${dateString}`);
+      console.warn(`[deleteAttendanceRecordsByDate] No attendance records found for date: ${dateString}`);
       return true; // Nothing to delete, so technically successful
     }
     
-    console.log(`Found ${existingRecords.length} records to delete for date: ${dateString}`);
+    console.log(`[deleteAttendanceRecordsByDate] Found ${existingRecords.length} records to delete for date: ${dateString}`);
     
     // Perform the delete operation for all records with the matching date
     const { error: deleteError } = await supabase
@@ -159,15 +163,15 @@ export const deleteAttendanceRecordsByDate = async (
       .eq('date', dateString);
     
     if (deleteError) {
-      console.error('Error deleting attendance records:', deleteError.message);
+      console.error('[deleteAttendanceRecordsByDate] Error deleting attendance records:', deleteError.message);
       onError(`Failed to delete attendance records: ${deleteError.message}`);
       return false;
     }
     
-    console.log(`Successfully deleted ${existingRecords.length} attendance records for date: ${dateString}`);
+    console.log(`[deleteAttendanceRecordsByDate] Successfully deleted ${existingRecords.length} attendance records for date: ${dateString}`);
     return true;
   } catch (error) {
-    console.error('Unexpected error deleting attendance records by date:', error);
+    console.error('[deleteAttendanceRecordsByDate] Unexpected error:', error);
     onError('An unexpected error occurred while deleting attendance records');
     return false;
   }

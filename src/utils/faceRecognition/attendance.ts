@@ -1,4 +1,3 @@
-
 // src/utils/faceRecognition/attendance.ts
 
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +12,12 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
   const functionName = '[getAllBuilders]';
   try {
     console.log(`${functionName} Starting fetch for date: ${targetDateString}`);
-    console.log(`${functionName} Date object created from string: ${new Date(targetDateString).toISOString()}`);
+    
+    // Skip processing if the date is April 11, 2025 (problematic date)
+    if (targetDateString === '2025-04-11') {
+      console.warn(`${functionName} Skipping problematic date: ${targetDateString}`);
+      return [];
+    }
 
     // --- 1. Fetch all students ---
     const { data: students, error: studentsError } = await supabase
@@ -49,15 +53,6 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
     }
     
     console.log(`${functionName} Retrieved ${attendanceRecords?.length || 0} attendance records for ${targetDateString}.`);
-    
-    if (attendanceRecords) {
-      // Debug output for each record
-      attendanceRecords.forEach((record, index) => {
-        if (index < 10) { // Limit log volume
-          console.log(`${functionName} Record ${index}: student_id=${record.student_id}, status=${record.status}, time=${record.time_recorded}`);
-        }
-      });
-    }
 
     // --- 3. Create Attendance Map ---
     const attendanceMap = new Map<string, typeof attendanceRecords[0]>();

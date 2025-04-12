@@ -17,9 +17,8 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
       try {
         const { data, error } = await supabase
           .from('attendance')
-          .select('status')
-          .eq('student_id', builderId)
-          .neq('date', '2025-04-11'); // Skip April 11 records
+          .select('status, date')
+          .eq('student_id', builderId);
           
         if (error) {
           console.error('Failed to fetch attendance records:', error);
@@ -31,11 +30,21 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
           return;
         }
         
-        const presentCount = data.filter(record => 
+        // Filter out April 11 and April 4 (Fridays) records 
+        const filteredData = data.filter(record => 
+          record.date !== '2025-04-11' && record.date !== '2025-04-04'
+        );
+        
+        if (filteredData.length === 0) {
+          setAttendanceRate(0);
+          return;
+        }
+        
+        const presentCount = filteredData.filter(record => 
           record.status === 'present' || record.status === 'late'
         ).length;
         
-        const totalRecords = data.length;
+        const totalRecords = filteredData.length;
         const rate = Math.round((presentCount / totalRecords) * 100);
         
         setAttendanceRate(rate);

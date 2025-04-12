@@ -46,7 +46,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           ) || [];
           
           // Calculate rate using the shared utility function
-          const attendanceRate = calculateAttendanceRate(builderRecords, allAttendanceRecords || []);
+          const attendanceRate = calculateAttendanceRate(builderRecords);
           rates[builder.id] = attendanceRate;
           
           // Log attendance calculation for a sample of builders

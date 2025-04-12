@@ -22,7 +22,7 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
       try {
         console.log(`Calculating attendance rate for builder ${builderId}`);
         
-        // First, get all attendance records for this student
+        // Get all attendance records for this student
         const { data, error } = await supabase
           .from('attendance')
           .select('status, date')
@@ -33,18 +33,8 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
           return;
         }
         
-        // Get all possible class dates from all students' records
-        const { data: allAttendanceData, error: allAttendanceError } = await supabase
-          .from('attendance')
-          .select('date')
-          .order('date');
-          
-        if (allAttendanceError) {
-          console.error('Failed to fetch all attendance dates:', allAttendanceError);
-          return;
-        }
-        
-        const rate = calculateAttendanceRate(data || [], allAttendanceData || []);
+        // Calculate the attendance rate using our utility function
+        const rate = calculateAttendanceRate(data || []);
         setAttendanceRate(rate);
       } catch (error) {
         console.error('Error calculating attendance rate:', error);

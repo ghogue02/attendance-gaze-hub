@@ -1,85 +1,53 @@
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
-const APRIL_4_2025 = '2025-04-04';
-const APRIL_11_2025 = '2025-04-11';
-
-// Record type that has the minimum fields needed for calculation
-interface AttendanceBaseRecord {
-  date: string;
-  status?: string;
-}
-
-interface DetailedAttendanceResult {
-  rate: number;
-  presentDays: number;
-  totalDays: number;
-}
 
 /**
- * Calculates attendance rate based on a consistent formula:
+ * Calculates attendance rate based on the specified formula:
  * 
- * Rate = (Days Present or Late) / (Total School Days excluding Fridays) * 100
+ * Rate = (Days Present or Late) / (Total days between March 15, 2025 and Present day - Total Fridays) * 100
  * 
  * @param builderRecords Attendance records for a specific builder
- * @param allRecords All attendance records (used to determine valid school days)
- * @param includeDetails Whether to return detailed stats or just the rate
  * @returns Attendance rate as a percentage (capped at 100%)
  */
 export function calculateAttendanceRate(
-  builderRecords: AttendanceBaseRecord[],
-  allRecords: AttendanceBaseRecord[],
-  includeDetails: boolean = false
-): number | DetailedAttendanceResult {
-  // Create a Set of all valid class dates (excluding Fridays, special dates, and dates before min date)
-  const allValidDates = new Set<string>();
+  builderRecords: { date: string; status?: string }[]
+): number {
+  // Get current date for the calculation
+  const currentDate = new Date();
   
-  allRecords.forEach(record => {
-    const recordDate = new Date(record.date);
-    const isFriday = recordDate.getDay() === 5; // Friday is day 5 (0-indexed, Sunday is 0)
-    const isApril4th = record.date === APRIL_4_2025;
-    const isApril11th = record.date === APRIL_11_2025;
-    const isBeforeMinDate = recordDate < MINIMUM_DATE;
-    
-    // Only add valid class dates to our set
-    if (!isFriday && !isApril4th && !isApril11th && !isBeforeMinDate) {
-      allValidDates.add(record.date);
+  // Start date is March 15, 2025
+  const startDate = new Date(MINIMUM_DATE);
+  
+  // Calculate total days between start date and current date
+  const totalDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  
+  // Count the Fridays between the start date and current date
+  let fridayCount = 0;
+  const tempDate = new Date(startDate);
+  while (tempDate <= currentDate) {
+    if (tempDate.getDay() === 5) { // 5 = Friday
+      fridayCount++;
     }
-  });
-  
-  const validClassDates = Array.from(allValidDates);
-  
-  // If no valid class dates, return 0% attendance
-  if (validClassDates.length === 0) {
-    return includeDetails ? { rate: 0, presentDays: 0, totalDays: 0 } : 0;
+    tempDate.setDate(tempDate.getDate() + 1);
   }
   
-  // Count days when student was present or late from their records
+  // Calculate denominator: Total days minus Fridays
+  const denominator = totalDays - fridayCount;
+  
+  // Log the calculation components for debugging
+  console.log(`Attendance calculation: Total days: ${totalDays}, Friday count: ${fridayCount}, Denominator: ${denominator}`);
+  
+  // Count days when student was present or late
   const presentOrLateDays = builderRecords.filter(record => {
-    const recordDate = new Date(record.date);
-    const isFriday = recordDate.getDay() === 5;
-    const isApril4th = record.date === APRIL_4_2025;
-    const isApril11th = record.date === APRIL_11_2025;
-    const isBeforeMinDate = recordDate < MINIMUM_DATE;
-    const isValidDate = !isFriday && !isApril4th && !isApril11th && !isBeforeMinDate;
-    
-    return isValidDate && (record.status === 'present' || record.status === 'late');
+    return (record.status === 'present' || record.status === 'late');
   }).length;
   
-  // Calculate attendance rate based on total school days
+  // Calculate attendance rate based on the formula
   // Cap the rate at 100% maximum
-  const rate = Math.min(100, Math.round((presentOrLateDays / validClassDates.length) * 100));
+  const rate = Math.min(100, Math.round((presentOrLateDays / denominator) * 100) || 0);
   
-  console.log(`Attendance calculation: ${presentOrLateDays} present days / ${validClassDates.length} total days = ${rate}%`);
-  
-  // Return either just the rate or detailed statistics
-  if (includeDetails) {
-    return {
-      rate,
-      presentDays: presentOrLateDays,
-      totalDays: validClassDates.length
-    };
-  }
+  console.log(`Attendance calculation: Present or late days: ${presentOrLateDays}, Rate: ${rate}%`);
   
   return rate;
 }

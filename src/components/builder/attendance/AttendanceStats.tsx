@@ -16,41 +16,50 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
   
   useEffect(() => {
     // Function to calculate attendance rate
-    const fetchAndCalculateRate = async () => {
+    const calculateStats = async () => {
       if (attendanceHistory.length === 0) {
         setIsLoading(false);
         return;
       }
       
       try {
-        // Get all attendance dates from the database to determine total class days
-        const { data: allAttendanceData, error } = await supabase
-          .from('attendance')
-          .select('date, status')
-          .order('date');
-          
-        if (error) {
-          console.error('Error fetching all attendance dates:', error);
-          setIsLoading(false);
-          return;
+        // Get current date
+        const currentDate = new Date();
+        
+        // Start date is March 15, 2025
+        const startDate = new Date('2025-03-15');
+        
+        // Calculate total days between start date and current date
+        const totalDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Count the Fridays between the start date and current date
+        let fridayCount = 0;
+        const tempDate = new Date(startDate);
+        while (tempDate <= currentDate) {
+          if (tempDate.getDay() === 5) { // 5 = Friday
+            fridayCount++;
+          }
+          tempDate.setDate(tempDate.getDate() + 1);
         }
         
-        // Use the shared calculation utility
-        const { rate, presentDays, totalDays } = calculateAttendanceRate(
-          attendanceHistory.map(r => ({ 
-            date: r.date, 
-            status: r.status 
-          })),
-          allAttendanceData || [],
-          true // Return detailed stats
-        );
+        // Calculate denominator: Total days minus Fridays
+        const totalClassDaysCount = totalDays - fridayCount;
         
-        console.log(`AttendanceStats: Present days: ${presentDays}, Total class days: ${totalDays}`);
+        // Count days when student was present or late
+        const presentOrLateDays = attendanceHistory.filter(record => {
+          return (record.status === 'present' || record.status === 'late');
+        }).length;
+        
+        // Calculate attendance rate
+        // Cap the rate at 100% maximum
+        const rate = Math.min(100, Math.round((presentOrLateDays / totalClassDaysCount) * 100) || 0);
+        
+        console.log(`AttendanceStats: Present days: ${presentOrLateDays}, Total class days: ${totalClassDaysCount}`);
         console.log(`AttendanceStats: Final rate: ${rate}%`);
         
         setAttendanceRate(rate);
-        setPresentCount(presentDays);
-        setTotalClassDays(totalDays);
+        setPresentCount(presentOrLateDays);
+        setTotalClassDays(totalClassDaysCount);
       } catch (error) {
         console.error('Error calculating attendance rate:', error);
       } finally {
@@ -58,7 +67,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
       }
     };
     
-    fetchAndCalculateRate();
+    calculateStats();
   }, [attendanceHistory]);
 
   if (isLoading) {

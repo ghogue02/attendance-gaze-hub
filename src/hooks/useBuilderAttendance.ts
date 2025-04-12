@@ -1,54 +1,98 @@
-
+// hooks/useBuilderAttendanceRates.ts
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { formatDate } from '@/utils/attendance/formatUtils';
-import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
+import { Builder, AttendanceStats, AttendanceRecord } from '@/components/builder/types';
 
-// Minimum allowed date - Saturday, March 15, 2025
-const MINIMUM_DATE = new Date('2025-03-15');
-const APRIL_4_2025 = '2025-04-04';
-const APRIL_11_2025 = '2025-04-11';
+// Define the start date for fetching records (YYYY-MM-DD format)
+const ATTENDANCE_START_DATE = '2025-03-15';
 
-export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
-  const [attendanceRate, setAttendanceRate] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  
-  // Calculate the attendance rate when the dialog is opened
+// Set a higher limit to ensure we get all records (or a very large chunk)
+const MAX_RECORDS_LIMIT = 10000;
+
+/**
+ * Hook to calculate attendance rates for a list of builders.
+ */
+export const useBuilderAttendanceRates = (builders: Builder[]) => {
+  const [builderAttendanceStats, setBuilderAttendanceStats] = useState<{ [key: string]: AttendanceStats | null }>({});
+  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
-    if (!isOpen || !builderId) return;
-    
-    const fetchAttendanceData = async () => {
+    const fetchAttendanceRates = async () => {
+      // Null check: Only proceed if builders is not null or undefined.
+      if (!builders) {
+          console.warn("[useBuilderAttendanceRates] No builders provided (builders is null or undefined), resetting stats.");
+          setBuilderAttendanceStats({});
+          setIsLoading(false);
+          return;
+      }
+
+      const builderIds = builders.map(b => b.id);  // Get list of builder IDs
+      console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records for ${builderIds.length} builders since ${ATTENDANCE_START_DATE} (Limit: ${MAX_RECORDS_LIMIT})`);
+
       setIsLoading(true);
+      const stats: { [key: string]: AttendanceStats | null } = {}; // Clear object every time effect runs
+
       try {
-        console.log(`Calculating attendance rate for builder ${builderId}`);
-        
-        // Get all attendance records for this student
-        const { data, error } = await supabase
+        // Fetch ALL relevant attendance records for current builders since ATTENDANCE_START_DATE.
+
+        const { data: allRelevantAttendanceRecords, error } = await supabase
           .from('attendance')
-          .select('status, date')
-          .eq('student_id', builderId);
-          
+          .select('student_id, status, date')
+          .in('student_id', builderIds)  // Use IN operator
+          .gte('date', ATTENDANCE_START_DATE) // Filter date
+          .limit(MAX_RECORDS_LIMIT) // Explicit limit.
+          .order('date');
+
         if (error) {
-          console.error('Failed to fetch attendance records:', error);
+          console.error('[useBuilderAttendanceRates] Error fetching attendance records:', error);
+          setBuilderAttendanceStats({});
+          setIsLoading(false);
           return;
         }
-        
-        // Calculate the attendance statistics using our updated utility function
-        const stats = calculateAttendanceStatistics(data || []);
-        setAttendanceRate(stats.rate);
+
+        console.log(`[useBuilderAttendanceRates] Fetched ${allRelevantAttendanceRecords?.length || 0} attendance records from Supabase.`);
+
+        if ((allRelevantAttendanceRecords?.length || 0) === MAX_RECORDS_LIMIT) {
+          console.warn(`[useBuilderAttendanceRates] WARNING: Reached the max record limit of ${MAX_RECORDS_LIMIT}. Some data may be missing! Consider paginating.`);
+        }
+
+        // Process each builder's attendance
+        for (const builder of builders) {
+          //Filter data by student ID since `in` returns results from ALL ID listed
+          const builderRecords = allRelevantAttendanceRecords?.filter(record => record.student_id === builder.id) || [];
+
+          // Log specific builder and record count to inspect individual calculations
+          if (builder.name.toLowerCase().includes("saeed") || builder.name.toLowerCase().includes("zargarchi")) {
+               console.log(`[useBuilderAttendanceRates] Processing Saeed (Seyedmostafa Zargarchi), found ${builderRecords.length} attendance records.`);
+               console.log(`[calculateAttendanceStatistics] Input records for Saeed (9dbe...):`, JSON.stringify(builderRecords, null, 2));
+           }
+
+          const calculatedStats = calculateAttendanceStatistics(builderRecords); // Use the centralized util
+
+          stats[builder.id] = calculatedStats;  // Use unique builder id for each item
+
+
+          if (builder.name.toLowerCase().includes("saeed") || builder.name.toLowerCase().includes("zargarchi")) { // Log Specific Builders to monitor
+               console.log(`[useBuilderAttendanceRates] Stats for builder Seyedmostafa Zargarchi`, stats[builder.id]);
+          }
+        }
+
+        console.log('[useBuilderAttendanceRates] FINAL stats object BEFORE setting state:', JSON.stringify(stats, null, 2));
+
+        // Update the state
+        setBuilderAttendanceStats(stats);
+
+
       } catch (error) {
-        console.error('Error calculating attendance rate:', error);
+          console.error('[useBuilderAttendanceRates] Error processing attendance rates:', error);
+          setBuilderAttendanceStats({}); // Reset stats on error
       } finally {
         setIsLoading(false);
       }
     };
-    
-    fetchAttendanceData();
-  }, [builderId, isOpen]);
-  
-  return { 
-    attendanceRate,
-    isLoading,
-    formatDate
-  };
+
+    fetchAttendanceRates(); // Kick off the data fetching and calculation process
+  }, [builders]);
+
+  return { builderAttendanceStats, isLoading }; // Correct return values!
 };

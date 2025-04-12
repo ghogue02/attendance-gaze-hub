@@ -1,19 +1,21 @@
 
 import React, { useMemo, memo } from 'react';
-import { Builder, AttendanceStats } from '@/components/builder/types';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 import BuilderCard from '@/components/builder/BuilderCard';
 import { useBuilderAttendanceRates } from '@/hooks/useBuilderAttendanceRates';
+import { sortBuilders } from '@/components/dashboard/BuilderFilters';
+import { Skeleton } from '@/components/ui/skeleton';
+import NoResultsState from './NoResultsState';
 
 interface SortedBuildersListProps {
   builders: Builder[];
-  onVerify?: (builderId: string, status: Builder['status'], reason?: string) => void;
+  onVerify?: (builderId: string, status: BuilderStatus, reason?: string) => void;
   highlightBuilderId?: string;
-  // Add the missing properties that are being passed from BuildersTab
-  isLoading?: boolean;
-  filteredBuilders?: any[]; // Added the missing filteredBuilders property
-  searchQuery?: string;
-  sortOption?: string;
-  onClearFilters?: () => void;
+  isLoading: boolean;
+  filteredBuilders: Builder[];
+  searchQuery: string;
+  sortOption: string;
+  onClearFilters: () => void;
   onDeleteRequest?: (builderId: string, builderName: string) => void;
   highlightedBuilderRef?: React.RefObject<HTMLDivElement>;
 }
@@ -22,10 +24,8 @@ const SortedBuildersList = memo(({
   builders, 
   onVerify, 
   highlightBuilderId,
-  // We can destructure the new props, but we won't use all of them in this component
-  // They're just needed to match the interface
   isLoading,
-  filteredBuilders, // Destructure the filteredBuilders prop
+  filteredBuilders,
   searchQuery,
   sortOption,
   onClearFilters,
@@ -33,31 +33,50 @@ const SortedBuildersList = memo(({
   highlightedBuilderRef
 }: SortedBuildersListProps) => {
   // Fetch attendance stats for all builders
-  const { builderAttendanceRates, builderAttendanceStats, isLoading: attendanceRatesLoading } = useBuilderAttendanceRates(builders);
+  const { builderAttendanceStats, isLoading: attendanceRatesLoading } = useBuilderAttendanceRates(builders);
   
-  // Log to help debug attendance rate issues
-  useMemo(() => {
-    console.log(`[SortedBuildersList] Rendering with ${builders.length} builders`);
-    console.log(`[SortedBuildersList] Attendance stats for first few builders:`, 
-      Object.entries(builderAttendanceStats || {}).slice(0, 3));
-  }, [builders.length, builderAttendanceStats]);
+  // Sort builders based on the selected sort option
+  const sortedBuilders = useMemo(() => {
+    console.log(`Applying sort option: ${sortOption} to ${filteredBuilders.length} builders`);
+    return sortBuilders(filteredBuilders, sortOption, builderAttendanceStats);
+  }, [filteredBuilders, sortOption, builderAttendanceStats]);
   
+  // Debug log for sorting
+  console.log(`[SortedBuildersList] Sorted ${sortedBuilders.length} builders with option: ${sortOption}`);
+  
+  if (isLoading || attendanceRatesLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <Skeleton key={i} className="h-[200px] rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+  
+  if (sortedBuilders.length === 0) {
+    return (
+      <NoResultsState 
+        searchQuery={searchQuery}
+        onClearFilters={onClearFilters}
+      />
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {builders.map((builder) => {
-        // Add ref handling for the highlighted builder
+      {sortedBuilders.map((builder) => {
         const isHighlighted = highlightBuilderId === builder.id;
         
         return (
           <div 
             key={builder.id}
             ref={isHighlighted && highlightedBuilderRef ? (element) => {
-              // Only set ref for the highlighted builder
               if (isHighlighted && element && highlightedBuilderRef) {
                 (highlightedBuilderRef as React.MutableRefObject<HTMLDivElement | null>).current = element;
               }
             } : undefined}
-            className={isHighlighted ? 'highlight-card' : ''}
+            className={isHighlighted ? 'ring-4 ring-primary/40 ring-offset-4 ring-offset-background scale-105 z-10 transition-all duration-500' : ''}
           >
             <BuilderCard 
               builder={builder} 

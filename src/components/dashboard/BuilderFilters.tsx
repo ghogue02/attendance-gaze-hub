@@ -20,7 +20,9 @@ interface BuilderFiltersProps {
 }
 
 // Export the sortBuilders function to use in other components
-export const sortBuilders = (builders: Builder[], sortOption: string): Builder[] => {
+export const sortBuilders = (builders: Builder[], sortOption: string, attendanceStats?: {[key: string]: any}): Builder[] => {
+  console.log(`Sorting builders with option: ${sortOption}`);
+  
   return [...builders].sort((a, b) => {
     switch (sortOption) {
       case 'name':
@@ -28,15 +30,16 @@ export const sortBuilders = (builders: Builder[], sortOption: string): Builder[]
       case 'name-desc':
         return b.name.localeCompare(a.name);
       case 'attendance':
-        // Use optional chaining with the attendanceRate as it might be added dynamically
-        // by hooks like useBuilderAttendance or useBuilderAttendanceRates
-        const rateA = (a as any).attendanceRate || 0;
-        const rateB = (b as any).attendanceRate || 0;
+        // Get attendance rates from the provided stats object if available
+        const rateA = attendanceStats?.[a.id]?.rate ?? 0;
+        const rateB = attendanceStats?.[b.id]?.rate ?? 0;
+        console.log(`Sorting ${a.name}(${rateA}) vs ${b.name}(${rateB}) by attendance high-low`);
         return rateB - rateA;
       case 'attendance-desc':
         // Sort by attendance rate low to high
-        const rateC = (a as any).attendanceRate || 0;
-        const rateD = (b as any).attendanceRate || 0;
+        const rateC = attendanceStats?.[a.id]?.rate ?? 0;
+        const rateD = attendanceStats?.[b.id]?.rate ?? 0;
+        console.log(`Sorting ${a.name}(${rateC}) vs ${b.name}(${rateD}) by attendance low-high`);
         return rateC - rateD;
       default:
         return 0;

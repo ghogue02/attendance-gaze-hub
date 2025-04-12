@@ -54,6 +54,11 @@ const BuildersTab = ({
     }
   }, [highlightBuilderId, filteredBuilders]);
 
+  // Log the current sort option when it changes
+  useEffect(() => {
+    console.log(`[BuildersTab] Sort option changed to: ${sortOption}`);
+  }, [sortOption]);
+
   return (
     <div className="space-y-6">
       <BuildersHeader onAddBuilderClick={() => setIsAddDialogOpen(true)} />
@@ -68,7 +73,7 @@ const BuildersTab = ({
       />
       
       <SortedBuildersList
-        builders={filteredBuilders} // Pass filteredBuilders as the builders prop
+        builders={filteredBuilders}
         isLoading={isLoading}
         filteredBuilders={filteredBuilders}
         searchQuery={searchQuery}

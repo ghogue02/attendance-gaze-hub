@@ -4,6 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Builder, AttendanceStats } from '@/components/builder/types';
 import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
 
+// Define the start date for fetching records (align with calculation start date)
+const ATTENDANCE_START_DATE = '2025-03-15';
+
 /**
  * Hook to calculate attendance rates for a list of builders
  */
@@ -20,19 +23,24 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
         return;
       }
       
+      // Extract builder IDs for the query filter
+      const builderIds = builders.map(b => b.id);
+      
       setIsLoading(true);
       const rates: {[key: string]: number | null} = {};
       const stats: {[key: string]: AttendanceStats | null} = {};
       
       // Log start of batch processing
-      console.log(`[useBuilderAttendanceRates] Fetching attendance rates for ${builders.length} builders`);
+      console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records since ${ATTENDANCE_START_DATE} for ${builders.length} builders`);
       console.log(`[useBuilderAttendanceRates] Builders list sample:`, builders.slice(0, 3).map(b => ({id: b.id, name: b.name})));
       
       try {
-        // Step 1: Get all attendance records from the database
+        // Step 1: Get ALL attendance records since the start date FOR THE CURRENT BUILDERS
         const { data: allAttendanceRecords, error } = await supabase
           .from('attendance')
           .select('student_id, status, date')
+          .in('student_id', builderIds)       // Filter for the builders in the current list
+          .gte('date', ATTENDANCE_START_DATE) // Get records on or after the start date
           .order('date');
         
         if (error) {

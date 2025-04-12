@@ -5,10 +5,10 @@ const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consist
 /**
  * Calculates attendance statistics based on a defined period and rules.
  * 
- * Assumes class days are Monday to Friday (inclusive) between the start date and current date.
- * Excludes weekends (Saturday, Sunday).
+ * Assumes class days are EVERY DAY EXCEPT FRIDAY between the start date (inclusive)
+ * and current date (inclusive).
  * 
- * Rate = (Days Present or Late) / (Total Weekdays between Start Date and Current Date) * 100
+ * Rate = (Days Present or Late) / (Total Days Excluding Fridays between Start and Current Date) * 100
  * 
  * @param attendanceRecords Attendance records for a specific builder
  * @returns An object containing the rate, present count, and total class days.
@@ -34,7 +34,7 @@ export function calculateAttendanceStatistics(
     return { rate: 0, presentCount: 0, totalClassDays: 0 };
   }
   
-  // --- Calculate Denominator (Total Class Days: Mon-Fri) ---
+  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday) ---
   let totalClassDays = 0;
   
   // Iterate day by day from startDateUTC up to and including currentDateUTC
@@ -43,8 +43,8 @@ export function calculateAttendanceStatistics(
   while (tempDate.getTime() <= currentDateUTC) {
     const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
-    // Count the day if it's a weekday (Monday to Friday)
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+    // Count the day if it's NOT a Friday (day 5)
+    if (dayOfWeek !== 5) {
       totalClassDays++;
     }
     
@@ -64,7 +64,7 @@ export function calculateAttendanceStatistics(
     rate = Math.min(100, Math.round((presentOrLateDays / totalClassDays) * 100));
   }
   
-  console.log(`Attendance calculation: Present/Late days: ${presentOrLateDays}, Total Class Days (Mon-Fri): ${totalClassDays}, Rate: ${rate}%`);
+  console.log(`Attendance calculation: Present/Late days: ${presentOrLateDays}, Total Class Days (Excl. Fridays): ${totalClassDays}, Rate: ${rate}%`);
   
   return {
     rate,

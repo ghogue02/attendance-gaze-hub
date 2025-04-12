@@ -51,7 +51,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           
           // Log attendance calculation for a sample of builders
           if (builders.indexOf(builder) < 3) {
-            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Attendance rate: ${rates[builder.id]}%`);
+            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Attendance rate: ${rates[builder.id]}%, Present: ${stats.presentCount}/${stats.totalClassDays}`);
           }
         }
       } catch (error) {

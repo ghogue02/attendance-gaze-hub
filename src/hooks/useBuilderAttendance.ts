@@ -1,8 +1,12 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { formatDate } from '@/utils/attendance/formatUtils';
+
+// Minimum allowed date - Saturday, March 15, 2025
+const MINIMUM_DATE = new Date('2025-03-15');
+const APRIL_4_2025 = '2025-04-04';
+const APRIL_11_2025 = '2025-04-11';
 
 export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
   const [attendanceRate, setAttendanceRate] = useState<number>(0);
@@ -17,6 +21,7 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
       try {
         console.log(`Calculating attendance rate for builder ${builderId}`);
         
+        // Get all attendance records for this student
         const { data, error } = await supabase
           .from('attendance')
           .select('status, date')
@@ -33,10 +38,16 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
           return;
         }
         
-        // Filter out April 11 and April 4 (Fridays) records 
-        const filteredData = data.filter(record => 
-          record.date !== '2025-04-11' && record.date !== '2025-04-04'
-        );
+        // Filter out records for Fridays or April 4th/11th, 2025, or before MINIMUM_DATE
+        const filteredData = data.filter(record => {
+          const recordDate = new Date(record.date);
+          const isFriday = recordDate.getDay() === 5;
+          const isApril4th = record.date === APRIL_4_2025;
+          const isApril11th = record.date === APRIL_11_2025;
+          const isBeforeMinDate = recordDate < MINIMUM_DATE;
+          
+          return !isFriday && !isApril4th && !isApril11th && !isBeforeMinDate;
+        });
         
         if (filteredData.length === 0) {
           console.log('No valid attendance records after filtering');

@@ -31,7 +31,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     return null;
   }
   
-  // Calculate attendance rate based on filtered history
+  // Calculate attendance rate based on filtered history - count present and late as attended
   const presentCount = filteredHistory.filter(
     record => record.status === 'present' || record.status === 'late'
   ).length;

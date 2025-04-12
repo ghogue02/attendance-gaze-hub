@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
-import { calculateAttendanceRate } from '@/utils/attendance/calculationUtils';
+import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
 
 /**
  * Hook to calculate attendance rates for a list of builders
@@ -45,9 +45,9 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
             record.student_id === builder.id
           ) || [];
           
-          // Calculate rate using the shared utility function
-          const attendanceRate = calculateAttendanceRate(builderRecords);
-          rates[builder.id] = attendanceRate;
+          // Calculate rate using the updated utility function
+          const stats = calculateAttendanceStatistics(builderRecords);
+          rates[builder.id] = stats.rate;
           
           // Log attendance calculation for a sample of builders
           if (builders.indexOf(builder) < 3) {

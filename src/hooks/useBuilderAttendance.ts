@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDate } from '@/utils/attendance/formatUtils';
-import { calculateAttendanceRate } from '@/utils/attendance/calculationUtils';
+import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
@@ -33,9 +33,9 @@ export const useBuilderAttendance = (builderId: string, isOpen: boolean) => {
           return;
         }
         
-        // Calculate the attendance rate using our utility function
-        const rate = calculateAttendanceRate(data || []);
-        setAttendanceRate(rate);
+        // Calculate the attendance statistics using our updated utility function
+        const stats = calculateAttendanceStatistics(data || []);
+        setAttendanceRate(stats.rate);
       } catch (error) {
         console.error('Error calculating attendance rate:', error);
       } finally {

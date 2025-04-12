@@ -1,53 +1,85 @@
 
 // Minimum allowed date - Saturday, March 15, 2025
-const MINIMUM_DATE = new Date('2025-03-15');
+const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
 /**
- * Calculates attendance rate based on the specified formula:
+ * Calculates attendance statistics based on a defined period and rules.
  * 
- * Rate = (Days Present or Late) / (Total days between March 15, 2025 and Present day - Total Fridays) * 100
+ * Assumes class days are Monday to Friday (inclusive) between the start date and current date.
+ * Excludes weekends (Saturday, Sunday).
  * 
- * @param builderRecords Attendance records for a specific builder
- * @returns Attendance rate as a percentage (capped at 100%)
+ * Rate = (Days Present or Late) / (Total Weekdays between Start Date and Current Date) * 100
+ * 
+ * @param attendanceRecords Attendance records for a specific builder
+ * @returns An object containing the rate, present count, and total class days.
+ */
+export function calculateAttendanceStatistics(
+  attendanceRecords: { date: string; status?: string }[]
+) {
+  // Get current date components in UTC
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth();
+  const currentDay = now.getUTCDate();
+  
+  // Use Date.UTC for consistent UTC timestamps
+  const currentDateUTC = Date.UTC(currentYear, currentMonth, currentDay);
+
+  // Start date is March 15, 2025 (UTC)
+  const startDateUTC = MINIMUM_DATE_UTC;
+  
+  // Edge Case: If current date is before the start date, return zeros.
+  if (currentDateUTC < startDateUTC) {
+    console.warn("Current date is before the minimum start date.");
+    return { rate: 0, presentCount: 0, totalClassDays: 0 };
+  }
+  
+  // --- Calculate Denominator (Total Class Days: Mon-Fri) ---
+  let totalClassDays = 0;
+  
+  // Iterate day by day from startDateUTC up to and including currentDateUTC
+  const tempDate = new Date(startDateUTC);
+  
+  while (tempDate.getTime() <= currentDateUTC) {
+    const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    
+    // Count the day if it's a weekday (Monday to Friday)
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      totalClassDays++;
+    }
+    
+    // Move to the next day in UTC
+    tempDate.setUTCDate(tempDate.getUTCDate() + 1);
+  }
+  
+  // --- Calculate Numerator (Present or Late Days) ---
+  const presentOrLateDays = attendanceRecords.filter(record => 
+    record.status === 'present' || record.status === 'late'
+  ).length;
+  
+  // --- Calculate Rate ---
+  let rate = 0;
+  if (totalClassDays > 0) {
+    // Calculate the rate and cap it at 100%
+    rate = Math.min(100, Math.round((presentOrLateDays / totalClassDays) * 100));
+  }
+  
+  console.log(`Attendance calculation: Present/Late days: ${presentOrLateDays}, Total Class Days (Mon-Fri): ${totalClassDays}, Rate: ${rate}%`);
+  
+  return {
+    rate,
+    presentCount: presentOrLateDays,
+    totalClassDays,
+  };
+}
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use calculateAttendanceStatistics instead
  */
 export function calculateAttendanceRate(
   builderRecords: { date: string; status?: string }[]
 ): number {
-  // Get current date for the calculation
-  const currentDate = new Date();
-  
-  // Start date is March 15, 2025
-  const startDate = new Date(MINIMUM_DATE);
-  
-  // Calculate total days between start date and current date (inclusive)
-  const totalDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  
-  // Count the Fridays between the start date and current date
-  let fridayCount = 0;
-  const tempDate = new Date(startDate);
-  while (tempDate <= currentDate) {
-    if (tempDate.getDay() === 5) { // 5 = Friday
-      fridayCount++;
-    }
-    tempDate.setDate(tempDate.getDate() + 1);
-  }
-  
-  // Calculate denominator: Total days minus Fridays
-  const denominator = totalDays - fridayCount;
-  
-  // Log the calculation components for debugging
-  console.log(`Attendance calculation: Total days: ${totalDays}, Friday count: ${fridayCount}, Denominator: ${denominator}`);
-  
-  // Count days when student was present or late
-  const presentOrLateDays = builderRecords.filter(record => {
-    return (record.status === 'present' || record.status === 'late');
-  }).length;
-  
-  // Calculate attendance rate based on the formula
-  // Cap the rate at 100% maximum
-  const rate = Math.min(100, Math.round((presentOrLateDays / denominator) * 100) || 0);
-  
-  console.log(`Attendance calculation: Present or late days: ${presentOrLateDays}, Rate: ${rate}%`);
-  
-  return rate;
+  const stats = calculateAttendanceStatistics(builderRecords);
+  return stats.rate;
 }

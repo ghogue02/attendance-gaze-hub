@@ -2,9 +2,9 @@
 import { Builder } from '@/components/builder/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CarouselItem } from '@/components/ui/carousel';
-import { useBuilderAttendance } from '@/hooks/useBuilderAttendance';
 import AttendanceBadge from '@/components/builder/AttendanceBadge';
 import { useState } from 'react';
+import { useBuilderAttendanceRates } from '@/hooks/useBuilderAttendanceRates';
 
 interface BuilderCarouselItemProps {
   builder: Builder;
@@ -15,8 +15,9 @@ export const BuilderCarouselItem = ({ builder }: BuilderCarouselItemProps) => {
   // since they're always visible
   const [isVisible] = useState(true);
   
-  // Fix: Add the second parameter (isOpen) to the hook call
-  const { attendanceRate } = useBuilderAttendance(builder.id, isVisible);
+  // Use the correct hook and extract rates from the stats object
+  const { builderAttendanceStats, isLoading } = useBuilderAttendanceRates([builder]);
+  const attendanceRate = !isLoading ? builderAttendanceStats[builder.id]?.rate : null;
 
   return (
     <CarouselItem key={builder.id} className="pl-6 basis-1/6 md:basis-1/6 lg:basis-1/6">

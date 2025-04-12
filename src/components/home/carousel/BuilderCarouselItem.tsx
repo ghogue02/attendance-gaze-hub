@@ -4,14 +4,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CarouselItem } from '@/components/ui/carousel';
 import { useBuilderAttendance } from '@/hooks/useBuilderAttendance';
 import AttendanceBadge from '@/components/builder/AttendanceBadge';
+import { useState } from 'react';
 
 interface BuilderCarouselItemProps {
   builder: Builder;
 }
 
 export const BuilderCarouselItem = ({ builder }: BuilderCarouselItemProps) => {
-  // Use the hook to get attendance rate
-  const { attendanceRate } = useBuilderAttendance(builder.id);
+  // Add a state to track if this component is "open" - for carousel items we can set it always true
+  // since they're always visible
+  const [isVisible] = useState(true);
+  
+  // Fix: Add the second parameter (isOpen) to the hook call
+  const { attendanceRate } = useBuilderAttendance(builder.id, isVisible);
 
   return (
     <CarouselItem key={builder.id} className="pl-6 basis-1/6 md:basis-1/6 lg:basis-1/6">

@@ -19,8 +19,8 @@ const BuilderCard = ({ builder, onVerify, onDeleteRequest }: BuilderCardProps) =
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [builderData, setBuilderData] = useState<Builder>(builder);
   
-  // Use the custom hook to get attendance rate
-  const { attendanceRate, isLoading } = useBuilderAttendance(builderData.id);
+  // Fix: Add the second parameter (isOpen) to the hook call
+  const { attendanceRate, isLoading } = useBuilderAttendance(builderData.id, isHistoryDialogOpen);
 
   // Add debug log to trace attendance rate value
   console.log(`[BuilderCard] Rendering ${builderData.name} (ID: ${builderData.id}). Rate from hook: ${attendanceRate}, Loading: ${isLoading}`);

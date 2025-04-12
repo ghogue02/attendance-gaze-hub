@@ -20,3 +20,6 @@ export { fetchStats } from './stats';
 
 // Export from realtime.ts
 export { subscribeToAttendanceChanges } from './realtime';
+
+// Export from attendanceHistoryService.ts
+export { deleteAttendanceRecordsByDate } from '@/services/attendanceHistoryService';

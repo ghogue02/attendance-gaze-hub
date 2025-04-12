@@ -9,6 +9,8 @@ import { StatisticsCards } from '@/components/dashboard/statistics';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { AttendanceNavigationState } from '@/hooks/attendance-capture/types';
+import { deleteAttendanceRecordsByDate } from '@/services/attendanceHistoryService';
+import { toast } from 'sonner';
 
 const Dashboard = () => {
   const location = useLocation();
@@ -56,6 +58,28 @@ const Dashboard = () => {
       return () => clearTimeout(timer);
     }
   }, [highlightBuilderId]);
+
+  // Delete attendance records for April 11, 2025 when the component loads
+  useEffect(() => {
+    const deleteApril11Records = async () => {
+      try {
+        console.log("Initiating deletion of attendance records for April 11, 2025");
+        const result = await deleteAttendanceRecordsByDate("2025-04-11", (errorMessage) => {
+          toast.error(errorMessage);
+        });
+        
+        if (result) {
+          toast.success("Successfully removed all attendance records from April 11, 2025");
+          refreshData(); // Refresh the dashboard data to reflect the changes
+        }
+      } catch (error) {
+        console.error("Failed to delete April 11, 2025 records:", error);
+        toast.error("Failed to delete April 11, 2025 records");
+      }
+    };
+    
+    deleteApril11Records();
+  }, [refreshData]);
 
   console.log(`[Dashboard Page] Rendering. isLoading: ${isLoading}, builders count: ${builders.length}, filtered count: ${filteredBuilders.length}`);
   console.log(`[Dashboard Page] Present count from builders state: ${builders.filter(b => b.status === 'present').length}`);

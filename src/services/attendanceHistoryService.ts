@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -120,6 +119,56 @@ export const deleteAttendanceRecord = async (
   } catch (error) {
     console.error('Unexpected error deleting attendance record:', error);
     onError('An unexpected error occurred while deleting the attendance record');
+    return false;
+  }
+};
+
+/**
+ * Deletes all attendance records for a specific date
+ */
+export const deleteAttendanceRecordsByDate = async (
+  dateString: string,
+  onError: (message: string) => void
+): Promise<boolean> => {
+  try {
+    console.log(`Attempting to delete all attendance records for date: ${dateString}`);
+    
+    // First check if records exist for this date
+    const { data: existingRecords, error: checkError } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('date', dateString);
+    
+    if (checkError) {
+      console.error('Error checking attendance records:', checkError.message);
+      onError(`Failed to verify attendance records: ${checkError.message}`);
+      return false;
+    }
+    
+    if (!existingRecords || existingRecords.length === 0) {
+      console.warn(`No attendance records found for date: ${dateString}`);
+      return true; // Nothing to delete, so technically successful
+    }
+    
+    console.log(`Found ${existingRecords.length} records to delete for date: ${dateString}`);
+    
+    // Perform the delete operation for all records with the matching date
+    const { error: deleteError } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('date', dateString);
+    
+    if (deleteError) {
+      console.error('Error deleting attendance records:', deleteError.message);
+      onError(`Failed to delete attendance records: ${deleteError.message}`);
+      return false;
+    }
+    
+    console.log(`Successfully deleted ${existingRecords.length} attendance records for date: ${dateString}`);
+    return true;
+  } catch (error) {
+    console.error('Unexpected error deleting attendance records by date:', error);
+    onError('An unexpected error occurred while deleting attendance records');
     return false;
   }
 };

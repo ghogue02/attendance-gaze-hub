@@ -10,6 +10,7 @@ interface SortedBuildersListProps {
   highlightBuilderId?: string;
   // Add the missing properties that are being passed from BuildersTab
   isLoading?: boolean;
+  filteredBuilders?: any[]; // Added the missing filteredBuilders property
   searchQuery?: string;
   sortOption?: string;
   onClearFilters?: () => void;
@@ -24,6 +25,7 @@ const SortedBuildersList = memo(({
   // We can destructure the new props, but we won't use all of them in this component
   // They're just needed to match the interface
   isLoading,
+  filteredBuilders, // Destructure the filteredBuilders prop
   searchQuery,
   sortOption,
   onClearFilters,

@@ -1,8 +1,9 @@
+
 // hooks/useBuilderAttendance.ts
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { AttendanceRecord } from '@/components/builder/types';
+import { AttendanceRecord, BuilderStatus } from '@/components/builder/types';
 
 interface UseBuilderAttendanceHistoryReturn {
   history: AttendanceRecord[];
@@ -38,11 +39,11 @@ export const useBuilderAttendance = (builderId: string | null, isHistoryDialogOp
 
         if (dbError) throw dbError;
 
-        // Map Supabase data structure if needed
+        // Map Supabase data structure with explicit type assertion for status
         const formattedHistory: AttendanceRecord[] = (data || []).map(record => ({
            id: record.id, // Ensure you have an ID column or use date/builderId combo
            date: record.date,
-           status: record.status,
+           status: record.status as BuilderStatus, // Add type assertion here
            timeRecorded: record.time_recorded, // Adjust column names
            excuseReason: record.excuse_reason,
            notes: record.notes

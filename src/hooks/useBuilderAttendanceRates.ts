@@ -95,22 +95,6 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           rates[builder.id] = calculatedStats.rate;
           stats[builder.id] = calculatedStats;
           
-          // Special handling for Saeed (Seyedmostafa Zargarchi)
-          // If this is Saeed and records show he has perfect attendance 
-          // or requires special handling, override his stats
-          if (isSaeed) {
-            // Force to 100% based on the special case detection in calculateAttendanceStatistics
-            if (calculatedStats.rate === 20) {
-              console.log(`[useBuilderAttendanceRates] APPLYING SAEED SPECIAL OVERRIDE to 100%`);
-              stats[builder.id] = {
-                rate: 100,
-                presentCount: 25,  // Override to match totalClassDays
-                totalClassDays: 25
-              };
-              rates[builder.id] = 100;
-            }
-          }
-
           // Log entry in stats object AFTER assignment
           console.log(`[useBuilderAttendanceRates] stats[${builder.id}] is now:`, stats[builder.id]);
           

@@ -68,6 +68,7 @@ const BuildersTab = ({
       />
       
       <SortedBuildersList
+        builders={filteredBuilders} // Pass filteredBuilders as the builders prop
         isLoading={isLoading}
         filteredBuilders={filteredBuilders}
         searchQuery={searchQuery}

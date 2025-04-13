@@ -1,7 +1,7 @@
 
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Builder, AttendanceRecord } from '@/components/builder/types';
+import { Builder, BuilderStatus, AttendanceRecord } from '@/components/builder/types';
 import { toast } from 'sonner';
 
 export interface AttendanceQueryResult {
@@ -90,16 +90,30 @@ export const useOptimizedAttendanceQueries = () => {
         }
       });
       
+      // Helper function to validate status
+      const validateStatus = (status: string | null): BuilderStatus => {
+        if (!status) return 'pending';
+        if (['present', 'absent', 'excused', 'pending', 'late'].includes(status)) {
+          return status as BuilderStatus;
+        }
+        return 'pending';
+      };
+      
       // Merge data in memory rather than with multiple DB queries
       const builders: Builder[] = students.map(student => {
         const attendance = attendanceMap.get(student.id);
         
-        const status = attendance ? 
-          (attendance.status === 'present' ? 'present' : 
-           attendance.status === 'late' ? 'late' :
-           attendance.status === 'excused' ? 'excused' :
-           attendance.status === 'absent' ? (attendance.excuse_reason ? 'excused' : 'absent') :
-           'pending') : 'pending';
+        let status: BuilderStatus = 'pending';
+        
+        if (attendance) {
+          if (attendance.status === 'present') status = 'present';
+          else if (attendance.status === 'late') status = 'late';
+          else if (attendance.status === 'excused') status = 'excused';
+          else if (attendance.status === 'absent') {
+            status = attendance.excuse_reason ? 'excused' : 'absent';
+          }
+          // else status remains 'pending'
+        }
            
         return {
           id: student.id,
@@ -153,10 +167,19 @@ export const useOptimizedAttendanceQueries = () => {
         throw new Error(`Failed to fetch attendance history: ${error.message}`);
       }
       
+      // Helper function to validate status as BuilderStatus
+      const validateStatus = (status: string | null): BuilderStatus => {
+        if (!status) return 'pending';
+        if (['present', 'absent', 'excused', 'pending', 'late'].includes(status)) {
+          return status as BuilderStatus;
+        }
+        return 'pending';
+      };
+      
       const formattedHistory: AttendanceRecord[] = data.map(record => ({
         id: record.id,
         date: record.date,
-        status: record.status,
+        status: validateStatus(record.status),
         timeRecorded: record.time_recorded ? 
           new Date(record.time_recorded).toLocaleTimeString() : '',
         notes: record.notes || '',

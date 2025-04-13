@@ -1,12 +1,23 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Builder } from '@/components/builder/types';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 
 // Cache for builder data
 const buildersCache = {
   data: [] as Builder[],
   timestamp: 0,
   ttl: 10 * 60 * 1000 // 10 minutes cache TTL
+};
+
+/**
+ * Validates that a string is a proper BuilderStatus type
+ */
+const validateBuilderStatus = (status: string | null): BuilderStatus => {
+  if (!status) return 'pending';
+  if (['present', 'absent', 'excused', 'pending', 'late'].includes(status)) {
+    return status as BuilderStatus;
+  }
+  return 'pending';
 };
 
 /**
@@ -33,11 +44,11 @@ export const getBuilders = async (): Promise<Builder[]> => {
     }
     
     // Transform the data into Builder objects
-    const builders = data.map(student => ({
+    const builders: Builder[] = data.map(student => ({
       id: student.id,
       name: `${student.first_name} ${student.last_name}`,
       builderId: student.student_id || '',
-      status: 'pending',
+      status: validateBuilderStatus('pending'),
       timeRecorded: '',
       image: student.image_url
     }));

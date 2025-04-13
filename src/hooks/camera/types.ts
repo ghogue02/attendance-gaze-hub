@@ -27,3 +27,6 @@ export interface UseCameraReturn {
   captureImageData: () => string | null;
   checkCameraHealth: () => boolean;
 }
+
+// Internal type for MediaStream to make it easier to work with in TypeScript
+export type MediaStream = globalThis.MediaStream;

@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { compressImage } from '@/hooks/camera/captureImage';
 
 /**
  * Update the profile image for a student
@@ -28,11 +29,20 @@ export const updateBuilderAvatar = async (
 
     // Get the image size to log it
     const imageSizeKB = Math.round(imageData.length / 1024);
-    console.log(`Image size: ${imageSizeKB}KB`);
+    console.log(`Original image size: ${imageSizeKB}KB`);
     
-    // Handle large images - warn if image is over 2MB
-    if (imageData.length > 2000000) {
-      console.warn(`Large image detected (${imageSizeKB}KB), this may cause issues`);
+    // Compress image if it's large
+    let processedImage = imageData;
+    if (imageSizeKB > 800) {
+      console.log(`Image is large (${imageSizeKB}KB), compressing...`);
+      try {
+        processedImage = await compressImage(imageData, 800);
+        const newSizeKB = Math.round(processedImage.length / 1024);
+        console.log(`Image compressed from ${imageSizeKB}KB to ${newSizeKB}KB`);
+      } catch (compressionError) {
+        console.error('Image compression failed:', compressionError);
+        // Continue with original image if compression fails
+      }
     }
     
     // First, check if the student exists to provide a better error message
@@ -60,7 +70,7 @@ export const updateBuilderAvatar = async (
     const { data: updateData, error: updateError } = await supabase
       .from('students')
       .update({ 
-        image_url: imageData,
+        image_url: processedImage,
         last_face_update: new Date().toISOString()
       })
       .eq('id', studentId)
@@ -82,11 +92,25 @@ export const updateBuilderAvatar = async (
     
     // Also update the face_registrations table to ensure consistent images
     try {
+      // First delete any existing face registrations with angle_index 0
+      // This ensures we're not constantly adding new registrations
+      const { error: deleteError } = await supabase
+        .from('face_registrations')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('angle_index', 0);
+        
+      if (deleteError) {
+        console.warn('Error clearing previous face registrations:', deleteError);
+        // Continue anyway as this is not critical
+      }
+      
+      // Now insert the new registration
       const { error: faceRegError } = await supabase
         .from('face_registrations')
         .insert({
           student_id: studentId,
-          face_data: imageData,
+          face_data: processedImage,
           angle_index: 0 // Default angle index
         });
         

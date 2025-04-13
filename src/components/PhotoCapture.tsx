@@ -8,6 +8,7 @@ import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/update
 // Import markAttendance directly from attendance utils
 import { markAttendance } from '@/utils/attendance';
 import { toast } from 'sonner';
+import { compressImage } from '@/hooks/camera/captureImage';
 
 interface PhotoCaptureProps {
   builder: Builder;
@@ -42,6 +43,8 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
     setProcessing(true);
     setError(null);
     
+    const toastId = toast.loading('Capturing photo...');
+    
     try {
       // Capture image data
       const imageData = captureImageData();
@@ -53,15 +56,13 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
       // Log the image size
       console.log(`Captured image size: ${Math.round(imageData.length / 1024)}KB`);
       
-      // Try to compress image if it's too large
-      let processedImage = imageData;
-      if (imageData.length > 1500000) { // Over 1.5MB
-        console.log('Image is large, attempting to reduce quality');
-        processedImage = await reduceImageQuality(imageData);
-        console.log(`Reduced image size: ${Math.round(processedImage.length / 1024)}KB`);
-      }
+      // Always compress image to ensure it's not too large
+      toast.loading('Processing image...', { id: toastId });
+      const processedImage = await compressImage(imageData, 800);
+      console.log(`Processed image size: ${Math.round(processedImage.length / 1024)}KB`);
       
       // Update the builder's avatar with processed image
+      toast.loading('Updating profile...', { id: toastId });
       console.log(`Updating profile for builder ID: ${builder.id}`);
       const success = await updateBuilderAvatar(builder.id, processedImage);
       
@@ -70,7 +71,12 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
       }
       
       // Mark attendance
-      await markAttendance(builder.id, 'present');
+      toast.loading('Recording attendance...', { id: toastId });
+      const attendanceResult = await markAttendance(builder.id, 'present');
+      
+      if (!attendanceResult) {
+        console.warn('Failed to mark attendance, but profile was updated');
+      }
       
       // Create updated builder object
       const updatedBuilder: Builder = {
@@ -84,12 +90,12 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
         image: processedImage
       };
       
-      toast.success('Photo captured and attendance recorded!');
+      toast.success('Photo captured and attendance recorded!', { id: toastId });
       onSuccess(updatedBuilder);
     } catch (error) {
       console.error('Error capturing photo:', error);
       setError(error instanceof Error ? error.message : 'Failed to capture photo');
-      toast.error('Failed to capture photo');
+      toast.error('Failed to capture photo', { id: toastId });
     } finally {
       setProcessing(false);
     }
@@ -101,29 +107,6 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
     setTimeout(() => {
       startCamera();
     }, 1000);
-  };
-  
-  // Helper function to reduce image quality
-  const reduceImageQuality = (dataUrl: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(dataUrl); // Fallback to original if context failed
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0);
-        // Reduce quality to 70%
-        const reducedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(reducedDataUrl);
-      };
-      img.src = dataUrl;
-    });
   };
 
   return (

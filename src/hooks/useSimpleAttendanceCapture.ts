@@ -1,10 +1,11 @@
 
-import { useState, RefObject } from 'react';
+import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
 import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
 import { markAttendance } from '@/utils/attendance';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { compressImage } from '@/hooks/camera/captureImage';
 
 interface UseSimpleAttendanceCaptureProps {
   onAttendanceMarked: (builder: Builder) => void;
@@ -42,24 +43,28 @@ export const useSimpleAttendanceCapture = ({
       if (!imageData) {
         setError('Failed to capture image');
         toast.error('Failed to capture image', { id: toastId });
-        return;
+        return false;
       }
       
-      console.log(`Captured image data (${imageData.length} bytes) for ${selectedBuilder.name}`);
+      console.log(`Captured image data (${Math.round(imageData.length / 1024)}KB) for ${selectedBuilder.name}`);
       
-      // Try to compress image if it's too large
-      let processedImage = imageData;
-      if (imageData.length > 1500000) { // Over 1.5MB
-        console.log('Image is large, attempting to reduce quality');
-        processedImage = await reduceImageQuality(imageData);
-        console.log(`Reduced image size: ${Math.round(processedImage.length / 1024)}KB`);
+      // Always compress the image to a reasonable size
+      toast.loading('Processing image...', { id: toastId });
+      let processedImage: string;
+      try {
+        processedImage = await compressImage(imageData, 800);
+        console.log(`Compressed image size: ${Math.round(processedImage.length / 1024)}KB`);
+      } catch (compressionError) {
+        console.error('Image compression failed:', compressionError);
+        // Fall back to original image if compression fails
+        processedImage = imageData;
       }
       
       // Validate image size
-      if (processedImage.length > 5000000) {  // ~5MB
-        setError('Image too large. Please try again with a lower resolution.');
+      if (processedImage.length > 2000000) {  // ~2MB
+        setError('Image too large. Please try again with lower light or different position.');
         toast.error('Image too large', { id: toastId });
-        return;
+        return false;
       }
       
       toast.loading('Updating profile...', { id: toastId });
@@ -73,7 +78,7 @@ export const useSimpleAttendanceCapture = ({
         console.error(errorMsg);
         toast.error(errorMsg, { id: toastId });
         setError(errorMsg);
-        return;
+        return false;
       }
       
       console.log('Builder avatar updated successfully');
@@ -88,16 +93,13 @@ export const useSimpleAttendanceCapture = ({
       const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present');
       
       if (!attendanceSuccess) {
-        const errorMsg = 'Failed to record attendance';
-        console.error(errorMsg);
-        toast.error(errorMsg, { id: toastId });
-        // Continue anyway since image was updated successfully
+        console.warn('Failed to record attendance, but profile was updated successfully');
       } else {
         console.log('Attendance marked successfully in database');
       }
       
       // Try fetching the updated image URL from the database
-      let imageUrl = null;
+      let imageUrl = processedImage;
       try {
         const { data: studentData } = await supabase
           .from('students')
@@ -105,8 +107,10 @@ export const useSimpleAttendanceCapture = ({
           .eq('id', selectedBuilder.id)
           .single();
         
-        imageUrl = studentData?.image_url;
-        console.log('Retrieved updated image URL from database');
+        if (studentData?.image_url) {
+          imageUrl = studentData.image_url;
+          console.log('Retrieved updated image URL from database');
+        }
       } catch (err) {
         console.warn('Could not fetch updated image URL', err);
         // Continue with the captured image data as fallback
@@ -115,7 +119,7 @@ export const useSimpleAttendanceCapture = ({
       // Step 4: Create updated builder object with new image and status
       const updatedBuilder: Builder = {
         ...selectedBuilder,
-        image: processedImage, // Use processed image directly
+        image: imageUrl,
         status: 'present',
         timeRecorded: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -129,60 +133,17 @@ export const useSimpleAttendanceCapture = ({
       // Notify the parent component
       onAttendanceMarked(updatedBuilder);
       toast.success(`Welcome, ${updatedBuilder.name}!`, { id: toastId });
+      return true;
       
     } catch (error) {
       console.error('Error in attendance capture:', error);
       const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
       setError(`Error: ${errorMsg}`);
       toast.error('Failed to process attendance');
+      return false;
     } finally {
       setProcessing(false);
     }
-  };
-
-  // Helper function to reduce image quality
-  const reduceImageQuality = (dataUrl: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        // Resize if image is very large
-        const MAX_WIDTH = 1280;
-        const MAX_HEIGHT = 720;
-        let width = img.width;
-        let height = img.height;
-        
-        // Scale down if needed
-        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height = Math.round(height * (MAX_WIDTH / width));
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width = Math.round(width * (MAX_HEIGHT / height));
-              height = MAX_HEIGHT;
-            }
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(dataUrl); // Fallback to original
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        // Reduce quality to 70%
-        const reducedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(reducedDataUrl);
-      };
-      img.src = dataUrl;
-    });
   };
 
   return {

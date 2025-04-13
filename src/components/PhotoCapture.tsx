@@ -4,9 +4,9 @@ import { Camera, RefreshCw } from 'lucide-react';
 import { Builder } from './builder/types';
 import { Button } from './ui/button';
 import { useCamera } from '@/hooks/camera';
-import { updateBuilderAvatar } from '@/utils/faceRecognition';
-// Import markAttendance directly from attendance utils to avoid ambiguity
-import { markAttendance } from '@/utils/attendance/markAttendance';
+import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
+// Import markAttendance directly from attendance utils
+import { markAttendance } from '@/utils/attendance';
 import { toast } from 'sonner';
 
 interface PhotoCaptureProps {
@@ -28,7 +28,7 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
     captureImageData
   } = useCamera({
     isCameraActive: true,
-    canvasRef, // Pass the canvas reference to useCamera hook
+    canvasRef,
     videoConstraints: {
       facingMode: 'user',
       width: { min: 640, ideal: 1280, max: 1920 },
@@ -50,8 +50,20 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
         throw new Error('Failed to capture image');
       }
       
-      // Update the builder's avatar
-      const success = await updateBuilderAvatar(builder.id, imageData);
+      // Log the image size
+      console.log(`Captured image size: ${Math.round(imageData.length / 1024)}KB`);
+      
+      // Try to compress image if it's too large
+      let processedImage = imageData;
+      if (imageData.length > 1500000) { // Over 1.5MB
+        console.log('Image is large, attempting to reduce quality');
+        processedImage = await reduceImageQuality(imageData);
+        console.log(`Reduced image size: ${Math.round(processedImage.length / 1024)}KB`);
+      }
+      
+      // Update the builder's avatar with processed image
+      console.log(`Updating profile for builder ID: ${builder.id}`);
+      const success = await updateBuilderAvatar(builder.id, processedImage);
       
       if (!success) {
         throw new Error('Failed to update profile image');
@@ -69,7 +81,7 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
           minute: '2-digit',
           hour12: true
         }),
-        image: imageData
+        image: processedImage
       };
       
       toast.success('Photo captured and attendance recorded!');
@@ -89,6 +101,29 @@ export const PhotoCapture = ({ builder, onSuccess }: PhotoCaptureProps) => {
     setTimeout(() => {
       startCamera();
     }, 1000);
+  };
+  
+  // Helper function to reduce image quality
+  const reduceImageQuality = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl); // Fallback to original if context failed
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0);
+        // Reduce quality to 70%
+        const reducedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(reducedDataUrl);
+      };
+      img.src = dataUrl;
+    });
   };
 
   return (

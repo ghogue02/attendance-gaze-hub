@@ -1,8 +1,8 @@
 
 import { useState, RefObject } from 'react';
 import { Builder } from '@/components/builder/types';
-import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateBuilderAvatar';
-import { markAttendance } from '@/utils/attendance/markAttendance';
+import { updateBuilderAvatar } from '@/utils/faceRecognition/registration/updateAvatar';
+import { markAttendance } from '@/utils/attendance';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,8 +33,7 @@ export const useSimpleAttendanceCapture = ({
       setProcessing(true);
       
       // Show processing toast
-      const toastId = 'attendance-process';
-      toast.loading('Capturing image...', { id: toastId });
+      const toastId = toast.loading('Capturing image...');
       
       console.log('Starting attendance capture process for:', selectedBuilder.name);
       
@@ -48,8 +47,16 @@ export const useSimpleAttendanceCapture = ({
       
       console.log(`Captured image data (${imageData.length} bytes) for ${selectedBuilder.name}`);
       
+      // Try to compress image if it's too large
+      let processedImage = imageData;
+      if (imageData.length > 1500000) { // Over 1.5MB
+        console.log('Image is large, attempting to reduce quality');
+        processedImage = await reduceImageQuality(imageData);
+        console.log(`Reduced image size: ${Math.round(processedImage.length / 1024)}KB`);
+      }
+      
       // Validate image size
-      if (imageData.length > 5000000) {  // ~5MB
+      if (processedImage.length > 5000000) {  // ~5MB
         setError('Image too large. Please try again with a lower resolution.');
         toast.error('Image too large', { id: toastId });
         return;
@@ -59,28 +66,26 @@ export const useSimpleAttendanceCapture = ({
       
       // Step 2: Update the builder's avatar image in Supabase
       console.log(`Updating profile image for builder ID: ${selectedBuilder.id}`);
-      const imageUpdateSuccess = await updateBuilderAvatar(selectedBuilder.id, imageData);
+      const imageUpdateSuccess = await updateBuilderAvatar(selectedBuilder.id, processedImage);
       
       if (!imageUpdateSuccess) {
         const errorMsg = 'Failed to update profile image. Please try again.';
         console.error(errorMsg);
         toast.error(errorMsg, { id: toastId });
         setError(errorMsg);
-        setProcessing(false);
         return;
       }
       
       console.log('Builder avatar updated successfully');
-      toast.success('Profile image saved successfully', { id: toastId });
+      toast.loading('Recording attendance...', { id: toastId });
       
       // Step 3: Mark attendance in Supabase with explicit "present" status
       // Ensure we're using the current date in YYYY-MM-DD format
       const currentDate = new Date().toISOString().split('T')[0];
       console.log(`Marking attendance for builder ID: ${selectedBuilder.id} as present for date ${currentDate}`);
-      toast.loading('Recording attendance...', { id: toastId });
       
-      // Explicitly pass current date to markAttendance
-      const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present', undefined, currentDate);
+      // Mark attendance
+      const attendanceSuccess = await markAttendance(selectedBuilder.id, 'present');
       
       if (!attendanceSuccess) {
         const errorMsg = 'Failed to record attendance';
@@ -89,7 +94,6 @@ export const useSimpleAttendanceCapture = ({
         // Continue anyway since image was updated successfully
       } else {
         console.log('Attendance marked successfully in database');
-        toast.success('Attendance recorded!', { id: toastId });
       }
       
       // Try fetching the updated image URL from the database
@@ -102,7 +106,7 @@ export const useSimpleAttendanceCapture = ({
           .single();
         
         imageUrl = studentData?.image_url;
-        console.log('Retrieved updated image URL:', imageUrl);
+        console.log('Retrieved updated image URL from database');
       } catch (err) {
         console.warn('Could not fetch updated image URL', err);
         // Continue with the captured image data as fallback
@@ -111,7 +115,7 @@ export const useSimpleAttendanceCapture = ({
       // Step 4: Create updated builder object with new image and status
       const updatedBuilder: Builder = {
         ...selectedBuilder,
-        image: imageUrl || imageData, // Use the URL if available, otherwise fallback to base64
+        image: processedImage, // Use processed image directly
         status: 'present',
         timeRecorded: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -120,14 +124,11 @@ export const useSimpleAttendanceCapture = ({
         })
       };
       
-      console.log('Updated builder object:', updatedBuilder.id, updatedBuilder.status);
+      console.log('Updated builder object created');
       
       // Notify the parent component
       onAttendanceMarked(updatedBuilder);
-      toast.success(`Welcome, ${updatedBuilder.name}!`);
-      
-      // Force a delay to allow the database update to be reflected in other components
-      await new Promise(resolve => setTimeout(resolve, 500));
+      toast.success(`Welcome, ${updatedBuilder.name}!`, { id: toastId });
       
     } catch (error) {
       console.error('Error in attendance capture:', error);
@@ -137,6 +138,51 @@ export const useSimpleAttendanceCapture = ({
     } finally {
       setProcessing(false);
     }
+  };
+
+  // Helper function to reduce image quality
+  const reduceImageQuality = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Resize if image is very large
+        const MAX_WIDTH = 1280;
+        const MAX_HEIGHT = 720;
+        let width = img.width;
+        let height = img.height;
+        
+        // Scale down if needed
+        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round(height * (MAX_WIDTH / width));
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round(width * (MAX_HEIGHT / height));
+              height = MAX_HEIGHT;
+            }
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl); // Fallback to original
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        // Reduce quality to 70%
+        const reducedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(reducedDataUrl);
+      };
+      img.src = dataUrl;
+    });
   };
 
   return {

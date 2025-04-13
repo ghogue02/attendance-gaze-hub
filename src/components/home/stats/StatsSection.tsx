@@ -18,14 +18,29 @@ export const StatsSection = () => {
     attendanceRate: 0
   });
   const isMounted = useRef(true);
+  const processingRef = useRef(false);
   
-  // Check if we need to process specific dates or mark students absent from previous day
+  const lastProcessDateRef = useRef<string | null>(null);
+  
   const processAttendance = async () => {
+    if (processingRef.current) {
+      return;
+    }
+    
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    
+    if (lastProcessDateRef.current === todayString) {
+      console.log(`StatsSection: Already processed attendance for ${todayString}`);
+      return;
+    }
+    
     try {
-      // First process specific problematic dates
+      processingRef.current = true;
+      console.log(`StatsSection: Processing attendance for ${todayString}`);
+      
       await processSpecificDateIssues();
       
-      // Specifically check for issue dates and make sure they're processed
       const issueDates = [
         { date: '2025-04-01', storageKey: `fix_applied_2025_04_01` },
         { date: '2025-04-02', storageKey: `fix_applied_2025_04_02` },
@@ -33,7 +48,6 @@ export const StatsSection = () => {
       ];
       
       for (const { date, storageKey } of issueDates) {
-        // Only process if not already done
         if (!localStorage.getItem(storageKey)) {
           console.log(`StatsSection: Specifically processing ${date}`);
           const result = await processPendingAttendance(date);
@@ -42,43 +56,39 @@ export const StatsSection = () => {
             toast.success(`Fixed ${result} attendance records for ${date}`);
           }
           
-          // Mark as processed
           localStorage.setItem(storageKey, 'true');
         }
       }
       
-      // Also check previous day
-      const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayString = yesterday.toISOString().split('T')[0];
       
       console.log(`StatsSection: Checking if we need to process pending attendance for ${yesterdayString}`);
       
-      // Use a storage key with a timestamp that will force processing once per day
       const storageKey = `attendance_processed_${yesterdayString}`;
-      const todayDateString = today.toISOString().split('T')[0];
-      const processedToday = localStorage.getItem(`${storageKey}_${todayDateString}`);
+      const processedToday = localStorage.getItem(`${storageKey}_${todayString}`);
       
       if (processedToday) {
         console.log(`StatsSection: Already processed pending attendance for ${yesterdayString} today`);
-        return;
-      }
-      
-      // Process yesterday's pending attendance
-      const markedCount = await markPendingAsAbsent(yesterdayString);
-      
-      if (markedCount > 0) {
-        toast.success(`${markedCount} students marked as absent for yesterday (${yesterdayString})`);
       } else {
-        console.log(`StatsSection: No pending attendance to process for ${yesterdayString}`);
+        const markedCount = await markPendingAsAbsent(yesterdayString);
+        
+        if (markedCount > 0) {
+          toast.success(`${markedCount} students marked as absent for yesterday (${yesterdayString})`);
+        } else {
+          console.log(`StatsSection: No pending attendance to process for ${yesterdayString}`);
+        }
+        
+        localStorage.setItem(`${storageKey}_${todayString}`, 'true');
       }
       
-      // Store that we've processed today with today's date to ensure it runs once per day
-      localStorage.setItem(`${storageKey}_${todayDateString}`, 'true');
+      lastProcessDateRef.current = todayString;
       
     } catch (error) {
       console.error('Error processing attendance:', error);
+    } finally {
+      processingRef.current = false;
     }
   };
 
@@ -101,11 +111,11 @@ export const StatsSection = () => {
     
     updateStats();
     
-    // Process attendance issues and previous day's pending records
-    processAttendance();
+    setTimeout(() => {
+      processAttendance();
+    }, 3000);
     
-    // Clear any automated absence notes for students who are present today
-    const clearAutomatedNotes = async () => {
+    setTimeout(async () => {
       try {
         const clearedCount = await clearAutomatedNotesForPresentStudents();
         if (clearedCount > 0) {
@@ -115,35 +125,31 @@ export const StatsSection = () => {
       } catch (error) {
         console.error('Error clearing automated notes:', error);
       }
-    };
+    }, 5000);
     
-    // Run the clear function when the component mounts
-    clearAutomatedNotes();
-    
-    // Subscribe to attendance changes using the shared subscription service
     const unsubscribe = subscribeToAttendanceChanges(() => {
       console.log('Attendance change detected in StatsSection, refreshing stats');
       updateStats();
     });
     
-    const refreshInterval = setInterval(updateStats, 60000);
+    const refreshInterval = setInterval(updateStats, 300000);
     
-    // Set up midnight check for automatic processing
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 10, 0, 0); // Run 10 minutes after midnight
+    tomorrow.setHours(0, 10, 0, 0);
     
     const timeUntilMidnight = tomorrow.getTime() - now.getTime();
     
     const midnightCheck = setTimeout(() => {
-      // Run at midnight for yesterday (which is now today)
-      const todayStr = new Date().toISOString().split('T')[0];
-      markPendingAsAbsent(todayStr);
+      lastProcessDateRef.current = null;
+      
+      processAttendance();
       
       const nextMidnightCheck = setInterval(() => {
-        const currentDate = new Date().toISOString().split('T')[0];
-        markPendingAsAbsent(currentDate);
+        lastProcessDateRef.current = null;
+        
+        processAttendance();
       }, 24 * 60 * 60 * 1000);
       
       return () => clearInterval(nextMidnightCheck);

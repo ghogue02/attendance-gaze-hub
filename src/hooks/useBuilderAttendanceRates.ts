@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, AttendanceStats } from '@/components/builder/types';
 import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
@@ -16,119 +16,108 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
   const [builderAttendanceRates, setBuilderAttendanceRates] = useState<{[key: string]: number | null}>({});
   const [builderAttendanceStats, setBuilderAttendanceStats] = useState<{[key: string]: AttendanceStats | null}>({});
   const [isLoading, setIsLoading] = useState(false);
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  
+  // Add a cache control to prevent excessive fetches
+  const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
   useEffect(() => {
+    // Skip empty builder lists
+    if (builders.length === 0) {
+      setBuilderAttendanceRates({});
+      setBuilderAttendanceStats({});
+      return;
+    }
+    
+    // Skip if we're already fetching
+    if (isFetchingRef.current) {
+      console.log('[useBuilderAttendanceRates] Skipping fetch - already in progress');
+      return;
+    }
+    
+    // Check if we recently fetched (cache TTL)
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < CACHE_TTL) {
+      console.log('[useBuilderAttendanceRates] Using cached attendance data');
+      return;
+    }
+    
     const fetchAttendanceRates = async () => {
-      if (builders.length === 0) {
-        setBuilderAttendanceRates({});
-        setBuilderAttendanceStats({});
-        return;
-      }
-      
       // Extract builder IDs for the query filter
       const builderIds = builders.map(b => b.id);
       
       setIsLoading(true);
-      const rates: {[key: string]: number | null} = {};
-      const stats: {[key: string]: AttendanceStats | null} = {};
-      
-      // Log start of batch processing
-      console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records since ${ATTENDANCE_START_DATE} for ${builders.length} builders (Limit: ${MAX_RECORDS_LIMIT})`);
-      console.log(`[useBuilderAttendanceRates] Builders list sample:`, builders.slice(0, 3).map(b => ({id: b.id, name: b.name})));
+      isFetchingRef.current = true;
       
       try {
-        // Step 1: Get ALL attendance records since the start date FOR THE CURRENT BUILDERS
+        console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records since ${ATTENDANCE_START_DATE} for ${builders.length} builders in a SINGLE query`);
+        
+        // SINGLE QUERY for all builders' attendance records
         const { data: allAttendanceRecords, error } = await supabase
           .from('attendance')
           .select('student_id, status, date')
-          .in('student_id', builderIds)       // Filter for the builders in the current list
-          .gte('date', ATTENDANCE_START_DATE) // Get records on or after the start date
-          .limit(MAX_RECORDS_LIMIT)          // Explicitly set a high limit to overcome default 1000
-          .order('date');
+          .in('student_id', builderIds)
+          .gte('date', ATTENDANCE_START_DATE)
+          .limit(MAX_RECORDS_LIMIT);
         
         if (error) {
           console.error('[useBuilderAttendanceRates] Error fetching attendance records:', error);
           setBuilderAttendanceRates({});
           setBuilderAttendanceStats({});
-          setIsLoading(false);
           return;
         }
 
-        console.log(`[useBuilderAttendanceRates] Fetched ${allAttendanceRecords?.length || 0} total attendance records`);
+        const recordCount = allAttendanceRecords?.length || 0;
+        console.log(`[useBuilderAttendanceRates] Successfully fetched ${recordCount} total attendance records for ${builders.length} builders`);
         
         // Warn if we hit the limit
-        if ((allAttendanceRecords?.length || 0) === MAX_RECORDS_LIMIT) {
+        if (recordCount === MAX_RECORDS_LIMIT) {
           console.warn(`[useBuilderAttendanceRates] WARNING: Fetched the maximum limit (${MAX_RECORDS_LIMIT}) of records. Some data might be missing.`);
         }
         
-        // Process each builder's attendance
+        // Group records by student_id for efficient processing
+        const recordsByStudent = allAttendanceRecords?.reduce((acc, record) => {
+          if (!acc[record.student_id]) {
+            acc[record.student_id] = [];
+          }
+          acc[record.student_id].push(record);
+          return acc;
+        }, {} as Record<string, typeof allAttendanceRecords>);
+        
+        const rates: {[key: string]: number | null} = {};
+        const stats: {[key: string]: AttendanceStats | null} = {};
+        
+        // Process each builder's attendance - much more efficient now
         for (const builder of builders) {
-          // Get this builder's attendance records
-          const builderRecords = allAttendanceRecords?.filter(record => 
-            record.student_id === builder.id
-          ) || [];
+          const builderRecords = recordsByStudent?.[builder.id] || [];
           
-          // Log for ALL builders to find patterns
-          console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Found ${builderRecords.length} records`);
-          
-          // Special debug for Saeed/Zargarchi
-          const isSaeed = builder.name.toLowerCase().includes("seyedmostafa") || 
-                         builder.name.toLowerCase().includes("zargarchi") || 
-                         builder.id === "c80ac741-bee0-441d-aa3b-02aafa3dc018";
-          
-          if (isSaeed) {
-            console.log(`[useBuilderAttendanceRates] Found Saeed with ID: ${builder.id}`);
-            console.log(`[useBuilderAttendanceRates] Records for ${builder.name}:`, builderRecords);
-          }
-          
-          // Calculate rate using the updated utility function
+          // Calculate rate using the utility function
           const calculatedStats = calculateAttendanceStatistics(builderRecords);
-          
-          // Debug before assignment
-          console.log(`[useBuilderAttendanceRates] For builder ${builder.name} (${builder.id}): Calculated`, calculatedStats);
-          
-          if (isSaeed) {
-            console.log(`[useBuilderAttendanceRates] Calculated stats for ${builder.name}:`, calculatedStats);
-          }
           
           // Store both the rate and the full stats object
           rates[builder.id] = calculatedStats.rate;
           stats[builder.id] = calculatedStats;
           
-          // Log entry in stats object AFTER assignment
-          console.log(`[useBuilderAttendanceRates] stats[${builder.id}] is now:`, stats[builder.id]);
-          
-          // Log attendance calculation for a sample of builders
-          if (builders.indexOf(builder) < 3 || isSaeed) {
+          // Log attendance for debugging (just for a few builders)
+          if (builders.indexOf(builder) < 3) {
             console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Attendance rate: ${rates[builder.id]}%, Present: ${stats[builder.id]?.presentCount}/${stats[builder.id]?.totalClassDays}`);
           }
         }
         
-        // CRITICAL DEBUGGING STEP: Check final stats object before setting state
-        console.log('[useBuilderAttendanceRates] FINAL stats object BEFORE setting state:', 
-          Object.entries(stats).slice(0, 5).map(([id, stat]) => ({
-            id,
-            rate: stat?.rate,
-            presentCount: stat?.presentCount,
-            totalClassDays: stat?.totalClassDays
-          }))
-        );
+        // Update state
+        setBuilderAttendanceRates(rates);
+        setBuilderAttendanceStats(stats);
         
-        // Count how many have the {rate: 48, presentCount: 12, totalClassDays: 25} pattern
-        const pattern48Count = Object.values(stats).filter(
-          s => s?.rate === 48 && s?.presentCount === 12 && s?.totalClassDays === 25
-        ).length;
-        
-        console.log(`[useBuilderAttendanceRates] Found ${pattern48Count} builders with the {48, 12, 25} pattern`);
+        // Update cache timestamp
+        lastFetchTimeRef.current = Date.now();
         
       } catch (error) {
         console.error('[useBuilderAttendanceRates] Error processing attendance rates:', error);
+      } finally {
+        setIsLoading(false);
+        isFetchingRef.current = false;
       }
-      
-      console.log(`[useBuilderAttendanceRates] Completed calculating rates for ${builders.length} builders`);
-      setBuilderAttendanceRates(rates);
-      setBuilderAttendanceStats(stats);
-      setIsLoading(false);
     };
 
     fetchAttendanceRates();

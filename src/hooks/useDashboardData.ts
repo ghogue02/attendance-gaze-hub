@@ -13,7 +13,11 @@ export const useDashboardData = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isMounted = useRef(true);
-
+  const lastLoadTimeRef = useRef(0);
+  
+  // Cache control to prevent excessive loads
+  const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+  
   // Get the current date strings
   const currentDate = useMemo(() => getCurrentDateString(), []);
   const targetDateString = currentDate;
@@ -25,6 +29,14 @@ export const useDashboardData = () => {
   // Function to load/refresh data for the target date
   const loadData = useCallback(async (showLoadingSpinner = true) => {
     if (!isMounted.current) return;
+    
+    // Check if we recently loaded data (cache TTL)
+    const now = Date.now();
+    if (now - lastLoadTimeRef.current < CACHE_TTL && !showLoadingSpinner) {
+      console.log(`[useDashboardData] Skipping reload - using cached data (${Math.round((now - lastLoadTimeRef.current) / 1000)}s old)`);
+      return;
+    }
+    
     console.log(`[useDashboardData] Executing loadData for date ${targetDateString} (showLoading: ${showLoadingSpinner})...`);
     
     if (showLoadingSpinner) setIsLoading(true);
@@ -39,6 +51,9 @@ export const useDashboardData = () => {
         console.log(`[useDashboardData] Present count: ${data.filter(b => b.status === 'present').length}`);
         console.log(`[useDashboardData] Absent count: ${data.filter(b => b.status === 'absent').length}`);
         console.log(`[useDashboardData] Pending count: ${data.filter(b => b.status === 'pending').length}`);
+        
+        // Update cache timestamp
+        lastLoadTimeRef.current = now;
       }
     } catch (error) {
       console.error('[useDashboardData] Error during loadData:', error);
@@ -92,6 +107,8 @@ export const useDashboardData = () => {
   // Function for manual refresh button
   const refreshData = useCallback(() => {
     console.log('[useDashboardData] Manual refresh triggered.');
+    // Reset cache timestamp for manual refresh
+    lastLoadTimeRef.current = 0;
     loadData(true);
   }, [loadData]);
 

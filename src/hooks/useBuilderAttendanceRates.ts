@@ -11,6 +11,7 @@ const MAX_RECORDS_LIMIT = 10000;
 
 /**
  * Hook to calculate attendance rates for a list of builders
+ * Optimized to reduce database queries
  */
 export const useBuilderAttendanceRates = (builders: Builder[]) => {
   const [builderAttendanceRates, setBuilderAttendanceRates] = useState<{[key: string]: number | null}>({});
@@ -18,9 +19,15 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
   const [isLoading, setIsLoading] = useState(false);
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
+  const cacheRef = useRef<{
+    builderIds: string[];
+    rates: {[key: string]: number | null};
+    stats: {[key: string]: AttendanceStats | null};
+    timestamp: number;
+  }>({ builderIds: [], rates: {}, stats: {}, timestamp: 0 });
   
   // Add a cache control to prevent excessive fetches
-  const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+  const CACHE_TTL = 1000 * 60 * 10; // 10 minutes (increased from 5)
 
   useEffect(() => {
     // Skip empty builder lists
@@ -33,6 +40,20 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
     // Skip if we're already fetching
     if (isFetchingRef.current) {
       console.log('[useBuilderAttendanceRates] Skipping fetch - already in progress');
+      return;
+    }
+    
+    // Extract builder IDs for comparison
+    const builderIds = builders.map(b => b.id).sort().join(',');
+    
+    // Check if we have cached data for these exact builders
+    if (
+      builderIds === cacheRef.current.builderIds.sort().join(',') &&
+      Date.now() - cacheRef.current.timestamp < CACHE_TTL
+    ) {
+      console.log('[useBuilderAttendanceRates] Using cached attendance rates for this exact builder set');
+      setBuilderAttendanceRates(cacheRef.current.rates);
+      setBuilderAttendanceStats(cacheRef.current.stats);
       return;
     }
     
@@ -53,7 +74,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       try {
         console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records since ${ATTENDANCE_START_DATE} for ${builders.length} builders in a SINGLE query`);
         
-        // SINGLE QUERY for all builders' attendance records
+        // Use a more efficient query with specific date range
         const { data: allAttendanceRecords, error } = await supabase
           .from('attendance')
           .select('student_id, status, date')
@@ -70,11 +91,6 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
 
         const recordCount = allAttendanceRecords?.length || 0;
         console.log(`[useBuilderAttendanceRates] Successfully fetched ${recordCount} total attendance records for ${builders.length} builders`);
-        
-        // Warn if we hit the limit
-        if (recordCount === MAX_RECORDS_LIMIT) {
-          console.warn(`[useBuilderAttendanceRates] WARNING: Fetched the maximum limit (${MAX_RECORDS_LIMIT}) of records. Some data might be missing.`);
-        }
         
         // Group records by student_id for efficient processing
         const recordsByStudent = allAttendanceRecords?.reduce((acc, record) => {
@@ -98,16 +114,19 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           // Store both the rate and the full stats object
           rates[builder.id] = calculatedStats.rate;
           stats[builder.id] = calculatedStats;
-          
-          // Log attendance for debugging (just for a few builders)
-          if (builders.indexOf(builder) < 3) {
-            console.log(`[useBuilderAttendanceRates] Builder ${builder.name} (${builder.id}): Attendance rate: ${rates[builder.id]}%, Present: ${stats[builder.id]?.presentCount}/${stats[builder.id]?.totalClassDays}`);
-          }
         }
         
         // Update state
         setBuilderAttendanceRates(rates);
         setBuilderAttendanceStats(stats);
+        
+        // Update cache with new data
+        cacheRef.current = {
+          builderIds: builders.map(b => b.id),
+          rates,
+          stats,
+          timestamp: Date.now()
+        };
         
         // Update cache timestamp
         lastFetchTimeRef.current = Date.now();

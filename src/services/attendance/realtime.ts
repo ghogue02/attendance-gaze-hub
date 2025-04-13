@@ -2,10 +2,16 @@
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+// Global singleton channel for attendance changes
 let attendanceChannel: RealtimeChannel | null = null;
 let lastCallbackTime = 0;
-const DEBOUNCE_INTERVAL = 10000; // 10 seconds between callbacks (increased from 5s)
+
+// Increased debounce time to reduce database load
+const DEBOUNCE_INTERVAL = 30000; // 30 seconds between callbacks (increased from 10s)
 const callbackRegistry = new Set<() => void>();
+
+// Track if we're already in a callback execution cycle
+let executingCallbacks = false;
 
 export const subscribeToAttendanceChanges = (callback: () => void) => {
   if (!supabase) {
@@ -19,16 +25,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   // If we already have a channel active, just register this callback
   if (attendanceChannel) {
     console.log('Using existing attendance subscription - added callback');
-    return () => {
-      callbackRegistry.delete(callback);
-      
-      // If no more callbacks, remove the channel
-      if (callbackRegistry.size === 0 && attendanceChannel) {
-        console.log('No more subscribers, cleaning up attendance channel');
-        supabase.removeChannel(attendanceChannel);
-        attendanceChannel = null;
-      }
-    };
+    return createUnsubscribeFunction(callback);
   }
 
   // Track pending callbacks to avoid multiple rapid callbacks
@@ -36,22 +33,33 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   
   // Create an efficient debounced callback that notifies all subscribers
   const debouncedCallback = () => {
+    // Skip if we're already executing callbacks
+    if (executingCallbacks) {
+      console.log('Already executing callbacks, skipping duplicate execution');
+      return;
+    }
+    
     const now = Date.now();
+    
     // Only invoke callbacks if sufficient time has passed since last invocation
     if (now - lastCallbackTime >= DEBOUNCE_INTERVAL) {
+      executingCallbacks = true;
       console.log(`Invoking ${callbackRegistry.size} attendance change callbacks after debounce`);
       
-      // Notify all registered callbacks
-      callbackRegistry.forEach(cb => {
-        try {
-          cb();
-        } catch (err) {
-          console.error('Error in attendance change callback:', err);
-        }
-      });
-      
-      lastCallbackTime = now;
-      callbackPending = false;
+      try {
+        // Notify all registered callbacks
+        callbackRegistry.forEach(cb => {
+          try {
+            cb();
+          } catch (err) {
+            console.error('Error in attendance change callback:', err);
+          }
+        });
+      } finally {
+        lastCallbackTime = now;
+        callbackPending = false;
+        executingCallbacks = false;
+      }
     } else if (!callbackPending) {
       // Schedule a future callback if we haven't already
       callbackPending = true;
@@ -59,19 +67,23 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
       console.log(`Too soon for attendance callbacks, scheduling in ${delay}ms`);
       
       setTimeout(() => {
+        executingCallbacks = true;
         console.log(`Executing delayed attendance callbacks for ${callbackRegistry.size} subscribers`);
         
-        // Notify all registered callbacks
-        callbackRegistry.forEach(cb => {
-          try {
-            cb();
-          } catch (err) {
-            console.error('Error in delayed attendance change callback:', err);
-          }
-        });
-        
-        lastCallbackTime = Date.now();
-        callbackPending = false;
+        try {
+          // Notify all registered callbacks
+          callbackRegistry.forEach(cb => {
+            try {
+              cb();
+            } catch (err) {
+              console.error('Error in delayed attendance change callback:', err);
+            }
+          });
+        } finally {
+          lastCallbackTime = Date.now();
+          callbackPending = false;
+          executingCallbacks = false;
+        }
       }, delay);
     }
   };
@@ -79,15 +91,15 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   // Set up the channel if it doesn't exist
   console.log('Creating new attendance subscription channel');
   attendanceChannel = supabase
-    .channel('attendance_changes')
+    .channel('optimized_attendance_changes')
     .on(
       'postgres_changes',
       { 
         event: '*', 
         schema: 'public', 
         table: 'attendance',
-        // We're not filtering by date here because we want to catch all changes
-        // but we'll debounce heavily to reduce load
+        // We're not filtering by date here to catch all changes
+        // but we'll use a much higher debounce interval
       },
       (payload) => {
         console.log('Attendance change detected!', payload.eventType);
@@ -103,6 +115,10 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     });
 
   // Return unsubscribe function
+  return createUnsubscribeFunction(callback);
+};
+
+function createUnsubscribeFunction(callback: () => void) {
   return () => {
     console.log('Unsubscribing callback from attendance changes.');
     
@@ -116,4 +132,4 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
       attendanceChannel = null;
     }
   };
-};
+}

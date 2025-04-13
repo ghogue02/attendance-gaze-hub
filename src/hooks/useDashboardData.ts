@@ -5,7 +5,7 @@ import { getCurrentDateString, getDisplayDateString, logDateDebugInfo } from '@/
 import { useAttendanceSubscriptions } from './useAttendanceSubscriptions';
 import { useBuilderFilters } from './useBuilderFilters';
 import { useAttendanceOperations } from './useAttendanceOperations';
-import { useOptimizedAttendanceQueries } from './useOptimizedAttendanceQueries';
+import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/attendance';
 
 export const useDashboardData = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
@@ -16,9 +16,6 @@ export const useDashboardData = () => {
   const currentDate = useMemo(() => getCurrentDateString(), []);
   const targetDateString = currentDate;
   const displayDateString = useMemo(() => getDisplayDateString(), []);
-
-  // Use our optimized query hook
-  const { fetchBuildersForDate, invalidateCache } = useOptimizedAttendanceQueries();
 
   // Debug log the current date
   logDateDebugInfo('useDashboardData', targetDateString);
@@ -32,8 +29,8 @@ export const useDashboardData = () => {
     if (showLoadingSpinner) setIsLoading(true);
     
     try {
-      // Use our optimized query method
-      const data = await fetchBuildersForDate(targetDateString);
+      // Use our optimized batch query method
+      const data = await getAllBuilders(targetDateString);
       
       if (isMounted.current) {
         setBuilders(data);
@@ -48,15 +45,15 @@ export const useDashboardData = () => {
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
-  }, [targetDateString, fetchBuildersForDate]);
+  }, [targetDateString]);
 
   // Set up Supabase subscriptions - with callback that invalidates cache
   useAttendanceSubscriptions({
     targetDateString,
     onDataChange: () => {
       console.log('[useDashboardData] Data change detected, invalidating cache');
-      // Invalidate relevant cache entries
-      invalidateCache(`builders_${targetDateString}`);
+      // Clear cache for target date
+      clearAttendanceCache(targetDateString);
       // Reload in background without spinner
       loadData(false);
     }
@@ -71,8 +68,8 @@ export const useDashboardData = () => {
     // Set up auto-refresh interval (every 5 minutes)
     const refreshInterval = setInterval(() => {
       console.log('[useDashboardData] Auto-refresh triggered.');
-      // Invalidate cache for current date on auto-refresh
-      invalidateCache(`builders_${targetDateString}`);
+      // Clear cache for current date on auto-refresh
+      clearAttendanceCache(targetDateString);
       loadData(false); // Don't show loading spinner for auto refresh
     }, 300000); // 5 minutes
 
@@ -80,7 +77,7 @@ export const useDashboardData = () => {
       isMounted.current = false;
       clearInterval(refreshInterval);
     };
-  }, [loadData, invalidateCache, targetDateString]);
+  }, [loadData, targetDateString]);
 
   // Use the filtering hook
   const {
@@ -97,8 +94,8 @@ export const useDashboardData = () => {
     builders,
     targetDateString,
     onAttendanceMarked: () => {
-      // Invalidate cache on attendance change
-      invalidateCache(`builders_${targetDateString}`);
+      // Clear cache on attendance change
+      clearAttendanceCache(targetDateString);
       loadData(false);
     }
   });
@@ -106,10 +103,10 @@ export const useDashboardData = () => {
   // Function for manual refresh button
   const refreshData = useCallback(() => {
     console.log('[useDashboardData] Manual refresh triggered.');
-    // Invalidate cache on manual refresh
-    invalidateCache(`builders_${targetDateString}`);
+    // Clear cache on manual refresh
+    clearAttendanceCache(targetDateString);
     loadData(true);
-  }, [loadData, invalidateCache, targetDateString]);
+  }, [loadData, targetDateString]);
 
   // Return state and handlers
   return {

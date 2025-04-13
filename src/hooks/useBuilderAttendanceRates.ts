@@ -27,7 +27,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
   }>({ builderIds: [], rates: {}, stats: {}, timestamp: 0 });
   
   // Add a cache control to prevent excessive fetches
-  const CACHE_TTL = 1000 * 60 * 10; // 10 minutes (increased from 5)
+  const CACHE_TTL = 1000 * 60 * 15; // 15 minutes cache TTL
 
   useEffect(() => {
     // Skip empty builder lists
@@ -68,13 +68,17 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       // Extract builder IDs for the query filter
       const builderIds = builders.map(b => b.id);
       
+      // If no builders, return early
+      if (builderIds.length === 0) return;
+      
       setIsLoading(true);
       isFetchingRef.current = true;
       
       try {
-        console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records since ${ATTENDANCE_START_DATE} for ${builders.length} builders in a SINGLE query`);
+        console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records for ${builders.length} builders in a SINGLE batch query`);
         
-        // Use a more efficient query with specific date range
+        // Use a single consolidated query to get ALL attendance records for all builders
+        // This avoids making individual requests for each builder
         const { data: allAttendanceRecords, error } = await supabase
           .from('attendance')
           .select('student_id, status, date')
@@ -104,7 +108,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
         const rates: {[key: string]: number | null} = {};
         const stats: {[key: string]: AttendanceStats | null} = {};
         
-        // Process each builder's attendance - much more efficient now
+        // Process each builder's attendance - much more efficient in memory
         for (const builder of builders) {
           const builderRecords = recordsByStudent?.[builder.id] || [];
           

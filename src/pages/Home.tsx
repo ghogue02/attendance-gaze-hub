@@ -1,10 +1,9 @@
-
 import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
 import { PhotoCapture } from '@/components/PhotoCapture';
 import Header from '@/components/Header';
 import { RecognitionResult } from '@/components/home/RecognitionResult';
-import { getAllBuilders } from '@/utils/faceRecognition';
+import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/attendance';
 import { useEffect } from 'react';
 import { Loader2, Search, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import PresentBuildersCarousel from '@/components/home/PresentBuildersCarousel';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentDateString } from '@/utils/date/dateUtils';
 import HeadshotsCarousel from '@/components/home/HeadshotsCarousel';
+import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 
 const Home = () => {
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
@@ -29,6 +29,7 @@ const Home = () => {
         const today = getCurrentDateString();
         console.log(`Home: Loading builders for date: ${today}`);
         
+        // Use the optimized function that returns cached data when available
         const data = await getAllBuilders(today);
         console.log(`Home: Loaded ${data.length} builders, ${data.filter(b => b.status === 'present').length} present`);
         setBuilders(data);
@@ -41,23 +42,17 @@ const Home = () => {
 
     loadBuilders();
     
-    // Subscribe to attendance changes to reload builders when attendance is updated
-    const today = getCurrentDateString();
-    console.log(`Home: Setting up subscription for date: ${today}`);
+    // Use the optimized subscription handler
+    const unsubscribe = subscribeToAttendanceChanges(() => {
+      console.log('Home: Attendance change detected, reloading builders');
+      // Clear the cache for today
+      clearAttendanceCache(getCurrentDateString());
+      // Reload data
+      loadBuilders();
+    });
     
-    const channel = supabase
-      .channel('home-attendance-updates')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'attendance', filter: `date=eq.${today}` },
-        () => {
-          console.log('Home: Attendance change detected, reloading builders');
-          loadBuilders();
-        }
-      )
-      .subscribe();
-      
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 
@@ -71,6 +66,7 @@ const Home = () => {
     setSearchQuery('');
   };
   
+  // Filter builders based on search query
   const filteredBuilders = searchQuery 
     ? builders.filter(builder => 
         builder.name.toLowerCase().includes(searchQuery.toLowerCase())

@@ -6,8 +6,8 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 let attendanceChannel: RealtimeChannel | null = null;
 let lastCallbackTime = 0;
 
-// Increased debounce time to reduce database load
-const DEBOUNCE_INTERVAL = 30000; // 30 seconds between callbacks (increased from 10s)
+// Increased debounce time to significantly reduce database load
+const DEBOUNCE_INTERVAL = 60000; // 1 minute between callbacks (increased from 30s)
 const callbackRegistry = new Set<() => void>();
 
 // Track if we're already in a callback execution cycle
@@ -91,18 +91,18 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   // Set up the channel if it doesn't exist
   console.log('Creating new attendance subscription channel');
   attendanceChannel = supabase
-    .channel('optimized_attendance_changes')
+    .channel('optimized_global_attendance_changes')
     .on(
       'postgres_changes',
       { 
         event: '*', 
         schema: 'public', 
-        table: 'attendance',
-        // We're not filtering by date here to catch all changes
-        // but we'll use a much higher debounce interval
+        table: 'attendance'
+        // We're not filtering by date to have a single subscription
+        // that handles all updates
       },
       (payload) => {
-        console.log('Attendance change detected!', payload.eventType);
+        console.log('Attendance change detected:', payload.eventType);
         debouncedCallback();
       }
     )

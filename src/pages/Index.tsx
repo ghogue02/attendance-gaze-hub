@@ -11,30 +11,19 @@ const Index = () => {
   const {
     isCameraActive,
     detectedBuilder,
+    selectedBuilder,
     showIntro,
     handleBuilderDetected,
+    handleSelectBuilder,
     startAttendance,
     reset
   } = useAttendanceSystem();
-
-  const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
 
   // Fetch all builders
   const { data: builders = [] } = useQuery({
     queryKey: ['builders'],
     queryFn: getBuilders
   });
-
-  const handleSelectBuilder = (builder: Builder) => {
-    setSelectedBuilder(builder);
-  };
-
-  // Reset selected builder when attendance is marked
-  useEffect(() => {
-    if (detectedBuilder) {
-      setSelectedBuilder(null);
-    }
-  }, [detectedBuilder]);
 
   return (
     <IndexLayout>

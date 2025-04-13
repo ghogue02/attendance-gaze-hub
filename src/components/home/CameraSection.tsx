@@ -25,10 +25,10 @@ const CameraSection = ({
       transition={{ duration: 0.5, delay: 0.4 }}
       className="glass-card p-4 md:p-6"
     >
-      {isCameraActive ? (
+      {isCameraActive || selectedBuilder ? (
         <SimpleAttendanceCamera 
           onAttendanceMarked={onBuilderDetected}
-          isCameraActive={isCameraActive}
+          isCameraActive={isCameraActive || !!selectedBuilder}
           selectedBuilder={selectedBuilder}
         />
       ) : detectedBuilder ? (

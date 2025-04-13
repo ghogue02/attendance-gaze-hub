@@ -3,7 +3,7 @@ import { Camera, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/builder/types';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface AttendanceSectionProps {
   isCameraActive: boolean;
@@ -23,7 +23,7 @@ export const AttendanceSection = ({
   builders
 }: AttendanceSectionProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
+  const [localSelectedBuilder, setLocalSelectedBuilder] = useState<Builder | null>(null);
 
   const filteredBuilders = searchQuery 
     ? builders.filter(builder => 
@@ -32,9 +32,17 @@ export const AttendanceSection = ({
     : [];
 
   const handleSelectBuilder = (builder: Builder) => {
-    setSelectedBuilder(builder);
+    setLocalSelectedBuilder(builder);
     onSelectBuilder(builder);
+    setSearchQuery(''); // Clear search after selection
   };
+  
+  // Clear local selection when detected builder changes
+  useEffect(() => {
+    if (detectedBuilder) {
+      setLocalSelectedBuilder(null);
+    }
+  }, [detectedBuilder]);
 
   return (
     <div className="flex flex-col space-y-4">
@@ -97,14 +105,22 @@ export const AttendanceSection = ({
                   </div>
                 )}
                 
-                {selectedBuilder && (
+                {localSelectedBuilder && (
                   <div className="mt-2 p-3 bg-primary/5 rounded-md flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                        {selectedBuilder.name.charAt(0)}
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium overflow-hidden">
+                        {localSelectedBuilder.image ? (
+                          <img 
+                            src={localSelectedBuilder.image} 
+                            alt={localSelectedBuilder.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          localSelectedBuilder.name.charAt(0)
+                        )}
                       </div>
                       <div>
-                        <div className="font-medium">{selectedBuilder.name}</div>
+                        <div className="font-medium">{localSelectedBuilder.name}</div>
                       </div>
                     </div>
                     <Button 

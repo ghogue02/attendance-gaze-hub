@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Builder } from '@/components/builder/types';
 import CameraSection from './CameraSection';
 import { AttendanceSection } from './AttendanceSection';
+import { useEffect } from 'react';
 
 interface IndexContentProps {
   isCameraActive: boolean;
@@ -25,6 +26,13 @@ const IndexContent = ({
   handleSelectBuilder,
   reset 
 }: IndexContentProps) => {
+  // Automatically start the camera when a builder is selected
+  useEffect(() => {
+    if (selectedBuilder && !isCameraActive) {
+      startAttendance();
+    }
+  }, [selectedBuilder, isCameraActive, startAttendance]);
+  
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <motion.div

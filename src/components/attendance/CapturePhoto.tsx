@@ -2,7 +2,6 @@
 import { Camera, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Builder } from '@/components/builder/types';
-import { useState } from 'react';
 
 interface CapturePhotoProps {
   isCapturing: boolean;
@@ -46,19 +45,13 @@ const CapturePhoto = ({
         </div>
       )}
       
-      {/* Instructions */}
-      <p className="text-center text-sm text-muted-foreground">
-        {selectedBuilder 
-          ? 'Position yourself in the frame and take a photo' 
-          : 'Please select a builder first'}
-      </p>
-      
       {/* Capture button */}
       <Button
         onClick={onCapture}
         disabled={!isReady || processing}
         className="flex items-center justify-center gap-2 w-full py-6"
         variant={isReady ? "default" : "outline"}
+        size="lg"
       >
         {processing ? (
           <div className="flex items-center gap-2">
@@ -71,10 +64,17 @@ const CapturePhoto = ({
         ) : (
           <>
             <Camera size={20} />
-            Take Photo
+            {isReady ? "Take Photo" : "Select a builder first"}
           </>
         )}
       </Button>
+      
+      {/* Instructions */}
+      <p className="text-center text-sm text-muted-foreground">
+        {isReady 
+          ? 'Position yourself in the frame and take a photo' 
+          : 'Please select a builder first'}
+      </p>
     </div>
   );
 };

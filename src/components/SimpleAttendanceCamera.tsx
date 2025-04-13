@@ -65,6 +65,7 @@ const SimpleAttendanceCamera = ({
         isCapturing={isCapturing}
         cameraError={cameraError}
         onRestartCamera={handleRestartCamera}
+        processingStatus={processing ? "Processing..." : null}
       />
       
       <ErrorDisplay error={error} />

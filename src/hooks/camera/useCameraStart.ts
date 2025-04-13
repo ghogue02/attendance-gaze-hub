@@ -5,17 +5,23 @@ import type { CameraConstraints } from './types';
 
 export function useCameraStart({
   videoRef,
-  streamRef,
-  retryCountRef,
-  initializedRef,
+  setStream,
+  stream,
+  setRetryCount,
+  retryCount,
+  setInitialized,
+  initialized,
   setIsCapturing,
   setCameraError,
   onCameraStart
 }: {
   videoRef: React.RefObject<HTMLVideoElement>;
-  streamRef: React.RefObject<MediaStream | null>;
-  retryCountRef: React.RefObject<number>;
-  initializedRef: React.RefObject<boolean>;
+  setStream: (stream: MediaStream | null) => void;
+  stream: MediaStream | null;
+  setRetryCount: (count: number) => void;
+  retryCount: number;
+  setInitialized: (initialized: boolean) => void;
+  initialized: boolean;
   setIsCapturing: (isCapturing: boolean) => void;
   setCameraError: (error: string) => void;
   onCameraStart?: () => void;
@@ -28,9 +34,9 @@ export function useCameraStart({
       setCameraError('');
       
       // First, make sure any previous streams are stopped
-      if (streamRef.current) {
-        stopMediaStreamTracks(streamRef.current);
-        streamRef.current = null;
+      if (stream) {
+        stopMediaStreamTracks(stream);
+        setStream(null);
       }
       
       // Set capturing state to true before starting
@@ -47,25 +53,25 @@ export function useCameraStart({
       const constraints = mergeConstraints(videoConstraints);
       
       // Add a small delay before accessing camera to allow previous instances to clean up
-      if (initializedRef.current) {
+      if (initialized) {
         await new Promise(resolve => setTimeout(resolve, 500));
       } else {
-        initializedRef.current = true;
+        setInitialized(true);
       }
       
       // Try to get access to the camera
       console.log("Requesting camera access...");
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       
       console.log("Camera access granted successfully");
       
       // Store the stream and set it as the video source
-      streamRef.current = stream;
+      setStream(mediaStream);
       
       if (videoRef.current) {
         // Make sure video element is ready
         videoRef.current.srcObject = null;
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = mediaStream;
         
         // Wait for video to be ready before notifying
         videoRef.current.onloadedmetadata = () => {
@@ -73,7 +79,7 @@ export function useCameraStart({
             videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
             
           // Reset retry counter on success
-          retryCountRef.current = 0;
+          setRetryCount(0);
             
           // Make sure video plays
           videoRef.current?.play()
@@ -110,10 +116,11 @@ export function useCameraStart({
       setIsCapturing(false);
       
       // Auto-retry logic with backoff
-      if (retryCountRef.current < maxRetries) {
-        retryCountRef.current++;
-        const delay = 1000 * retryCountRef.current; // Increasing delay for each retry
-        console.log(`Retrying camera initialization in ${delay/1000} seconds (attempt ${retryCountRef.current} of ${maxRetries})...`);
+      if (retryCount < maxRetries) {
+        const newRetryCount = retryCount + 1;
+        setRetryCount(newRetryCount);
+        const delay = 1000 * newRetryCount; // Increasing delay for each retry
+        console.log(`Retrying camera initialization in ${delay/1000} seconds (attempt ${newRetryCount} of ${maxRetries})...`);
         
         setTimeout(() => {
           console.log("Auto-retrying camera initialization...");
@@ -121,7 +128,7 @@ export function useCameraStart({
         }, delay);
       }
     }
-  }, [setCameraError, setIsCapturing, onCameraStart]);
+  }, [setCameraError, setIsCapturing, onCameraStart, setStream, stream, videoRef, initialized, setInitialized, retryCount, setRetryCount]);
 
   return { startCamera };
 }

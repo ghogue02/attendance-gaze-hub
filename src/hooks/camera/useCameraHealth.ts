@@ -2,20 +2,20 @@
 import { useCallback } from 'react';
 
 export function useCameraHealth({
-  streamRef,
+  stream,
   isCapturing,
   startCamera,
   stopCamera
 }: {
-  streamRef: React.RefObject<MediaStream | null>;
+  stream: MediaStream | null;
   isCapturing: boolean;
   startCamera: () => Promise<void>;
   stopCamera: () => void;
 }) {
   const checkCameraHealth = useCallback(() => {
-    if (!streamRef.current) return false;
+    if (!stream) return false;
     
-    const videoTracks = streamRef.current.getVideoTracks();
+    const videoTracks = stream.getVideoTracks();
     
     if (!videoTracks || videoTracks.length === 0) return false;
     
@@ -30,7 +30,7 @@ export function useCameraHealth({
     }
     
     return isActive;
-  }, [isCapturing, startCamera, stopCamera, streamRef]);
+  }, [isCapturing, startCamera, stopCamera, stream]);
 
   return { checkCameraHealth };
 }

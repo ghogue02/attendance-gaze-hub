@@ -4,19 +4,21 @@ import { stopMediaStreamTracks } from './utils';
 
 export function useCameraStop({
   videoRef,
-  streamRef,
+  stream,
+  setStream,
   setIsCapturing,
   onCameraStop
 }: {
   videoRef: React.RefObject<HTMLVideoElement>;
-  streamRef: React.RefObject<MediaStream | null>;
+  stream: MediaStream | null;
+  setStream: (stream: MediaStream | null) => void;
   setIsCapturing: (isCapturing: boolean) => void;
   onCameraStop?: () => void;
 }) {
   const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      stopMediaStreamTracks(streamRef.current);
-      streamRef.current = null;
+    if (stream) {
+      stopMediaStreamTracks(stream);
+      setStream(null);
     }
     
     if (videoRef.current) {
@@ -27,7 +29,7 @@ export function useCameraStop({
     
     setIsCapturing(false);
     onCameraStop?.();
-  }, [onCameraStop, setIsCapturing, streamRef, videoRef]);
+  }, [onCameraStop, setIsCapturing, stream, setStream, videoRef]);
 
   return { stopCamera };
 }

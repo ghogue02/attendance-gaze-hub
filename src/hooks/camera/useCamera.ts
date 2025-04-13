@@ -21,9 +21,13 @@ export function useCamera({
     setCameraError,
     videoRef,
     internalCanvasRef,
-    streamRef,
-    retryCountRef,
-    initializedRef
+    stream,
+    setStream,
+    retryCount,
+    setRetryCount,
+    initialized,
+    setInitialized,
+    streamRef
   } = useCameraState();
   
   // Use provided canvas ref or our internal one
@@ -32,9 +36,12 @@ export function useCamera({
   // Setup camera start functionality
   const { startCamera: startCameraBase } = useCameraStart({
     videoRef,
-    streamRef,
-    retryCountRef,
-    initializedRef,
+    stream,
+    setStream,
+    retryCount,
+    setRetryCount,
+    initialized,
+    setInitialized,
     setIsCapturing,
     setCameraError,
     onCameraStart,
@@ -48,14 +55,15 @@ export function useCamera({
   // Setup camera stop functionality
   const { stopCamera } = useCameraStop({
     videoRef,
-    streamRef,
+    stream,
+    setStream,
     setIsCapturing,
     onCameraStop,
   });
   
   // Setup camera health monitoring
   const { checkCameraHealth } = useCameraHealth({
-    streamRef,
+    stream,
     isCapturing,
     startCamera,
     stopCamera

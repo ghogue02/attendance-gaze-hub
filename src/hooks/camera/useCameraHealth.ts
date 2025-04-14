@@ -1,5 +1,5 @@
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 export function useCameraHealth({
   stream,
@@ -12,6 +12,11 @@ export function useCameraHealth({
   startCamera: () => Promise<void>;
   stopCamera: () => void;
 }) {
+  // Add a ref to track the last time we tried to restart the camera
+  const lastRestartAttempt = useRef<number>(0);
+  // Add a minimum time between restart attempts (30 seconds)
+  const MIN_RESTART_INTERVAL = 30000;
+  
   const checkCameraHealth = useCallback(() => {
     if (!stream) return false;
     
@@ -21,11 +26,14 @@ export function useCameraHealth({
     
     const isActive = videoTracks.some(track => track.readyState === 'live' && track.enabled);
     
-    if (!isActive && isCapturing) {
-      // Camera appears unhealthy, restart it
+    const now = Date.now();
+    if (!isActive && isCapturing && (now - lastRestartAttempt.current > MIN_RESTART_INTERVAL)) {
+      // Camera appears unhealthy, restart it (but not too frequently)
       console.warn('Camera appears unhealthy, attempting to restart...');
+      lastRestartAttempt.current = now;
       stopCamera();
-      setTimeout(() => startCamera(), 1000);
+      // Delay restart to allow proper cleanup
+      setTimeout(() => startCamera(), 1500);
       return false;
     }
     

@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback, RefObject } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { UseCameraProps, UseCameraReturn } from './types';
 import { useCameraState } from './useCameraState';
 import { useCameraStart } from './useCameraStart';
@@ -32,6 +32,9 @@ export function useCamera({
   
   // Use provided canvas ref or our internal one
   const canvasRef = externalCanvasRef || internalCanvasRef;
+
+  // Add a ref to track camera activation state to prevent reinitialization
+  const activationRef = useRef(false);
 
   // Setup camera start functionality
   const { startCamera: startCameraBase } = useCameraStart({
@@ -71,6 +74,13 @@ export function useCamera({
 
   // Start or stop camera based on isCameraActive prop
   useEffect(() => {
+    // Track current activation to prevent setting up infinite loop
+    if (isCameraActive === activationRef.current) {
+      return;
+    }
+    
+    activationRef.current = isCameraActive;
+    
     if (isCameraActive) {
       startCamera();
     } else {
@@ -78,7 +88,10 @@ export function useCamera({
     }
 
     return () => {
-      stopCamera();
+      if (activationRef.current) {
+        stopCamera();
+        activationRef.current = false;
+      }
     };
   }, [isCameraActive, startCamera, stopCamera]);
 
@@ -88,17 +101,13 @@ export function useCamera({
     
     const intervalId = setInterval(() => {
       checkCameraHealth();
-    }, 5000); // Check every 5 seconds
+    }, 10000); // Check every 10 seconds - increased from 5 to reduce frequency
     
     return () => clearInterval(intervalId);
   }, [isCameraActive, checkCameraHealth]);
 
   // Capture the current frame from the video stream
   const captureImageData = useCallback((): string | null => {
-    console.log("Capturing image from video...", {
-      videoRefExists: !!videoRef.current,
-      canvasRefExists: !!canvasRef.current
-    });
     return captureImageFromVideo(videoRef, canvasRef);
   }, [canvasRef, videoRef]);
 

@@ -35,6 +35,7 @@ export function useCamera({
 
   // Add a ref to track camera activation state to prevent reinitialization
   const activationRef = useRef(false);
+  const startInProgressRef = useRef(false);
 
   // Setup camera start functionality
   const { startCamera: startCameraBase } = useCameraStart({
@@ -50,9 +51,19 @@ export function useCamera({
     onCameraStart,
   });
   
-  // Wrap startCamera to include constraints
+  // Wrap startCamera to include constraints and prevent redundant calls
   const startCamera = useCallback(() => {
-    return startCameraBase(videoConstraints);
+    if (startInProgressRef.current) {
+      console.log("Camera start already in progress, skipping redundant request");
+      return Promise.resolve();
+    }
+    
+    startInProgressRef.current = true;
+    
+    return startCameraBase(videoConstraints)
+      .finally(() => {
+        startInProgressRef.current = false;
+      });
   }, [startCameraBase, videoConstraints]);
 
   // Setup camera stop functionality
@@ -95,7 +106,7 @@ export function useCamera({
     };
   }, [isCameraActive, startCamera, stopCamera]);
 
-  // Periodically check camera health
+  // Periodically check camera health - but at a reduced frequency
   useEffect(() => {
     if (!isCameraActive) return;
     

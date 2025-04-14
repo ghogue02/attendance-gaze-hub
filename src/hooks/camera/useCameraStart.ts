@@ -28,8 +28,7 @@ export function useCameraStart({
 }) {
   const maxRetries = 3;
   
-  // Add a flag to track if camera start is in progress
-  // This will prevent multiple simultaneous camera initialization attempts
+  // Create a function that handles camera initialization
   const startCamera = useCallback(async (videoConstraints: CameraConstraints = {}) => {
     // Return early if we're already capturing to prevent loops
     if (stream && videoRef.current?.srcObject === stream) {

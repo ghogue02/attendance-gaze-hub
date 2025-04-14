@@ -3,20 +3,22 @@ import { useState, useRef } from 'react';
 import type { MediaStream } from './types';
 
 export function useCameraState() {
+  // State values
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState('');
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [initialized, setInitialized] = useState(false);
   
-  // We use these refs for backward compatibility
+  // Refs that don't need updating with state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const retryCountRef = useRef(0);
   const initializedRef = useRef(false);
   
-  // Sync the refs with state when state changes
+  // Use an effect-like pattern that doesn't violate React rules
+  // This will be called during render but won't cause updates during render
   if (streamRef.current !== stream) {
     streamRef.current = stream;
   }

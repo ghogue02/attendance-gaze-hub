@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/attendance';
 import { getCurrentDateString } from '@/utils/date/dateUtils';
@@ -11,18 +11,33 @@ export const useHomeData = () => {
   const [loading, setLoading] = useState(true);
   const [detectedBuilder, setDetectedBuilder] = useState<Builder | null>(null);
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
+  
+  // Add a ref to track if data is already loading to prevent duplicate requests
+  const isLoadingRef = useRef(false);
+  // Add a ref to track if component is mounted
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     trackRequest('Home', 'component-mount');
+    isMountedRef.current = true;
     
     const loadBuilders = async () => {
+      // Prevent duplicate requests
+      if (isLoadingRef.current) return;
+      
+      isLoadingRef.current = true;
       setLoading(true);
+      
       try {
         const today = getCurrentDateString();
         console.log(`Home: Loading builders for date: ${today}`);
         trackRequest('Home', 'load-builders', today);
         
         const data = await getAllBuilders(today);
+        
+        // Check if component is still mounted before updating state
+        if (!isMountedRef.current) return;
+        
         console.log(`Home: Loaded ${data.length} builders, ${data.filter(b => b.status === 'present').length} present`);
         setBuilders(data);
         trackRequest('Home', 'builders-loaded', `count: ${data.length}`);
@@ -30,30 +45,54 @@ export const useHomeData = () => {
         console.error('Error loading builders:', error);
         trackRequest('Home', 'load-error', String(error));
       } finally {
-        setLoading(false);
+        // Check if component is still mounted before updating state
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+        isLoadingRef.current = false;
       }
     };
 
     loadBuilders();
     
     let unsubscribe: () => void;
+    let subscriptionTimeout: NodeJS.Timeout;
     
-    const subscriptionTimeout = setTimeout(() => {
-      trackRequest('Home', 'setup-subscription');
-      unsubscribe = subscribeToAttendanceChanges(() => {
-        console.log('Home: Attendance change detected, reloading builders');
-        trackRequest('Home', 'subscription-triggered');
-        clearAttendanceCache(getCurrentDateString());
-        loadBuilders();
-      });
+    // Use a ref to handle subscription status
+    const hasActiveSubscription = useRef(false);
+    
+    // Set up real-time subscription with debounce to prevent rapid refreshes
+    subscriptionTimeout = setTimeout(() => {
+      if (!hasActiveSubscription.current) {
+        trackRequest('Home', 'setup-subscription');
+        hasActiveSubscription.current = true;
+        
+        unsubscribe = subscribeToAttendanceChanges(() => {
+          console.log('Home: Attendance change detected, reloading builders');
+          trackRequest('Home', 'subscription-triggered');
+          
+          // Use the cached data if it's recent, otherwise clear cache
+          const cacheAge = Date.now() - (window.__attendanceCache?.timestamp || 0);
+          if (cacheAge > 60000) { // If cache is older than 1 minute
+            clearAttendanceCache(getCurrentDateString());
+          }
+          
+          // Debounce multiple update events
+          if (!isLoadingRef.current) {
+            loadBuilders();
+          }
+        });
+      }
     }, 2000);
     
     return () => {
+      isMountedRef.current = false;
       trackRequest('Home', 'component-unmount');
       clearTimeout(subscriptionTimeout);
       if (unsubscribe) {
         unsubscribe();
       }
+      hasActiveSubscription.current = false;
     };
   }, []);
 

@@ -4,68 +4,68 @@ import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentDateString } from '@/utils/date/dateUtils';
 
-// Global debug flag - set to false to reduce console noise
-const DEBUG_LOGGING = false;
+// Use a shorter cache TTL to reduce excessive API calls while maintaining reasonable freshness
+const CACHE_TTL = 60000 * 2; // 2 minutes
 
 export const usePresentBuilders = (initialBuilders: Builder[]) => {
   const [presentBuilders, setPresentBuilders] = useState<Builder[]>(
     initialBuilders.filter(builder => builder.status === 'present')
   );
   const [isLoading, setIsLoading] = useState(false);
-  const lastFetchRef = useRef<number>(0);
-  const cacheTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFetchRef = useRef<number>(Date.now());
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLoadingRef = useRef<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
   
-  // Cache TTL in milliseconds
-  const CACHE_TTL = 60000 * 10; // 10 minutes
-  
-  // Use a builder ID map for efficient updates
-  const builderMapRef = useRef<Map<string, Builder>>(new Map());
+  // Builder map for efficient updates
+  const builderMapRef = useRef<Map<string, Builder>>(new Map(
+    initialBuilders
+      .filter(builder => builder.status === 'present')
+      .map(builder => [builder.id, builder])
+  ));
 
   useEffect(() => {
-    // Initialize builder map with initial builders
-    initialBuilders.forEach(builder => {
-      if (builder.status === 'present') {
-        builderMapRef.current.set(builder.id, builder);
-      }
-    });
+    isMountedRef.current = true;
     
     const fetchPresentBuilders = async () => {
-      // Skip if we fetched recently
+      // Prevent duplicate requests and respect the cache TTL
       const now = Date.now();
-      if (now - lastFetchRef.current < CACHE_TTL) {
-        DEBUG_LOGGING && console.log('Skipping present builders fetch - using cached data');
+      if (isLoadingRef.current || now - lastFetchRef.current < CACHE_TTL) {
+        console.log('Skipping present builders fetch - using cached data or already loading');
         return;
       }
       
+      isLoadingRef.current = true;
       setIsLoading(true);
+      
       const today = getCurrentDateString();
-      DEBUG_LOGGING && console.log(`Fetching present builders for date: ${today}`);
+      console.log(`Fetching present builders for date: ${today}`);
       
       try {
-        // Optimized to fetch both tables in a more efficient way
+        // Use a more efficient query with fewer columns and simplified structure
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('attendance')
           .select('student_id')
           .eq('date', today)
-          .eq('status', 'present');
+          .eq('status', 'present')
+          .limit(100); // Add reasonable limit
           
         if (attendanceError) {
           console.error('Error fetching attendance data:', attendanceError);
-          setIsLoading(false);
           return;
         }
-        
-        DEBUG_LOGGING && console.log(`Found ${attendanceData.length} attendance records for present builders`);
         
         if (attendanceData.length === 0) {
-          setPresentBuilders([]);
-          setIsLoading(false);
+          if (isMountedRef.current) {
+            setPresentBuilders([]);
+          }
           return;
         }
         
+        // Extract just the IDs for the IN query
         const studentIds = attendanceData.map(record => record.student_id);
         
-        // Use a batch query instead of individual queries
+        // Fetch only needed fields to reduce payload size
         const { data: studentsData, error: studentsError } = await supabase
           .from('students')
           .select('id, first_name, last_name, student_id, image_url')
@@ -73,12 +73,10 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
           
         if (studentsError) {
           console.error('Error fetching student details:', studentsError);
-          setIsLoading(false);
           return;
         }
         
-        DEBUG_LOGGING && console.log(`Retrieved ${studentsData.length} student records for present builders`);
-        
+        // Create builder objects with only necessary data
         const builders: Builder[] = studentsData.map(student => ({
           id: student.id,
           name: `${student.first_name} ${student.last_name}`,
@@ -94,32 +92,27 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
           builderMapRef.current.set(builder.id, builder);
         });
         
-        setPresentBuilders(builders);
-        lastFetchRef.current = now;
-        
-        // Set a cache timeout to automatically refresh data
-        if (cacheTimeoutRef.current) {
-          clearTimeout(cacheTimeoutRef.current);
+        if (isMountedRef.current) {
+          setPresentBuilders(builders);
+          lastFetchRef.current = now;
         }
-        
-        cacheTimeoutRef.current = setTimeout(() => {
-          lastFetchRef.current = 0; // Force refresh on next use
-        }, CACHE_TTL);
         
       } catch (error) {
         console.error('Unexpected error fetching present builders:', error);
       } finally {
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
+        isLoadingRef.current = false;
       }
     };
     
+    // Load initial data
     fetchPresentBuilders();
     
-    // Set up real-time updates with optimized subscription
+    // Set up real-time subscription with throttling
     const today = getCurrentDateString();
-    
-    // Create a unique channel name to avoid conflicts
-    const channelName = `present-builders-${Date.now()}`;
+    const channelName = `present-builders-${Math.floor(Math.random() * 10000)}`; // Add randomness to avoid conflicts
     
     try {
       const channel = supabase
@@ -132,49 +125,41 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
             filter: `date=eq.${today}` 
           },
           () => {
-            // Use a rate-limited fetch when we get updates
-            const now = Date.now();
-            const timeSinceLastFetch = now - lastFetchRef.current;
-            
-            if (timeSinceLastFetch > 5000) { // At minimum 5s between refreshes
-              DEBUG_LOGGING && console.log('Attendance change detected, refreshing present builders');
-              fetchPresentBuilders();
-            } else {
-              DEBUG_LOGGING && console.log(`Skipping refresh (last fetch was ${timeSinceLastFetch}ms ago)`);
-              // Schedule a fetch for later if we're getting a lot of rapid updates
-              if (!cacheTimeoutRef.current) {
-                cacheTimeoutRef.current = setTimeout(() => {
-                  fetchPresentBuilders();
-                }, 5000); // Wait 5s before refreshing if we get a burst of updates
-              }
+            // Throttle updates to prevent excessive API calls
+            if (debounceTimerRef.current) {
+              clearTimeout(debounceTimerRef.current);
             }
+            
+            debounceTimerRef.current = setTimeout(() => {
+              const now = Date.now();
+              const timeSinceLastFetch = now - lastFetchRef.current;
+              
+              // Only fetch if sufficient time has passed (15 seconds minimum between refreshes)
+              if (timeSinceLastFetch > 15000 && !isLoadingRef.current) {
+                console.log('Attendance change detected, refreshing present builders after throttle');
+                fetchPresentBuilders();
+              }
+            }, 2000); // 2 second debounce
           }
         )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            DEBUG_LOGGING && console.log('Subscribed to attendance changes for present builders carousel');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.warn('Error subscribing to attendance changes:', status);
-          }
-        });
+        .subscribe();
       
       // Clean up
       return () => {
-        // Use try-catch to handle potential channel removal errors
-        try {
-          supabase.channel(channelName).unsubscribe();
-          if (cacheTimeoutRef.current) {
-            clearTimeout(cacheTimeoutRef.current);
-          }
-        } catch (err) {
-          console.error('Error cleaning up channel:', err);
+        isMountedRef.current = false;
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
         }
+        
+        // Properly unsubscribe to avoid memory leaks
+        supabase.removeChannel(channel);
       };
     } catch (error) {
       console.error('Error setting up realtime subscription:', error);
       return () => {
-        if (cacheTimeoutRef.current) {
-          clearTimeout(cacheTimeoutRef.current);
+        isMountedRef.current = false;
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
         }
       };
     }

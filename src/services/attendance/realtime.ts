@@ -75,51 +75,60 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
 
   // Set up the channel if it doesn't exist
   console.log('Creating new attendance subscription channel');
-  attendanceChannel = supabase
-    .channel('optimized_global_attendance_changes')
-    .on(
-      'postgres_changes',
-      { 
-        event: '*', 
-        schema: 'public', 
-        table: 'attendance'
-      },
-      (payload) => {
-        trackRequest('attendanceChannel', 'event-received', payload.eventType);
-        console.log('Attendance change detected:', payload.eventType);
-        // Apply extreme throttling to database updates
-        // In a classroom setting, we don't need real-time updates to the second
-        debouncedCallback();
-      }
-    )
-    .subscribe((status) => {
-      isSubscribing = false;
-      if (status === 'SUBSCRIBED') {
-        console.log('Successfully subscribed to attendance changes.');
-      } else {
-        console.warn('Subscription status:', status);
-        
-        // If subscription fails with CHANNEL_ERROR, try to clean up and prevent reconnect storm
-        if (status === 'CHANNEL_ERROR') {
-          trackRequest('attendanceChannel', 'subscription-error', status);
-          if (attendanceChannel) {
-            // Remove the broken channel
-            try {
-              supabase.removeAllChannels();
-              attendanceChannel = null;
-              
-              // Add a delay to prevent immediate reconnection attempts
-              console.log('Channel error detected, preventing reconnect for 30 seconds');
-              setTimeout(() => {
-                isSubscribing = false;
-              }, 30000);
-            } catch (err) {
-              console.error('Error removing channel:', err);
+  try {
+    attendanceChannel = supabase
+      .channel('optimized_global_attendance_changes')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'attendance'
+        },
+        (payload) => {
+          trackRequest('attendanceChannel', 'event-received', payload.eventType);
+          console.log('Attendance change detected:', payload.eventType);
+          // Apply extreme throttling to database updates
+          // In a classroom setting, we don't need real-time updates to the second
+          debouncedCallback();
+        }
+      )
+      .subscribe((status) => {
+        isSubscribing = false;
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to attendance changes.');
+        } else {
+          console.warn('Subscription status:', status);
+          
+          // If subscription fails with CHANNEL_ERROR, try to clean up and prevent reconnect storm
+          if (status === 'CHANNEL_ERROR') {
+            trackRequest('attendanceChannel', 'subscription-error', status);
+            if (attendanceChannel) {
+              // Remove the broken channel
+              try {
+                if (supabase.removeAllChannels) {
+                  supabase.removeAllChannels();
+                } else {
+                  console.warn('removeAllChannels not available on this Supabase client');
+                }
+                attendanceChannel = null;
+                
+                // Add a delay to prevent immediate reconnection attempts
+                console.log('Channel error detected, preventing reconnect for 30 seconds');
+                setTimeout(() => {
+                  isSubscribing = false;
+                }, 30000);
+              } catch (err) {
+                console.error('Error removing channel:', err);
+              }
             }
           }
         }
-      }
-    });
+      });
+  } catch (error) {
+    console.error('Error setting up attendance channel:', error);
+    isSubscribing = false;
+  }
 
   // Return unsubscribe function
   return createUnsubscribeFunction(callback);
@@ -136,7 +145,11 @@ function createUnsubscribeFunction(callback: () => void) {
     if (callbackRegistry.size === 0 && attendanceChannel) {
       console.log('No more subscribers, cleaning up attendance channel');
       try {
-        supabase.removeAllChannels();
+        if (supabase.removeAllChannels) {
+          supabase.removeAllChannels();
+        } else {
+          console.warn('removeAllChannels not available on this Supabase client');
+        }
         attendanceChannel = null;
       } catch (err) {
         console.error('Error removing channel:', err);

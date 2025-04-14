@@ -5,6 +5,7 @@
 
 import { supabase } from './client';
 import { trackRequest } from '@/utils/debugging/requestTracker';
+import { PostgrestQueryBuilder } from '@supabase/supabase-js';
 
 // Get the original client methods
 const originalFrom = supabase.from;
@@ -17,7 +18,7 @@ const trackedSupabase = {
   ...supabase,
   
   // Track table operations
-  from: (table: string) => {
+  from: (table: any) => {
     const componentStack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
     trackRequest(extractComponentName(componentStack), 'from', table);
     return originalFrom(table);
@@ -31,7 +32,7 @@ const trackedSupabase = {
   },
   
   // Track RPC calls
-  rpc: (fn: string, ...args: any[]) => {
+  rpc: (fn: any, ...args: any[]) => {
     const componentStack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
     trackRequest(extractComponentName(componentStack), 'rpc', fn);
     return originalRpc(fn, ...args);
@@ -42,6 +43,19 @@ const trackedSupabase = {
     const componentStack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
     trackRequest(extractComponentName(componentStack), 'storage', bucket);
     return originalStorage(bucket);
+  },
+
+  // Add utility method for channel removal
+  removeAllChannels: function() {
+    // Use the original supabase client's method if available
+    if (typeof supabase.removeAllChannels === 'function') {
+      return supabase.removeAllChannels();
+    } else if (typeof supabase.removeChannel === 'function') {
+      return console.log('removeAllChannels not available, falling back to no-op');
+    } else {
+      console.warn('Channel removal methods not available in this Supabase client version');
+      return false;
+    }
   }
 };
 

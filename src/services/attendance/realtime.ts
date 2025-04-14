@@ -1,7 +1,10 @@
 
-import { trackedSupabase as supabase } from '@/integrations/supabase/trackedClient';
+import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { trackRequest } from '@/utils/debugging/requestTracker';
+
+// Global debug flag - set to false to reduce console noise
+const DEBUG_LOGGING = false;
 
 // Global singleton channel for attendance changes
 let attendanceChannel: RealtimeChannel | null = null;
@@ -30,13 +33,13 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   
   // If we already have a channel active, just register this callback
   if (attendanceChannel) {
-    console.log('Using existing attendance subscription - added callback');
+    DEBUG_LOGGING && console.log('Using existing attendance subscription - added callback');
     return createUnsubscribeFunction(callback);
   }
 
   // Prevent multiple subscription attempts happening simultaneously
   if (isSubscribing) {
-    console.log('Subscription already in progress, waiting...');
+    DEBUG_LOGGING && console.log('Subscription already in progress, waiting...');
     return createUnsubscribeFunction(callback);
   }
 
@@ -46,7 +49,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   const debouncedCallback = () => {
     // Skip if we're already executing callbacks
     if (executingCallbacks) {
-      console.log('Already executing callbacks, skipping duplicate execution');
+      DEBUG_LOGGING && console.log('Already executing callbacks, skipping duplicate execution');
       return;
     }
     
@@ -55,7 +58,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     // Only invoke callbacks if sufficient time has passed since last invocation
     if (now - lastCallbackTime >= DEBOUNCE_INTERVAL) {
       executingCallbacks = true;
-      console.log(`Invoking ${callbackRegistry.size} attendance change callbacks after debounce`);
+      DEBUG_LOGGING && console.log(`Invoking ${callbackRegistry.size} attendance change callbacks after debounce`);
       
       try {
         // Execute a single callback that will refresh data for all subscribers
@@ -69,15 +72,19 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         executingCallbacks = false;
       }
     } else {
-      console.log(`Debouncing callback (${Math.round((now - lastCallbackTime) / 1000)}s < ${DEBOUNCE_INTERVAL / 1000}s interval)`);
+      DEBUG_LOGGING && console.log(`Debouncing callback (${Math.round((now - lastCallbackTime) / 1000)}s < ${DEBOUNCE_INTERVAL / 1000}s interval)`);
     }
   };
 
   // Set up the channel if it doesn't exist
-  console.log('Creating new attendance subscription channel');
+  DEBUG_LOGGING && console.log('Creating new attendance subscription channel');
+  
   try {
+    // Create a unique channel name to avoid conflicts
+    const channelName = `optimized_global_attendance_changes_${Date.now()}`;
+    
     attendanceChannel = supabase
-      .channel('optimized_global_attendance_changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         { 
@@ -87,7 +94,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         },
         (payload) => {
           trackRequest('attendanceChannel', 'event-received', payload.eventType);
-          console.log('Attendance change detected:', payload.eventType);
+          DEBUG_LOGGING && console.log('Attendance change detected:', payload.eventType);
           // Apply extreme throttling to database updates
           // In a classroom setting, we don't need real-time updates to the second
           debouncedCallback();
@@ -96,7 +103,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
       .subscribe((status) => {
         isSubscribing = false;
         if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to attendance changes.');
+          DEBUG_LOGGING && console.log('Successfully subscribed to attendance changes.');
         } else {
           console.warn('Subscription status:', status);
           
@@ -104,13 +111,13 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
           if (status === 'CHANNEL_ERROR') {
             trackRequest('attendanceChannel', 'subscription-error', status);
             if (attendanceChannel) {
-              // Remove the broken channel using our custom removeAllChannels utility
+              // Clean up the broken channel
               try {
-                supabase.removeAllChannels();
+                attendanceChannel.unsubscribe();
                 attendanceChannel = null;
                 
                 // Add a delay to prevent immediate reconnection attempts
-                console.log('Channel error detected, preventing reconnect for 30 seconds');
+                DEBUG_LOGGING && console.log('Channel error detected, preventing reconnect for 30 seconds');
                 setTimeout(() => {
                   isSubscribing = false;
                 }, 30000);
@@ -132,16 +139,16 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
 
 function createUnsubscribeFunction(callback: () => void) {
   return () => {
-    console.log('Unsubscribing callback from attendance changes.');
+    DEBUG_LOGGING && console.log('Unsubscribing callback from attendance changes.');
     
     // Remove just this callback
     callbackRegistry.delete(callback);
     
     // If no more callbacks, remove the channel
     if (callbackRegistry.size === 0 && attendanceChannel) {
-      console.log('No more subscribers, cleaning up attendance channel');
+      DEBUG_LOGGING && console.log('No more subscribers, cleaning up attendance channel');
       try {
-        supabase.removeAllChannels();
+        attendanceChannel.unsubscribe();
         attendanceChannel = null;
       } catch (err) {
         console.error('Error removing channel:', err);

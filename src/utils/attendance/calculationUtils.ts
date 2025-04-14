@@ -2,6 +2,9 @@
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
+// Global debug flag - set to false to reduce console noise
+const DEBUG_LOGGING = false;
+
 /**
  * Calculates attendance statistics based on a defined period and rules.
  * 
@@ -24,7 +27,7 @@ export function calculateAttendanceStatistics(
   const isSaeed = studentName === "Saeed" || 
                   studentId === "c80ac741-bee0-441d-aa3b-02aafa3dc018";
   
-  if (isSaeed) {
+  if (DEBUG_LOGGING && isSaeed) {
     console.log(`[calculateAttendanceStatistics] Calculating for Saeed (${studentId}). Received ${attendanceRecords.length} records.`);
     console.log(`[calculateAttendanceStatistics] Input records for Saeed:`, attendanceRecords);
   }
@@ -41,7 +44,7 @@ export function calculateAttendanceStatistics(
   // Start date is March 15, 2025 (UTC)
   const startDateUTC = MINIMUM_DATE_UTC;
   
-  if (isSaeed) {
+  if (DEBUG_LOGGING && isSaeed) {
     console.log(`[calculateAttendanceStatistics] Start Date UTC: ${new Date(startDateUTC).toISOString()}`);
     console.log(`[calculateAttendanceStatistics] Current Date UTC: ${new Date(currentDateUTC).toISOString()}`);
   }
@@ -59,11 +62,11 @@ export function calculateAttendanceStatistics(
   const tempDate = new Date(startDateUTC);
   let iteration = 0; // Safety check
   
-  if (isSaeed) {
+  if (DEBUG_LOGGING && isSaeed) {
     console.log(`[calculateAttendanceStatistics] Starting Day Calculation Loop...`);
   }
   
-  const countedDates = [];
+  const countedDates = DEBUG_LOGGING && isSaeed ? [] : null;
   
   while (tempDate.getTime() <= currentDateUTC && iteration < 1000) {
     const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
@@ -72,12 +75,12 @@ export function calculateAttendanceStatistics(
     // Count the day if it's NOT a Friday (day 5)
     if (dayOfWeek !== 5) {
       totalClassDays++;
-      countedDates.push(dateString);
+      if (DEBUG_LOGGING && countedDates) countedDates.push(dateString);
       
-      if (isSaeed) {
+      if (DEBUG_LOGGING && isSaeed) {
         console.log(`[calculateAttendanceStatistics] Counted Day (Saeed): ${dateString}, DayOfWeek: ${dayOfWeek}, New Total: ${totalClassDays}`);
       }
-    } else if (isSaeed) {
+    } else if (DEBUG_LOGGING && isSaeed) {
       console.log(`[calculateAttendanceStatistics] Skipped Friday (Saeed): ${dateString}`);
     }
     
@@ -90,16 +93,16 @@ export function calculateAttendanceStatistics(
     console.error("[calculateAttendanceStatistics] Loop exceeded max iterations!");
   }
   
-  if (isSaeed) {
+  if (DEBUG_LOGGING && isSaeed) {
     console.log(`[calculateAttendanceStatistics] Finished Day Calculation Loop. Final totalClassDays = ${totalClassDays}`);
-    console.log(`[calculateAttendanceStatistics] All counted dates:`, countedDates);
+    if (countedDates) console.log(`[calculateAttendanceStatistics] All counted dates:`, countedDates);
   }
   
   // --- Calculate Numerator (Present or Late Days) ---
   const presentOrLateRecords = attendanceRecords.filter(record => {
     const isPresentOrLate = record.status === 'present' || record.status === 'late';
     
-    if (isSaeed) {
+    if (DEBUG_LOGGING && isSaeed) {
       console.log(`[calculateAttendanceStatistics] Filtering record (Saeed): Date=${record.date}, Status=${record.status}, IsPresentOrLate=${isPresentOrLate}`);
     }
     
@@ -108,7 +111,7 @@ export function calculateAttendanceStatistics(
   
   const presentOrLateDays = presentOrLateRecords.length;
   
-  if (isSaeed) {
+  if (DEBUG_LOGGING && isSaeed) {
     console.log(`[calculateAttendanceStatistics] Filtered Present/Late Records (Saeed):`, presentOrLateRecords);
     console.log(`[calculateAttendanceStatistics] Final presentOrLateDays = ${presentOrLateDays}`);
   }
@@ -122,10 +125,14 @@ export function calculateAttendanceStatistics(
     const totalRecords = attendanceRecords.length;
     const presentOrLateRatio = presentOrLateDays / totalRecords;
     
-    console.log(`[calculateAttendanceStatistics] Saeed's records: Total=${totalRecords}, Present/Late=${presentOrLateDays}, Ratio=${presentOrLateRatio}`);
+    if (DEBUG_LOGGING) {
+      console.log(`[calculateAttendanceStatistics] Saeed's records: Total=${totalRecords}, Present/Late=${presentOrLateDays}, Ratio=${presentOrLateRatio}`);
+    }
     
     if (presentOrLateRatio === 1) {
-      console.log(`[calculateAttendanceStatistics] APPLYING SAEED OVERRIDE: Setting to 100% as all his records are present/late`);
+      if (DEBUG_LOGGING) {
+        console.log(`[calculateAttendanceStatistics] APPLYING SAEED OVERRIDE: Setting to 100% as all his records are present/late`);
+      }
       return {
         rate: 100,
         presentCount: totalClassDays,  // Set to the total class days for display purposes
@@ -147,7 +154,7 @@ export function calculateAttendanceStatistics(
     totalClassDays,
   };
   
-  if (isSaeed) {
+  if (DEBUG_LOGGING && isSaeed) {
     console.log(`[calculateAttendanceStatistics] Final Result for Saeed:`, result);
   }
   

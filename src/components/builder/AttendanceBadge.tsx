@@ -6,6 +6,9 @@ interface AttendanceBadgeProps {
   attendanceRate: number | null;
 }
 
+// Global debug flag - set to false to reduce console noise
+const DEBUG_LOGGING = false;
+
 const AttendanceBadge = ({ attendanceRate }: AttendanceBadgeProps) => {
   // Only show badge for perfect attendance (exactly 100%)
   if (attendanceRate === null || attendanceRate !== 100) {
@@ -13,7 +16,7 @@ const AttendanceBadge = ({ attendanceRate }: AttendanceBadgeProps) => {
   }
 
   // Debug output to verify the attendance rate being passed
-  console.log(`[AttendanceBadge] Rendering badge with perfect attendance rate: ${attendanceRate}%`);
+  DEBUG_LOGGING && console.log(`[AttendanceBadge] Rendering badge with perfect attendance rate: ${attendanceRate}%`);
 
   return (
     <Badge 

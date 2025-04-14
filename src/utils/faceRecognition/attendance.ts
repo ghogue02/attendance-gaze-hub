@@ -5,6 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
 
+// Global debug flag - set to false to reduce console noise
+const DEBUG_LOGGING = false;
+
 // In-memory cache for optimizing API calls
 const attendanceCache = {
   byDate: new Map<string, Builder[]>(),
@@ -21,7 +24,7 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
   const functionName = '[getAllBuilders]';
   
   try {
-    console.log(`${functionName} Starting fetch for date: ${targetDateString}`);
+    DEBUG_LOGGING && console.log(`${functionName} Starting fetch for date: ${targetDateString}`);
     
     // Skip processing if the date is April 11 or April 4, 2025 (problematic dates)
     if (targetDateString === '2025-04-11' || targetDateString === '2025-04-04') {
@@ -35,12 +38,12 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
     const cacheTime = attendanceCache.timestamp.get(targetDateString) || 0;
     
     if (cachedData && (now - cacheTime < attendanceCache.ttl)) {
-      console.log(`${functionName} Using cached data for ${targetDateString}, cached ${Math.floor((now - cacheTime)/1000)}s ago`);
+      DEBUG_LOGGING && console.log(`${functionName} Using cached data for ${targetDateString}, cached ${Math.floor((now - cacheTime)/1000)}s ago`);
       return [...cachedData]; // Return a copy to prevent mutation of cache
     }
 
     // --- 1. Fetch all students in a single query ---
-    console.log(`${functionName} Cache miss, fetching fresh data for ${targetDateString}`);
+    DEBUG_LOGGING && console.log(`${functionName} Cache miss, fetching fresh data for ${targetDateString}`);
     
     const { data: students, error: studentsError } = await supabase
       .from('students')
@@ -58,10 +61,10 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
       console.warn(`${functionName} No students found in the database.`);
       return [];
     }
-    console.log(`${functionName} Retrieved ${students.length} students.`);
+    DEBUG_LOGGING && console.log(`${functionName} Retrieved ${students.length} students.`);
 
     // --- 2. Fetch attendance records for the TARGET date in a single query ---
-    console.log(`${functionName} Fetching attendance records for date: ${targetDateString}`);
+    DEBUG_LOGGING && console.log(`${functionName} Fetching attendance records for date: ${targetDateString}`);
     
     // Fetch all attendance records for this date in a single query
     const { data: attendanceRecords, error: attendanceError } = await supabase
@@ -75,7 +78,7 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
       return [];
     }
     
-    console.log(`${functionName} Retrieved ${attendanceRecords?.length || 0} attendance records for ${targetDateString}.`);
+    DEBUG_LOGGING && console.log(`${functionName} Retrieved ${attendanceRecords?.length || 0} attendance records for ${targetDateString}.`);
 
     // --- 3. Create Attendance Map ---
     const attendanceMap = new Map();

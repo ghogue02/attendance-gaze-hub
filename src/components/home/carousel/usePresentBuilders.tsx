@@ -4,6 +4,9 @@ import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentDateString } from '@/utils/date/dateUtils';
 
+// Global debug flag - set to false to reduce console noise
+const DEBUG_LOGGING = false;
+
 export const usePresentBuilders = (initialBuilders: Builder[]) => {
   const [presentBuilders, setPresentBuilders] = useState<Builder[]>(
     initialBuilders.filter(builder => builder.status === 'present')
@@ -30,13 +33,13 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
       // Skip if we fetched recently
       const now = Date.now();
       if (now - lastFetchRef.current < CACHE_TTL) {
-        console.log('Skipping present builders fetch - using cached data');
+        DEBUG_LOGGING && console.log('Skipping present builders fetch - using cached data');
         return;
       }
       
       setIsLoading(true);
       const today = getCurrentDateString();
-      console.log(`Fetching present builders for date: ${today}`);
+      DEBUG_LOGGING && console.log(`Fetching present builders for date: ${today}`);
       
       try {
         // Optimized to fetch both tables in a more efficient way
@@ -52,7 +55,7 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
           return;
         }
         
-        console.log(`Found ${attendanceData.length} attendance records for present builders`);
+        DEBUG_LOGGING && console.log(`Found ${attendanceData.length} attendance records for present builders`);
         
         if (attendanceData.length === 0) {
           setPresentBuilders([]);
@@ -74,7 +77,7 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
           return;
         }
         
-        console.log(`Retrieved ${studentsData.length} student records for present builders`);
+        DEBUG_LOGGING && console.log(`Retrieved ${studentsData.length} student records for present builders`);
         
         const builders: Builder[] = studentsData.map(student => ({
           id: student.id,
@@ -114,45 +117,67 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
     
     // Set up real-time updates with optimized subscription
     const today = getCurrentDateString();
-    const channel = supabase
-      .channel('present-builders-optimized')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'attendance', 
-          filter: `date=eq.${today}` 
-        },
-        () => {
-          // Use a rate-limited fetch when we get updates
-          const now = Date.now();
-          const timeSinceLastFetch = now - lastFetchRef.current;
-          
-          if (timeSinceLastFetch > 5000) { // At minimum 5s between refreshes
-            console.log('Attendance change detected, refreshing present builders');
-            fetchPresentBuilders();
-          } else {
-            console.log(`Skipping refresh (last fetch was ${timeSinceLastFetch}ms ago)`);
-            // Schedule a fetch for later if we're getting a lot of rapid updates
-            if (!cacheTimeoutRef.current) {
-              cacheTimeoutRef.current = setTimeout(() => {
-                fetchPresentBuilders();
-              }, 5000); // Wait 5s before refreshing if we get a burst of updates
+    
+    // Create a unique channel name to avoid conflicts
+    const channelName = `present-builders-${Date.now()}`;
+    
+    try {
+      const channel = supabase
+        .channel(channelName)
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'attendance', 
+            filter: `date=eq.${today}` 
+          },
+          () => {
+            // Use a rate-limited fetch when we get updates
+            const now = Date.now();
+            const timeSinceLastFetch = now - lastFetchRef.current;
+            
+            if (timeSinceLastFetch > 5000) { // At minimum 5s between refreshes
+              DEBUG_LOGGING && console.log('Attendance change detected, refreshing present builders');
+              fetchPresentBuilders();
+            } else {
+              DEBUG_LOGGING && console.log(`Skipping refresh (last fetch was ${timeSinceLastFetch}ms ago)`);
+              // Schedule a fetch for later if we're getting a lot of rapid updates
+              if (!cacheTimeoutRef.current) {
+                cacheTimeoutRef.current = setTimeout(() => {
+                  fetchPresentBuilders();
+                }, 5000); // Wait 5s before refreshing if we get a burst of updates
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            DEBUG_LOGGING && console.log('Subscribed to attendance changes for present builders carousel');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('Error subscribing to attendance changes:', status);
+          }
+        });
       
-    console.log('Subscribed to attendance changes for present builders carousel');
-    
-    // Clean up
-    return () => {
-      supabase.removeChannel(channel);
-      if (cacheTimeoutRef.current) {
-        clearTimeout(cacheTimeoutRef.current);
-      }
-    };
+      // Clean up
+      return () => {
+        // Use try-catch to handle potential channel removal errors
+        try {
+          supabase.channel(channelName).unsubscribe();
+          if (cacheTimeoutRef.current) {
+            clearTimeout(cacheTimeoutRef.current);
+          }
+        } catch (err) {
+          console.error('Error cleaning up channel:', err);
+        }
+      };
+    } catch (error) {
+      console.error('Error setting up realtime subscription:', error);
+      return () => {
+        if (cacheTimeoutRef.current) {
+          clearTimeout(cacheTimeoutRef.current);
+        }
+      };
+    }
   }, [initialBuilders]);
 
   return { presentBuilders, isLoading };

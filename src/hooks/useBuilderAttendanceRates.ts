@@ -9,6 +9,9 @@ const ATTENDANCE_START_DATE = '2025-03-15';
 // Set a higher limit to ensure we get all records
 const MAX_RECORDS_LIMIT = 10000;
 
+// Global debug flag - set to false to reduce console noise
+const DEBUG_LOGGING = false;
+
 /**
  * Hook to calculate attendance rates for a list of builders
  * Optimized to reduce database queries
@@ -39,7 +42,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
     
     // Skip if we're already fetching
     if (isFetchingRef.current) {
-      console.log('[useBuilderAttendanceRates] Skipping fetch - already in progress');
+      DEBUG_LOGGING && console.log('[useBuilderAttendanceRates] Skipping fetch - already in progress');
       return;
     }
     
@@ -51,7 +54,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       builderIds === cacheRef.current.builderIds.sort().join(',') &&
       Date.now() - cacheRef.current.timestamp < CACHE_TTL
     ) {
-      console.log('[useBuilderAttendanceRates] Using cached attendance rates for this exact builder set');
+      DEBUG_LOGGING && console.log('[useBuilderAttendanceRates] Using cached attendance rates for this exact builder set');
       setBuilderAttendanceRates(cacheRef.current.rates);
       setBuilderAttendanceStats(cacheRef.current.stats);
       return;
@@ -60,7 +63,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
     // Check if we recently fetched (cache TTL)
     const now = Date.now();
     if (now - lastFetchTimeRef.current < CACHE_TTL) {
-      console.log('[useBuilderAttendanceRates] Using cached attendance data');
+      DEBUG_LOGGING && console.log('[useBuilderAttendanceRates] Using cached attendance data');
       return;
     }
     
@@ -75,7 +78,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       isFetchingRef.current = true;
       
       try {
-        console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records for ${builders.length} builders in a SINGLE batch query`);
+        DEBUG_LOGGING && console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records for ${builders.length} builders in a SINGLE batch query`);
         
         // Use a single consolidated query to get ALL attendance records for all builders
         // This avoids making individual requests for each builder
@@ -94,7 +97,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
         }
 
         const recordCount = allAttendanceRecords?.length || 0;
-        console.log(`[useBuilderAttendanceRates] Successfully fetched ${recordCount} total attendance records for ${builders.length} builders`);
+        DEBUG_LOGGING && console.log(`[useBuilderAttendanceRates] Successfully fetched ${recordCount} total attendance records for ${builders.length} builders`);
         
         // Group records by student_id for efficient processing
         const recordsByStudent = allAttendanceRecords?.reduce((acc, record) => {

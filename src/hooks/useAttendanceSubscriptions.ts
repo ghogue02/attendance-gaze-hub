@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { getCachedData, setCachedData } from '@/utils/attendance/cacheManager';
+import { trackRequest } from '@/utils/debugging/requestTracker';
 
 interface UseAttendanceSubscriptionsProps {
   targetDateString: string;
@@ -16,6 +17,8 @@ export const useAttendanceSubscriptions = ({
 }: UseAttendanceSubscriptionsProps) => {
 
   useEffect(() => {
+    trackRequest('useAttendanceSubscriptions', 'setup-effect', targetDateString);
+    
     // Skip subscription if disabled
     if (disableSubscription) {
       console.log('[useAttendanceSubscriptions] Subscriptions are disabled');

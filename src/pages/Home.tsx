@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
 import { PhotoCapture } from '@/components/PhotoCapture';
@@ -9,10 +10,11 @@ import { Loader2, Search, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PresentBuildersCarousel from '@/components/home/PresentBuildersCarousel';
-import { supabase } from '@/integrations/supabase/client';
+import { trackedSupabase as supabase } from '@/integrations/supabase/trackedClient';
 import { getCurrentDateString } from '@/utils/date/dateUtils';
 import HeadshotsCarousel from '@/components/home/HeadshotsCarousel';
 import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
+import { trackRequest } from '@/utils/debugging/requestTracker';
 
 const Home = () => {
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
@@ -20,21 +22,28 @@ const Home = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
+    // Track component mounting to help with debugging
+    trackRequest('Home', 'component-mount');
+    
     const loadBuilders = async () => {
       setLoading(true);
       try {
         // Use the current date in YYYY-MM-DD format
         const today = getCurrentDateString();
         console.log(`Home: Loading builders for date: ${today}`);
+        trackRequest('Home', 'load-builders', today);
         
         // Use the optimized function that returns cached data when available
         const data = await getAllBuilders(today);
         console.log(`Home: Loaded ${data.length} builders, ${data.filter(b => b.status === 'present').length} present`);
         setBuilders(data);
+        trackRequest('Home', 'builders-loaded', `count: ${data.length}`);
       } catch (error) {
         console.error('Error loading builders:', error);
+        trackRequest('Home', 'load-error', String(error));
       } finally {
         setLoading(false);
       }
@@ -43,24 +52,37 @@ const Home = () => {
     loadBuilders();
     
     // Use the optimized subscription handler
-    const unsubscribe = subscribeToAttendanceChanges(() => {
-      console.log('Home: Attendance change detected, reloading builders');
-      // Clear the cache for today
-      clearAttendanceCache(getCurrentDateString());
-      // Reload data
-      loadBuilders();
-    });
+    let unsubscribe: () => void;
+    
+    // Delay subscription setup to reduce initial load
+    const subscriptionTimeout = setTimeout(() => {
+      trackRequest('Home', 'setup-subscription');
+      unsubscribe = subscribeToAttendanceChanges(() => {
+        console.log('Home: Attendance change detected, reloading builders');
+        trackRequest('Home', 'subscription-triggered');
+        // Clear the cache for today
+        clearAttendanceCache(getCurrentDateString());
+        // Reload data
+        loadBuilders();
+      });
+    }, 2000); // 2 second delay
     
     return () => {
-      unsubscribe();
+      trackRequest('Home', 'component-unmount');
+      clearTimeout(subscriptionTimeout);
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, []);
 
   const handleSuccess = (builder: Builder) => {
+    trackRequest('Home', 'builder-detected', builder.name);
     setDetectedBuilder(builder);
   };
 
   const handleReset = () => {
+    trackRequest('Home', 'reset');
     setDetectedBuilder(null);
     setSelectedBuilder(null);
     setSearchQuery('');
@@ -103,7 +125,10 @@ const Home = () => {
                     id="builder-search"
                     placeholder="Type builder name..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      trackRequest('Home', 'search-query', e.target.value);
+                    }}
                     className="pl-10 py-6 text-lg"
                     autoFocus
                   />
@@ -116,7 +141,10 @@ const Home = () => {
                         <div 
                           key={builder.id}
                           className="p-3 hover:bg-secondary cursor-pointer flex items-center gap-2 border-b last:border-b-0"
-                          onClick={() => setSelectedBuilder(builder)}
+                          onClick={() => {
+                            setSelectedBuilder(builder);
+                            trackRequest('Home', 'select-builder', builder.name);
+                          }}
                         >
                           {builder.image ? (
                             <div className="w-10 h-10 rounded-full overflow-hidden">
@@ -161,7 +189,10 @@ const Home = () => {
                   <Button 
                     variant="ghost" 
                     className="mt-4" 
-                    onClick={() => setSelectedBuilder(null)}
+                    onClick={() => {
+                      setSelectedBuilder(null);
+                      trackRequest('Home', 'deselect-builder');
+                    }}
                   >
                     Select different builder
                   </Button>

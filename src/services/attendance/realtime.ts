@@ -1,6 +1,7 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { trackedSupabase as supabase } from '@/integrations/supabase/trackedClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { trackRequest } from '@/utils/debugging/requestTracker';
 
 // Global singleton channel for attendance changes
 let attendanceChannel: RealtimeChannel | null = null;
@@ -17,6 +18,8 @@ let executingCallbacks = false;
 let isSubscribing = false;
 
 export const subscribeToAttendanceChanges = (callback: () => void) => {
+  trackRequest('subscribeToAttendanceChanges', 'create-subscription');
+  
   if (!supabase) {
     console.error('Supabase client is not initialized.');
     return () => {};
@@ -65,6 +68,8 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         lastCallbackTime = now;
         executingCallbacks = false;
       }
+    } else {
+      console.log(`Debouncing callback (${Math.round((now - lastCallbackTime) / 1000)}s < ${DEBOUNCE_INTERVAL / 1000}s interval)`);
     }
   };
 
@@ -80,6 +85,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         table: 'attendance'
       },
       (payload) => {
+        trackRequest('attendanceChannel', 'event-received', payload.eventType);
         console.log('Attendance change detected:', payload.eventType);
         // Apply extreme throttling to database updates
         // In a classroom setting, we don't need real-time updates to the second
@@ -92,6 +98,22 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         console.log('Successfully subscribed to attendance changes.');
       } else {
         console.warn('Subscription status:', status);
+        
+        // If subscription fails with CHANNEL_ERROR, try to clean up and prevent reconnect storm
+        if (status === 'CHANNEL_ERROR') {
+          trackRequest('attendanceChannel', 'subscription-error', status);
+          if (attendanceChannel) {
+            // Remove the broken channel
+            supabase.removeChannel(attendanceChannel);
+            attendanceChannel = null;
+            
+            // Add a delay to prevent immediate reconnection attempts
+            console.log('Channel error detected, preventing reconnect for 30 seconds');
+            setTimeout(() => {
+              isSubscribing = false;
+            }, 30000);
+          }
+        }
       }
     });
 

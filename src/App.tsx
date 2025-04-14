@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +10,13 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+import { initializeDebugTools } from './utils/debugging/initDebugTools';
+
+// Initialize debug tools
+if (process.env.NODE_ENV !== 'production') {
+  initializeDebugTools();
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

@@ -6,6 +6,7 @@ import { markAttendance } from '@/utils/attendance';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { compressImage } from '@/hooks/camera/captureImage';
+import { getCachedData, setCachedData } from '@/utils/attendance/cacheManager';
 
 interface UseSimpleAttendanceCaptureProps {
   onAttendanceMarked: (builder: Builder) => void;
@@ -98,28 +99,14 @@ export const useSimpleAttendanceCapture = ({
         console.log('Attendance marked successfully in database');
       }
       
-      // Try fetching the updated image URL from the database
-      let imageUrl = processedImage;
-      try {
-        const { data: studentData } = await supabase
-          .from('students')
-          .select('image_url')
-          .eq('id', selectedBuilder.id)
-          .single();
-        
-        if (studentData?.image_url) {
-          imageUrl = studentData.image_url;
-          console.log('Retrieved updated image URL from database');
-        }
-      } catch (err) {
-        console.warn('Could not fetch updated image URL', err);
-        // Continue with the captured image data as fallback
-      }
+      // Cache the profile image URL to avoid immediate refetch
+      const cacheKey = `builder_profile_${selectedBuilder.id}`;
+      setCachedData(cacheKey, processedImage, 60000); // Cache for 1 minute
       
       // Step 4: Create updated builder object with new image and status
       const updatedBuilder: Builder = {
         ...selectedBuilder,
-        image: imageUrl,
+        image: processedImage,
         status: 'present',
         timeRecorded: new Date().toLocaleTimeString([], {
           hour: '2-digit',

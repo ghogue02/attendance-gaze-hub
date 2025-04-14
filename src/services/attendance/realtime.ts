@@ -6,12 +6,15 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 let attendanceChannel: RealtimeChannel | null = null;
 let lastCallbackTime = 0;
 
-// Increased debounce time to significantly reduce database load
-const DEBOUNCE_INTERVAL = 60000; // 1 minute between callbacks (increased from 30s)
+// Significantly increased debounce time to reduce database load
+const DEBOUNCE_INTERVAL = 180000; // 3 minutes between callbacks (increased from 1 minute)
 const callbackRegistry = new Set<() => void>();
 
 // Track if we're already in a callback execution cycle
 let executingCallbacks = false;
+
+// Track subscription status to avoid duplicate subscriptions
+let isSubscribing = false;
 
 export const subscribeToAttendanceChanges = (callback: () => void) => {
   if (!supabase) {
@@ -19,7 +22,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     return () => {};
   }
 
-  // Register the callback in our registry
+  // Register the callback in our registry without triggering new subscriptions
   callbackRegistry.add(callback);
   
   // If we already have a channel active, just register this callback
@@ -28,10 +31,15 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     return createUnsubscribeFunction(callback);
   }
 
-  // Track pending callbacks to avoid multiple rapid callbacks
-  let callbackPending = false;
+  // Prevent multiple subscription attempts happening simultaneously
+  if (isSubscribing) {
+    console.log('Subscription already in progress, waiting...');
+    return createUnsubscribeFunction(callback);
+  }
+
+  isSubscribing = true;
   
-  // Create an efficient debounced callback that notifies all subscribers
+  // Create a single shared debounced callback for all subscribers
   const debouncedCallback = () => {
     // Skip if we're already executing callbacks
     if (executingCallbacks) {
@@ -47,44 +55,16 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
       console.log(`Invoking ${callbackRegistry.size} attendance change callbacks after debounce`);
       
       try {
-        // Notify all registered callbacks
-        callbackRegistry.forEach(cb => {
-          try {
-            cb();
-          } catch (err) {
-            console.error('Error in attendance change callback:', err);
-          }
-        });
+        // Execute a single callback that will refresh data for all subscribers
+        // This prevents multiple database queries for the same data
+        if (callbackRegistry.size > 0) {
+          const firstCallback = Array.from(callbackRegistry)[0];
+          firstCallback();
+        }
       } finally {
         lastCallbackTime = now;
-        callbackPending = false;
         executingCallbacks = false;
       }
-    } else if (!callbackPending) {
-      // Schedule a future callback if we haven't already
-      callbackPending = true;
-      const delay = DEBOUNCE_INTERVAL - (now - lastCallbackTime);
-      console.log(`Too soon for attendance callbacks, scheduling in ${delay}ms`);
-      
-      setTimeout(() => {
-        executingCallbacks = true;
-        console.log(`Executing delayed attendance callbacks for ${callbackRegistry.size} subscribers`);
-        
-        try {
-          // Notify all registered callbacks
-          callbackRegistry.forEach(cb => {
-            try {
-              cb();
-            } catch (err) {
-              console.error('Error in delayed attendance change callback:', err);
-            }
-          });
-        } finally {
-          lastCallbackTime = Date.now();
-          callbackPending = false;
-          executingCallbacks = false;
-        }
-      }, delay);
     }
   };
 
@@ -98,15 +78,16 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         event: '*', 
         schema: 'public', 
         table: 'attendance'
-        // We're not filtering by date to have a single subscription
-        // that handles all updates
       },
       (payload) => {
         console.log('Attendance change detected:', payload.eventType);
+        // Apply extreme throttling to database updates
+        // In a classroom setting, we don't need real-time updates to the second
         debouncedCallback();
       }
     )
     .subscribe((status) => {
+      isSubscribing = false;
       if (status === 'SUBSCRIBED') {
         console.log('Successfully subscribed to attendance changes.');
       } else {

@@ -5,12 +5,11 @@
 
 import { supabase } from './client';
 import { trackRequest } from '@/utils/debugging/requestTracker';
-import { PostgrestQueryBuilder } from '@supabase/supabase-js';
 
 // Get the original client methods
-const originalFrom = supabase.from;
-const originalChannel = supabase.channel;
-const originalRpc = supabase.rpc;
+const originalFrom = supabase.from.bind(supabase);
+const originalChannel = supabase.channel.bind(supabase);
+const originalRpc = supabase.rpc.bind(supabase);
 const originalStorage = supabase.storage;
 
 // Create a tracked proxy for the Supabase client
@@ -39,19 +38,34 @@ const trackedSupabase = {
   },
   
   // Track storage operations
-  storage: (bucket: string) => {
-    const componentStack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
-    trackRequest(extractComponentName(componentStack), 'storage', bucket);
-    return originalStorage(bucket);
+  storage: {
+    ...originalStorage,
+    from: function(bucket: string) {
+      const componentStack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
+      trackRequest(extractComponentName(componentStack), 'storage', bucket);
+      return originalStorage.from(bucket);
+    }
   },
 
-  // Add utility method for channel removal
+  // Add custom utility methods
   removeAllChannels: function() {
     // Use the original supabase client's method if available
     if (typeof supabase.removeAllChannels === 'function') {
       return supabase.removeAllChannels();
-    } else if (typeof supabase.removeChannel === 'function') {
-      return console.log('removeAllChannels not available, falling back to no-op');
+    } else if (supabase.realtime && typeof supabase.realtime.channels === 'object') {
+      // Alternative implementation based on what's available in the client
+      try {
+        const channels = Object.values(supabase.realtime.channels || {});
+        channels.forEach((channel: any) => {
+          if (channel && typeof channel.unsubscribe === 'function') {
+            channel.unsubscribe();
+          }
+        });
+        return true;
+      } catch (err) {
+        console.error('Error removing channels:', err);
+        return false;
+      }
     } else {
       console.warn('Channel removal methods not available in this Supabase client version');
       return false;

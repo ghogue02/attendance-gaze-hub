@@ -23,18 +23,15 @@ const Home = () => {
   const hasInitialized = useRef(false);
 
   useEffect(() => {
-    // Track component mounting to help with debugging
     trackRequest('Home', 'component-mount');
     
     const loadBuilders = async () => {
       setLoading(true);
       try {
-        // Use the current date in YYYY-MM-DD format
         const today = getCurrentDateString();
         console.log(`Home: Loading builders for date: ${today}`);
         trackRequest('Home', 'load-builders', today);
         
-        // Use the optimized function that returns cached data when available
         const data = await getAllBuilders(today);
         console.log(`Home: Loaded ${data.length} builders, ${data.filter(b => b.status === 'present').length} present`);
         setBuilders(data);
@@ -49,21 +46,17 @@ const Home = () => {
 
     loadBuilders();
     
-    // Use the optimized subscription handler
     let unsubscribe: () => void;
     
-    // Delay subscription setup to reduce initial load
     const subscriptionTimeout = setTimeout(() => {
       trackRequest('Home', 'setup-subscription');
       unsubscribe = subscribeToAttendanceChanges(() => {
         console.log('Home: Attendance change detected, reloading builders');
         trackRequest('Home', 'subscription-triggered');
-        // Clear the cache for today
         clearAttendanceCache(getCurrentDateString());
-        // Reload data
         loadBuilders();
       });
-    }, 2000); // 2 second delay
+    }, 2000);
     
     return () => {
       trackRequest('Home', 'component-unmount');
@@ -86,7 +79,6 @@ const Home = () => {
     setSearchQuery('');
   };
   
-  // Filter builders based on search query
   const filteredBuilders = searchQuery 
     ? builders.filter(builder => 
         builder.name.toLowerCase().includes(searchQuery.toLowerCase())

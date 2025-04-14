@@ -23,7 +23,7 @@ export function initializeDebugTools() {
       } else if (args[0] instanceof Request) {
         urlStr = args[0].url;
       } else if (args[0] instanceof URL) {
-        urlStr = args[0].toString();
+        urlStr = args[0].href; // Use href instead of url for URL objects
       } else {
         urlStr = String(args[0]);
       }

@@ -6,7 +6,7 @@ import IndexLayout from '@/components/home/IndexLayout';
 import { useHomeData } from '@/hooks/useHomeData';
 import BuilderSearchSection from '@/components/home/BuilderSearchSection';
 import PhotoCaptureSection from '@/components/home/PhotoCaptureSection';
-import RecognitionResult from '@/components/home/RecognitionResult';
+import { RecognitionResult } from '@/components/home/RecognitionResult'; // Changed to named import
 import PresentBuildersCarousel from '@/components/home/PresentBuildersCarousel';
 import LoadingState from '@/components/home/LoadingState';
 

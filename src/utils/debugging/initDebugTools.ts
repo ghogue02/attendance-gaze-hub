@@ -16,8 +16,19 @@ export function initializeDebugTools() {
     // Override fetch to track network requests
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
-      const url = typeof args[0] === 'string' ? args[0] : args[0].url;
-      trackRequest('fetch', 'network-request', url);
+      // Handle both string URLs and Request objects
+      let urlStr: string;
+      if (typeof args[0] === 'string') {
+        urlStr = args[0];
+      } else if (args[0] instanceof Request) {
+        urlStr = args[0].url;
+      } else if (args[0] instanceof URL) {
+        urlStr = args[0].toString();
+      } else {
+        urlStr = String(args[0]);
+      }
+      
+      trackRequest('fetch', 'network-request', urlStr);
       return originalFetch.apply(this, args);
     };
     

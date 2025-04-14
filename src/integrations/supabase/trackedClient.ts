@@ -7,10 +7,10 @@ import { supabase } from './client';
 import { trackRequest } from '@/utils/debugging/requestTracker';
 
 // Get the original client methods
-const originalFrom = supabase.from.bind(supabase);
-const originalChannel = supabase.channel.bind(supabase);
-const originalRpc = supabase.rpc.bind(supabase);
-const originalStorage = supabase.storage.bind(supabase);
+const originalFrom = supabase.from;
+const originalChannel = supabase.channel;
+const originalRpc = supabase.rpc;
+const originalStorage = supabase.storage;
 
 // Create a tracked proxy for the Supabase client
 const trackedSupabase = {
@@ -65,16 +65,18 @@ function extractComponentName(stack: string): string {
 // Create a debugging utility for the current page
 export function setupRequestDebugging() {
   // Add a keyboard shortcut to print request summary
-  window.addEventListener('keydown', (e) => {
-    // Ctrl+Shift+D to print debug summary
-    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-      import('@/utils/debugging/requestTracker').then(({ printRequestSummary }) => {
-        printRequestSummary();
-      });
-    }
-  });
-  
-  console.log('Request debugging enabled. Press Ctrl+Shift+D to print request summary.');
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', (e) => {
+      // Ctrl+Shift+D to print debug summary
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        import('@/utils/debugging/requestTracker').then(({ printRequestSummary }) => {
+          printRequestSummary();
+        });
+      }
+    });
+    
+    console.log('Request debugging enabled. Press Ctrl+Shift+D to print request summary.');
+  }
 }
 
 export { trackedSupabase };

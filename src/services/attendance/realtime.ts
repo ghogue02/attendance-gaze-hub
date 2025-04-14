@@ -104,14 +104,18 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
           trackRequest('attendanceChannel', 'subscription-error', status);
           if (attendanceChannel) {
             // Remove the broken channel
-            supabase.removeChannel(attendanceChannel);
-            attendanceChannel = null;
-            
-            // Add a delay to prevent immediate reconnection attempts
-            console.log('Channel error detected, preventing reconnect for 30 seconds');
-            setTimeout(() => {
-              isSubscribing = false;
-            }, 30000);
+            try {
+              supabase.removeAllChannels();
+              attendanceChannel = null;
+              
+              // Add a delay to prevent immediate reconnection attempts
+              console.log('Channel error detected, preventing reconnect for 30 seconds');
+              setTimeout(() => {
+                isSubscribing = false;
+              }, 30000);
+            } catch (err) {
+              console.error('Error removing channel:', err);
+            }
           }
         }
       }
@@ -131,8 +135,12 @@ function createUnsubscribeFunction(callback: () => void) {
     // If no more callbacks, remove the channel
     if (callbackRegistry.size === 0 && attendanceChannel) {
       console.log('No more subscribers, cleaning up attendance channel');
-      supabase.removeChannel(attendanceChannel);
-      attendanceChannel = null;
+      try {
+        supabase.removeAllChannels();
+        attendanceChannel = null;
+      } catch (err) {
+        console.error('Error removing channel:', err);
+      }
     }
   };
 }

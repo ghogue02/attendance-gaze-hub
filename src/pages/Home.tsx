@@ -1,11 +1,9 @@
-
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { PhotoCapture } from '@/components/PhotoCapture';
 import Header from '@/components/Header';
 import { RecognitionResult } from '@/components/home/RecognitionResult';
 import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/attendance';
-import { useEffect } from 'react';
 import { Loader2, Search, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

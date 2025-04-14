@@ -13,11 +13,13 @@ export function useCameraState() {
   // Refs that don't need updating with state
   const videoRef = useRef<HTMLVideoElement>(null);
   const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Refs that shadow state for performance reasons
   const streamRef = useRef<MediaStream | null>(null);
   const retryCountRef = useRef(0);
   const initializedRef = useRef(false);
   
-  // Use useEffect to update refs when state changes instead of during render
+  // Use useEffect to update refs when state changes
   useEffect(() => {
     streamRef.current = stream;
   }, [stream]);

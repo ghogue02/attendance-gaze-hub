@@ -5,9 +5,10 @@ import IndexLayout from '@/components/home/IndexLayout';
 import { useHomeData } from '@/hooks/useHomeData';
 import BuilderSearchSection from '@/components/home/BuilderSearchSection';
 import PhotoCaptureSection from '@/components/home/PhotoCaptureSection';
-import { RecognitionResult } from '@/components/home/RecognitionResult'; // Changed to named import
+import { RecognitionResult } from '@/components/home/RecognitionResult';
 import PresentBuildersCarousel from '@/components/home/PresentBuildersCarousel';
 import LoadingState from '@/components/home/LoadingState';
+import HeadshotsCarousel from '@/components/home/HeadshotsCarousel';
 
 const Home = () => {
   const {
@@ -57,7 +58,14 @@ const Home = () => {
   // Optimize carousel rendering with memoization
   const renderCarousel = useCallback(() => {
     if (!loading) {
-      return <PresentBuildersCarousel initialBuilders={builders} />;
+      return (
+        <>
+          <PresentBuildersCarousel initialBuilders={builders} />
+          <div className="mt-6">
+            <HeadshotsCarousel />
+          </div>
+        </>
+      );
     }
     return null;
   }, [loading, builders]);

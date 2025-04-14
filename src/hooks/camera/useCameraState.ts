@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { MediaStream } from './types';
 
 export function useCameraState() {
@@ -17,19 +17,18 @@ export function useCameraState() {
   const retryCountRef = useRef(0);
   const initializedRef = useRef(false);
   
-  // Use an effect-like pattern that doesn't violate React rules
-  // This will be called during render but won't cause updates during render
-  if (streamRef.current !== stream) {
+  // Use useEffect to update refs when state changes instead of during render
+  useEffect(() => {
     streamRef.current = stream;
-  }
+  }, [stream]);
   
-  if (retryCountRef.current !== retryCount) {
+  useEffect(() => {
     retryCountRef.current = retryCount;
-  }
+  }, [retryCount]);
   
-  if (initializedRef.current !== initialized) {
+  useEffect(() => {
     initializedRef.current = initialized;
-  }
+  }, [initialized]);
   
   return {
     // State values

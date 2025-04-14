@@ -26,8 +26,7 @@ export function useCamera({
     retryCount,
     setRetryCount,
     initialized,
-    setInitialized,
-    streamRef
+    setInitialized
   } = useCameraState();
   
   // Use provided canvas ref or our internal one

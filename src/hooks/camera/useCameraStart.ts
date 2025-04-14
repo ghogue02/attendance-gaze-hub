@@ -86,7 +86,9 @@ export function useCameraStart({
           // Make sure video plays
           videoRef.current.play()
             .then(() => {
-              onCameraStart?.();
+              if (onCameraStart) {
+                onCameraStart();
+              }
             })
             .catch(playError => {
               console.error("Error starting video playback:", playError);

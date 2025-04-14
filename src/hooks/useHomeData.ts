@@ -12,9 +12,8 @@ export const useHomeData = () => {
   const [detectedBuilder, setDetectedBuilder] = useState<Builder | null>(null);
   const [selectedBuilder, setSelectedBuilder] = useState<Builder | null>(null);
   
-  // Add a ref to track if data is already loading to prevent duplicate requests
+  // Add refs inside the hook function body
   const isLoadingRef = useRef(false);
-  // Add a ref to track if component is mounted
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -55,11 +54,12 @@ export const useHomeData = () => {
 
     loadBuilders();
     
-    let unsubscribe: () => void;
-    let subscriptionTimeout: NodeJS.Timeout;
+    // Define these variables inside the effect to avoid issues with hooks
+    let unsubscribe: (() => void) | undefined;
+    let subscriptionTimeout: NodeJS.Timeout | undefined;
     
-    // Use a ref to handle subscription status
-    const hasActiveSubscription = useRef(false);
+    // Use a ref to handle subscription status - but create it inside the hook
+    const hasActiveSubscription = { current: false };
     
     // Set up real-time subscription with debounce to prevent rapid refreshes
     subscriptionTimeout = setTimeout(() => {
@@ -88,7 +88,9 @@ export const useHomeData = () => {
     return () => {
       isMountedRef.current = false;
       trackRequest('Home', 'component-unmount');
-      clearTimeout(subscriptionTimeout);
+      if (subscriptionTimeout) {
+        clearTimeout(subscriptionTimeout);
+      }
       if (unsubscribe) {
         unsubscribe();
       }

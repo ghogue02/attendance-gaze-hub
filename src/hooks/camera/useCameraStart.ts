@@ -26,7 +26,7 @@ export function useCameraStart({
   setIsCapturing: (isCapturing: boolean) => void;
   setCameraError: (error: string) => void;
   onCameraStart?: () => void;
-  startInProgressRef: React.RefObject<boolean>;
+  startInProgressRef: React.MutableRefObject<boolean>;
 }) {
   const maxRetries = 2; // Reduced from 3 to 2
   
@@ -122,10 +122,9 @@ export function useCameraStart({
         
         // Prevent new start attempts during the retry delay
         if (startInProgressRef) {
+          // Fix: Use a timeout to update the ref value instead of directly updating it
           setTimeout(() => {
-            if (startInProgressRef.current) {
-              startInProgressRef.current = false;
-            }
+            startInProgressRef.current = false;
           }, delay - 500);
         }
         
@@ -135,7 +134,10 @@ export function useCameraStart({
       } else {
         // Clear in-progress state after max retries
         if (startInProgressRef) {
-          startInProgressRef.current = false;
+          // Fix: Use a timeout to update the ref value instead of directly updating it
+          setTimeout(() => {
+            startInProgressRef.current = false;
+          }, 0);
         }
       }
     }

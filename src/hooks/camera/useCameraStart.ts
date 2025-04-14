@@ -13,7 +13,8 @@ export function useCameraStart({
   initialized,
   setIsCapturing,
   setCameraError,
-  onCameraStart
+  onCameraStart,
+  startInProgressRef
 }: {
   videoRef: React.RefObject<HTMLVideoElement>;
   setStream: (stream: MediaStream | null) => void;
@@ -25,14 +26,15 @@ export function useCameraStart({
   setIsCapturing: (isCapturing: boolean) => void;
   setCameraError: (error: string) => void;
   onCameraStart?: () => void;
+  startInProgressRef: React.RefObject<boolean>;
 }) {
-  const maxRetries = 3;
+  const maxRetries = 2; // Reduced from 3 to 2
   
   // Create a function that handles camera initialization
   const startCamera = useCallback(async (videoConstraints: CameraConstraints = {}) => {
-    // Return early if we're already capturing to prevent loops
+    // Return early if already capturing to prevent loops
     if (stream && videoRef.current?.srcObject === stream) {
-      console.log("Camera already initialized, skipping redundant start");
+      console.log("Camera already initialized with same stream, skipping redundant start");
       return;
     }
     
@@ -115,15 +117,29 @@ export function useCameraStart({
       if (retryCount < maxRetries) {
         const newRetryCount = retryCount + 1;
         setRetryCount(newRetryCount);
-        const delay = 1000 * Math.pow(2, newRetryCount); // Exponential backoff
+        const delay = 2000 * Math.pow(2, newRetryCount); // Increased exponential backoff
         console.log(`Retrying camera initialization in ${delay/1000} seconds (attempt ${newRetryCount} of ${maxRetries})...`);
+        
+        // Prevent new start attempts during the retry delay
+        if (startInProgressRef) {
+          setTimeout(() => {
+            if (startInProgressRef.current) {
+              startInProgressRef.current = false;
+            }
+          }, delay - 500);
+        }
         
         setTimeout(() => {
           startCamera(videoConstraints);
         }, delay);
+      } else {
+        // Clear in-progress state after max retries
+        if (startInProgressRef) {
+          startInProgressRef.current = false;
+        }
       }
     }
-  }, [setCameraError, setIsCapturing, onCameraStart, setStream, stream, videoRef, initialized, setInitialized, retryCount, setRetryCount]);
+  }, [setCameraError, setIsCapturing, onCameraStart, setStream, stream, videoRef, initialized, setInitialized, retryCount, setRetryCount, startInProgressRef]);
 
   return { startCamera };
 }

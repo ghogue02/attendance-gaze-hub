@@ -14,12 +14,14 @@ export function useCameraHealth({
 }) {
   // Add a ref to track the last time we tried to restart the camera
   const lastRestartAttempt = useRef<number>(0);
-  // Add a minimum time between restart attempts (30 seconds)
-  const MIN_RESTART_INTERVAL = 30000;
+  // Add a minimum time between restart attempts (increased to 60 seconds)
+  const MIN_RESTART_INTERVAL = 60000;
   // Add a counter to track consecutive health check failures
   const healthCheckFailCount = useRef<number>(0);
   // Minimum failures before restarting
-  const MIN_FAILURES_BEFORE_RESTART = 3;
+  const MIN_FAILURES_BEFORE_RESTART = 5; // Increased from 3 to 5
+  // Last time the camera was confirmed healthy
+  const lastHealthyTime = useRef<number>(Date.now());
   
   const checkCameraHealth = useCallback(() => {
     if (!stream) return false;
@@ -35,20 +37,31 @@ export function useCameraHealth({
     // Update health check counter
     if (!isActive && isCapturing) {
       healthCheckFailCount.current += 1;
+      console.log(`Camera health check failed (${healthCheckFailCount.current} consecutive failures)`);
     } else {
-      // Reset failure count on success
+      // Reset failure count on success and update healthy timestamp
+      if (healthCheckFailCount.current > 0) {
+        console.log("Camera health check passed, resetting failure counter");
+      }
       healthCheckFailCount.current = 0;
+      lastHealthyTime.current = now;
       return isActive;
     }
     
+    // Check if camera has been unhealthy for too long (5 minutes)
+    const unhealthyDuration = now - lastHealthyTime.current;
+    const isLongTermUnhealthy = unhealthyDuration > 300000; // 5 minutes
+    
     // Only restart if we've had multiple consecutive failures AND enough time has passed
+    // OR if the camera has been unhealthy for an extended period
     if (
-      healthCheckFailCount.current >= MIN_FAILURES_BEFORE_RESTART && 
+      (healthCheckFailCount.current >= MIN_FAILURES_BEFORE_RESTART && 
       isCapturing && 
-      (now - lastRestartAttempt.current > MIN_RESTART_INTERVAL)
+      (now - lastRestartAttempt.current > MIN_RESTART_INTERVAL)) ||
+      isLongTermUnhealthy
     ) {
       // Camera appears unhealthy, restart it (but not too frequently)
-      console.warn(`Camera appears unhealthy after ${healthCheckFailCount.current} checks, attempting to restart...`);
+      console.warn(`Camera appears unhealthy after ${healthCheckFailCount.current} checks or ${Math.round(unhealthyDuration/1000)}s, attempting to restart...`);
       lastRestartAttempt.current = now;
       healthCheckFailCount.current = 0;
       
@@ -56,7 +69,7 @@ export function useCameraHealth({
       stopCamera();
       
       // Delay restart to allow proper cleanup
-      setTimeout(() => startCamera(), 1500);
+      setTimeout(() => startCamera(), 2000);
       return false;
     }
     

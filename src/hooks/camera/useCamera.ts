@@ -32,9 +32,11 @@ export function useCamera({
   // Use provided canvas ref or our internal one
   const canvasRef = externalCanvasRef || internalCanvasRef;
 
-  // Add a ref to track camera activation state to prevent reinitialization
+  // Add refs to track camera activation state to prevent reinitialization
   const activationRef = useRef(false);
   const startInProgressRef = useRef(false);
+  const activationAttemptCountRef = useRef(0);
+  const lastActivationAttemptRef = useRef(0);
 
   // Setup camera start functionality
   const { startCamera: startCameraBase } = useCameraStart({
@@ -48,12 +50,35 @@ export function useCamera({
     setIsCapturing,
     setCameraError,
     onCameraStart,
+    startInProgressRef
   });
   
   // Wrap startCamera to include constraints and prevent redundant calls
   const startCamera = useCallback(() => {
+    const now = Date.now();
+    
+    // Don't allow more than 3 activation attempts per second
+    if (now - lastActivationAttemptRef.current < 1000) {
+      activationAttemptCountRef.current += 1;
+      
+      if (activationAttemptCountRef.current > 3) {
+        console.warn("Too many camera activation attempts in short succession, throttling");
+        return Promise.resolve();
+      }
+    } else {
+      // Reset counter if more than a second has passed
+      activationAttemptCountRef.current = 1;
+      lastActivationAttemptRef.current = now;
+    }
+    
     if (startInProgressRef.current) {
       console.log("Camera start already in progress, skipping redundant request");
+      return Promise.resolve();
+    }
+    
+    // If camera is already successfully capturing, don't restart
+    if (stream && videoRef.current?.srcObject === stream && isCapturing) {
+      console.log("Camera already active and capturing, skipping redundant activation");
       return Promise.resolve();
     }
     
@@ -61,9 +86,11 @@ export function useCamera({
     
     return startCameraBase(videoConstraints)
       .finally(() => {
-        startInProgressRef.current = false;
+        setTimeout(() => {
+          startInProgressRef.current = false;
+        }, 500); // Add delay to prevent rapid consecutive attempts
       });
-  }, [startCameraBase, videoConstraints]);
+  }, [startCameraBase, videoConstraints, stream, videoRef, isCapturing]);
 
   // Setup camera stop functionality
   const { stopCamera } = useCameraStop({
@@ -92,17 +119,15 @@ export function useCamera({
     activationRef.current = isCameraActive;
     
     if (isCameraActive) {
-      startCamera();
+      // Add small delay to prevent rapid initialization attempts
+      const timer = setTimeout(() => {
+        startCamera();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     } else {
       stopCamera();
     }
-
-    return () => {
-      if (activationRef.current) {
-        stopCamera();
-        activationRef.current = false;
-      }
-    };
   }, [isCameraActive, startCamera, stopCamera]);
 
   // Periodically check camera health - but at a reduced frequency
@@ -111,7 +136,7 @@ export function useCamera({
     
     const intervalId = setInterval(() => {
       checkCameraHealth();
-    }, 10000); // Check every 10 seconds - increased from 5 to reduce frequency
+    }, 15000); // Reduced frequency from 10s to 15s
     
     return () => clearInterval(intervalId);
   }, [isCameraActive, checkCameraHealth]);

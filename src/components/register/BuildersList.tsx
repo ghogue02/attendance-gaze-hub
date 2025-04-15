@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Check, AlertCircle, Clock } from 'lucide-react';
 import { Builder } from '@/components/builder/types';
@@ -7,6 +6,10 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCachedData, setCachedData } from '@/utils/attendance/cacheManager';
+import { 
+  getCachedStudentImage, 
+  cacheStudentImage 
+} from '@/utils/cache/studentImageCache';
 
 interface BuildersListProps {
   builders: Builder[];
@@ -17,9 +20,6 @@ interface BuildersListProps {
   onStartRegistration: (builder: Builder) => void;
   onClearSearch: () => void;
 }
-
-// In-memory cache for images
-const imageCache = new Map<string, string>();
 
 export const BuildersList = ({
   builders,
@@ -33,82 +33,93 @@ export const BuildersList = ({
   const [builderImages, setBuilderImages] = useState<{[key: string]: string}>({});
   const [imageLoadErrors, setImageLoadErrors] = useState<{[key: string]: boolean}>({});
 
-  // Fetch up-to-date builder images when the component mounts or when registrationStatus changes
+  // Fetch builder images when the component mounts or when filteredBuilders changes
   useEffect(() => {
     const fetchBuilderImages = async () => {
+      // Skip fetching if no builders to display
+      if (filteredBuilders.length === 0) return;
+      
       const images: {[key: string]: string} = {};
       const errors: {[key: string]: boolean} = {};
       
-      const fetchPromises = filteredBuilders.map(async (builder) => {
-        try {
-          // Check memory cache first
-          if (imageCache.has(builder.id)) {
-            images[builder.id] = imageCache.get(builder.id)!;
-            return;
-          }
-          
-          // Check persisted cache next
-          const cacheKey = `builder_image_${builder.id}`;
-          const cachedImage = getCachedData<string>(cacheKey, 5 * 60 * 1000); // 5 minutes TTL
-          
-          if (cachedImage) {
-            images[builder.id] = cachedImage;
-            imageCache.set(builder.id, cachedImage);
-            return;
-          }
-          
-          // Get the most recent image from the students table
-          const { data, error } = await supabase
-            .from('students')
-            .select('image_url')
-            .eq('id', builder.id)
-            .maybeSingle();
-            
-          if (!error && data?.image_url) {
-            images[builder.id] = data.image_url;
-            imageCache.set(builder.id, data.image_url);
-            setCachedData(cacheKey, data.image_url);
-            return;
-          } 
-          
-          if (error) {
-            console.error('Error fetching student image:', error);
-            errors[builder.id] = true;
-            
-            // Fallback: try to get image from face_registrations if not in students table
-            const { data: faceData, error: faceError } = await supabase
-              .from('face_registrations')
-              .select('face_data')
-              .eq('student_id', builder.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-              
-            if (!faceError && faceData?.face_data) {
-              images[builder.id] = faceData.face_data;
-              imageCache.set(builder.id, faceData.face_data);
-              setCachedData(cacheKey, faceData.face_data);
-              errors[builder.id] = false;
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching builder image:', error);
-          errors[builder.id] = true;
+      // Track which builders need image fetching
+      const buildersToFetch: Builder[] = [];
+      
+      // First check shared global cache for each builder
+      filteredBuilders.forEach(builder => {
+        const cachedImage = getCachedStudentImage(builder.id);
+        if (cachedImage) {
+          images[builder.id] = cachedImage;
+        } else {
+          buildersToFetch.push(builder);
         }
       });
       
-      // Wait for all fetch operations to complete
-      await Promise.all(fetchPromises);
+      // Only query database for builders without cached images
+      if (buildersToFetch.length > 0) {
+        try {
+          // Batch query all needed builders in one request
+          const { data, error } = await supabase
+            .from('students')
+            .select('id, image_url')
+            .in('id', buildersToFetch.map(b => b.id));
+            
+          if (error) {
+            console.error('Error fetching student images:', error);
+            buildersToFetch.forEach(b => {
+              errors[b.id] = true;
+            });
+          } else if (data) {
+            // Process query results and cache them
+            data.forEach(student => {
+              if (student.image_url) {
+                images[student.id] = student.image_url;
+                cacheStudentImage(student.id, student.image_url);
+              }
+            });
+            
+            // Try to get images from face_registrations for builders still missing images
+            const missingImageIds = buildersToFetch
+              .filter(b => !images[b.id])
+              .map(b => b.id);
+              
+            if (missingImageIds.length > 0) {
+              const { data: faceData } = await supabase
+                .from('face_registrations')
+                .select('student_id, face_data')
+                .in('student_id', missingImageIds)
+                .order('created_at', { ascending: false });
+                
+              // Group by student_id and take the most recent entry
+              const faceDataByStudent = faceData?.reduce((acc, item) => {
+                if (!acc[item.student_id]) {
+                  acc[item.student_id] = item.face_data;
+                }
+                return acc;
+              }, {} as Record<string, string>) || {};
+              
+              // Add face registration data to images
+              Object.entries(faceDataByStudent).forEach(([id, faceData]) => {
+                images[id] = faceData;
+                cacheStudentImage(id, faceData);
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error in batch image fetching:', error);
+          toast.error('Failed to load some builder images');
+        }
+      }
       
       setBuilderImages(images);
       setImageLoadErrors(errors);
     };
 
-    // Use a 500ms debounce to avoid rapid re-fetching when filteredBuilders changes quickly
-    const debounceTimeout = setTimeout(fetchBuilderImages, 500);
+    // Use a debounce to avoid rapid re-fetching when filteredBuilders changes quickly
+    const debounceTimeout = setTimeout(fetchBuilderImages, 300);
     
     return () => clearTimeout(debounceTimeout);
-  }, [filteredBuilders, registrationStatus]);
+  }, [filteredBuilders]);
 
   const handleImageError = (builderId: string) => {
     console.error('Failed to load image for builder:', builderId);

@@ -1,10 +1,12 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { throttledRequest } from '@/utils/request/throttle';
 
-// Keep a simple in-memory cache for the current session
-const imageCache = new Map<string, string>();
+// Enhanced in-memory cache for the current session with longer TTL
+const imageCache = new Map<string, {url: string, timestamp: number}>();
+const CACHE_TTL = 30 * 60 * 1000; // 30 minute cache
 
 interface UserProfileImageProps {
   userId: string;
@@ -21,18 +23,21 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
     
     const fetchImage = async () => {
       try {
+        // Check in-memory cache first with TTL validation
+        const cached = imageCache.get(userId);
+        if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+          setImageUrl(cached.url);
+          return;
+        }
+        
         // Use throttled request to avoid duplicate fetches
         const data = await throttledRequest(
           `profile_${userId}`,
           async () => {
+            // Only log when actually fetching from database
             console.log(`UserProfileImage: Fetching image for user: ${userName} (ID: ${userId})`);
             
-            // Check in-memory cache first
-            if (imageCache.has(userId)) {
-              return { image_url: imageCache.get(userId) };
-            }
-            
-            // Otherwise fetch from database
+            // Fetch from database
             const { data, error } = await supabase
               .from('students')
               .select('image_url')
@@ -44,18 +49,16 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
             }
             
             if (data?.image_url) {
-              // Store in cache for future use
-              imageCache.set(userId, data.image_url);
+              // Store in cache for future use with timestamp
+              imageCache.set(userId, {url: data.image_url, timestamp: Date.now()});
             }
             
             return data;
           },
-          300000 // 5 minute cache
+          300000 // 5 minute cache for throttled requests
         );
         
         if (data?.image_url) {
-          console.log('Image URL exists:', !!data.image_url);
-          console.log(`Found image in students table for ID ${userId}`);
           setImageUrl(data.image_url);
         }
       } catch (error) {

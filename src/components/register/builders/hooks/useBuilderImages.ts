@@ -15,6 +15,7 @@ import {
 export const useBuilderImages = (filteredBuilders: Builder[]) => {
   const [builderImages, setBuilderImages] = useState<{[key: string]: string}>({});
   const [imageLoadErrors, setImageLoadErrors] = useState<{[key: string]: boolean}>({});
+  const [isFetching, setIsFetching] = useState(false);
 
   // Fetch builder images when the component mounts or when filteredBuilders changes
   useEffect(() => {
@@ -22,8 +23,10 @@ export const useBuilderImages = (filteredBuilders: Builder[]) => {
     let isMounted = true;
     
     const fetchBuilderImages = async () => {
-      // Skip fetching if no builders to display
-      if (filteredBuilders.length === 0) return;
+      // Skip fetching if already in progress or no builders to display
+      if (isFetching || filteredBuilders.length === 0) return;
+      
+      setIsFetching(true);
       
       // Start with images already in cache
       const images: {[key: string]: string} = {};
@@ -115,6 +118,7 @@ export const useBuilderImages = (filteredBuilders: Builder[]) => {
       if (isMounted) {
         setBuilderImages(images);
         setImageLoadErrors(errors);
+        setIsFetching(false);
       }
     };
 
@@ -124,8 +128,9 @@ export const useBuilderImages = (filteredBuilders: Builder[]) => {
     return () => {
       isMounted = false;
       clearTimeout(debounceTimeout);
+      setIsFetching(false);
     };
-  }, [filteredBuilders]);
+  }, [filteredBuilders, isFetching]);
 
   const handleImageError = (builderId: string) => {
     console.error('Failed to load image for builder:', builderId);
@@ -141,7 +146,8 @@ export const useBuilderImages = (filteredBuilders: Builder[]) => {
   return {
     builderImages,
     imageLoadErrors,
-    handleImageError
+    handleImageError,
+    isFetching
   };
 };
 

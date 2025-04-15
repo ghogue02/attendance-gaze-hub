@@ -7,6 +7,7 @@ import { useBuilderFilters } from './useBuilderFilters';
 import { useAttendanceOperations } from './useAttendanceOperations';
 import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/attendance';
 import { throttledRequest } from '@/utils/request/throttle';
+import { preloadStudentImages } from '@/utils/cache/studentImageCache';
 
 export const useDashboardData = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
@@ -43,6 +44,15 @@ export const useDashboardData = () => {
         console.log(`[useDashboardData] Present count: ${data.filter(b => b.status === 'present').length}`);
         console.log(`[useDashboardData] Absent count: ${data.filter(b => b.status === 'absent').length}`);
         console.log(`[useDashboardData] Pending count: ${data.filter(b => b.status === 'pending').length}`);
+        
+        // Preload user image data in batches to avoid individual requests
+        const userImageData = data.map(builder => ({
+          userId: builder.id,
+          imageUrl: '' // We'll fill this later when images are loaded
+        }));
+        
+        // Preload student images from the batch
+        preloadStudentImages(userImageData);
       }
     } catch (error) {
       console.error('[useDashboardData] Error during loadData:', error);

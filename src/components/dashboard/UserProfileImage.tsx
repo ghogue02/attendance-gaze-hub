@@ -3,10 +3,16 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { throttledRequest } from '@/utils/request/throttle';
+import { getCachedStudentImage, cacheStudentImage } from '@/utils/cache/studentImageCache';
+import { trackRequest } from '@/utils/debugging/requestTracker';
 
-// Enhanced in-memory cache for the current session with longer TTL
+// Global shared memory cache for the current session with longer TTL
 const imageCache = new Map<string, {url: string, timestamp: number}>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minute cache
+const DEBUG_LOGGING = false; // Set to false to reduce console noise
+
+// Global state to track which profile images are being fetched
+const pendingFetches = new Set<string>();
 
 interface UserProfileImageProps {
   userId: string;
@@ -23,19 +29,38 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
     
     const fetchImage = async () => {
       try {
-        // Check in-memory cache first with TTL validation
+        // First check our global shared memory cache (fastest)
         const cached = imageCache.get(userId);
         if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
           setImageUrl(cached.url);
           return;
         }
+
+        // Then check the persisted cache in local storage
+        const persistedImage = getCachedStudentImage(userId);
+        if (persistedImage) {
+          // Update our in-memory cache and state
+          setImageUrl(persistedImage);
+          imageCache.set(userId, {url: persistedImage, timestamp: Date.now()});
+          return;
+        }
+        
+        // Prevent duplicate fetches for the same user ID
+        if (pendingFetches.has(userId)) {
+          return;
+        }
+        
+        pendingFetches.add(userId);
         
         // Use throttled request to avoid duplicate fetches
         const data = await throttledRequest(
           `profile_${userId}`,
           async () => {
             // Only log when actually fetching from database
-            console.log(`UserProfileImage: Fetching image for user: ${userName} (ID: ${userId})`);
+            if (DEBUG_LOGGING) {
+              trackRequest('UserProfileImage', `fetch-${userId}`);
+              console.log(`UserProfileImage: Fetching image for user: ${userName} (ID: ${userId})`);
+            }
             
             // Fetch from database
             const { data, error } = await supabase
@@ -49,8 +74,9 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
             }
             
             if (data?.image_url) {
-              // Store in cache for future use with timestamp
+              // Store in both caches for future use
               imageCache.set(userId, {url: data.image_url, timestamp: Date.now()});
+              cacheStudentImage(userId, data.image_url);
             }
             
             return data;
@@ -63,6 +89,9 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
         }
       } catch (error) {
         console.error('Error fetching profile image:', error);
+      } finally {
+        // Always remove from pending fetches, even on error
+        pendingFetches.delete(userId);
       }
     };
     

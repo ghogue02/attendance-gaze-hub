@@ -1,6 +1,8 @@
 
 import { UserCheck, UserX, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
+import { TIMEZONE } from '@/utils/date/dateUtils';
 import { BuilderStatus } from './types';
 
 export const getStatusColor = (status: BuilderStatus) => {
@@ -51,5 +53,18 @@ export const formatDate = (dateStr: string) => {
   } catch (e) {
     console.error('Error formatting date:', e, dateStr);
     return dateStr;
+  }
+};
+
+// Format ISO date string to Eastern Time
+export const formatISOToEasternTime = (isoString: string | null | undefined): string => {
+  if (!isoString) return '';
+  
+  try {
+    const date = parseISO(isoString);
+    return formatInTimeZone(date, TIMEZONE, 'h:mm a');
+  } catch (e) {
+    console.error('Error formatting ISO to Eastern time:', e);
+    return '';
   }
 };

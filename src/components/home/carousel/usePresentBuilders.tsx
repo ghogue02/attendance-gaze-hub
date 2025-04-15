@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Builder } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentDateString } from '@/utils/date/dateUtils';
+import { getCurrentDateString, formatISOTimeToEastern } from '@/utils/date/dateUtils';
 
 // Use a shorter cache TTL to reduce excessive API calls while maintaining reasonable freshness
 const CACHE_TTL = 60000 * 2; // 2 minutes
@@ -45,7 +45,7 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
         // Use a more efficient query with fewer columns and simplified structure
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('attendance')
-          .select('student_id')
+          .select('student_id, time_recorded')
           .eq('date', today)
           .eq('status', 'present')
           .limit(100); // Add reasonable limit
@@ -61,6 +61,16 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
           }
           return;
         }
+        
+        // Create a map of student IDs to time_recorded
+        const timeRecordedMap = new Map<string, string>();
+        attendanceData.forEach(record => {
+          if (record.student_id && record.time_recorded) {
+            // Format the ISO time to Eastern Time
+            const easternTime = formatISOTimeToEastern(record.time_recorded);
+            timeRecordedMap.set(record.student_id, easternTime);
+          }
+        });
         
         // Extract just the IDs for the IN query
         const studentIds = attendanceData.map(record => record.student_id);
@@ -82,7 +92,8 @@ export const usePresentBuilders = (initialBuilders: Builder[]) => {
           name: `${student.first_name} ${student.last_name}`,
           builderId: student.student_id || '',
           status: 'present',
-          timeRecorded: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}),
+          // Use the Eastern Time from the map or default to current time
+          timeRecorded: timeRecordedMap.get(student.id) || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}),
           image: student.image_url
         }));
         

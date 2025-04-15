@@ -1,6 +1,9 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { throttledRequest } from '@/utils/request/throttle';
+import { utcToZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { TIMEZONE } from '@/utils/date/dateUtils';
 
 // Mark attendance for a specific student
 export const markAttendance = async (
@@ -24,7 +27,12 @@ export const markAttendance = async (
       return false;
     }
     
-    const now = new Date().toISOString();
+    // Get current timestamp in Eastern Time
+    const now = new Date();
+    const easternTime = utcToZonedTime(now, TIMEZONE);
+    const easternTimeISO = now.toISOString();
+    
+    console.log(`Marking attendance for student ${studentId} on ${date} at ${formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd HH:mm:ss z')}`);
     
     // Clear automated "marked absent" notes when marking student as present
     const finalNotes = (status === 'present' || status === 'late' || status === 'excused') && 
@@ -38,7 +46,7 @@ export const markAttendance = async (
         .from('attendance')
         .update({ 
           status, 
-          time_recorded: now,
+          time_recorded: easternTimeISO,
           notes: finalNotes
         })
         .eq('id', existingRecord.id);
@@ -55,7 +63,7 @@ export const markAttendance = async (
           student_id: studentId,
           date,
           status,
-          time_recorded: now,
+          time_recorded: easternTimeISO,
           notes: finalNotes
         });
         
@@ -97,6 +105,11 @@ export const batchMarkAttendance = async (
 
     const results: boolean[] = [];
 
+    // Get current timestamp in Eastern Time
+    const now = new Date();
+    const easternTimeISO = now.toISOString();
+    console.log(`Batch marking attendance at ${formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd HH:mm:ss z')}`);
+
     // Process each date group
     for (const [date, dateRecords] of Object.entries(recordsByDate)) {
       // First, fetch all existing records for this date in one query
@@ -122,7 +135,6 @@ export const batchMarkAttendance = async (
       // Prepare records to update and insert
       const recordsToUpdate = [];
       const recordsToInsert = [];
-      const now = new Date().toISOString();
 
       for (const record of dateRecords) {
         const existing = existingRecordsMap[record.studentId];
@@ -139,7 +151,7 @@ export const batchMarkAttendance = async (
           recordsToUpdate.push({
             id: existing.id,
             status: record.status,
-            time_recorded: now,
+            time_recorded: easternTimeISO,
             notes: finalNotes
           });
         } else {
@@ -147,7 +159,7 @@ export const batchMarkAttendance = async (
             student_id: record.studentId,
             date: record.date,
             status: record.status,
-            time_recorded: now,
+            time_recorded: easternTimeISO,
             notes: finalNotes
           });
         }

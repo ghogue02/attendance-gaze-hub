@@ -1,97 +1,96 @@
+
 /**
  * Utility functions for handling dates in the application
  */
+import { format, parseISO } from 'date-fns';
+import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz';
+
+// Eastern timezone identifier
+export const TIMEZONE = 'America/New_York';
 
 /**
- * Returns the current date in YYYY-MM-DD format
+ * Returns the current date in YYYY-MM-DD format in Eastern Time
  */
 export const getCurrentDateString = (): string => {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const easternTime = utcToZonedTime(now, TIMEZONE);
+  return formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd');
 };
 
 /**
- * Returns a formatted display date string
+ * Returns a formatted display date string in Eastern Time
  */
 export const getDisplayDateString = (): string => {
   const now = new Date();
-  return now.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
+  return formatInTimeZone(now, TIMEZONE, 'EEEE, MMMM d, yyyy');
 };
 
 /**
  * Logs date information for debugging
  */
 export const logDateDebugInfo = (context: string, dateString: string): void => {
+  const now = new Date();
+  const easternTime = utcToZonedTime(now, TIMEZONE);
   console.log(`[${context}] Current date string: ${dateString}`);
+  console.log(`[${context}] Current time in UTC: ${now.toISOString()}`);
+  console.log(`[${context}] Current time in Eastern: ${formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd HH:mm:ss z')}`);
 };
 
 /**
- * Parse a date string as UTC
+ * Parse a date string as Eastern Time
  */
-export const parseAsUTC = (dateStr: string): Date => {
-  return new Date(dateStr + 'T00:00:00Z');
+export const parseAsEastern = (dateStr: string): Date => {
+  return utcToZonedTime(new Date(`${dateStr}T00:00:00`), TIMEZONE);
 };
 
 /**
- * Checks if a time falls within the "late" attendance windows using UTC time
+ * Format time to Eastern Time
+ */
+export const formatTimeInEastern = (date: Date): string => {
+  return formatInTimeZone(date, TIMEZONE, 'h:mm a');
+};
+
+/**
+ * Convert ISO date string to Eastern Time and return formatted time
+ */
+export const formatISOTimeToEastern = (isoString: string): string => {
+  try {
+    const date = parseISO(isoString);
+    return formatInTimeZone(date, TIMEZONE, 'h:mm a');
+  } catch (e) {
+    console.error('Error formatting ISO time to Eastern:', e);
+    return '';
+  }
+};
+
+/**
+ * Checks if a time falls within the "late" attendance windows using Eastern Time
  * Late is:
- * - Weekends (Sat-Sun): Starting at 10:00 AM EDT (14:00 UTC) onwards
- * - Weekdays (Mon-Thu): Starting at 6:30 PM EDT (22:30 UTC) onwards
+ * - Weekends (Sat-Sun): Starting at 10:00 AM EDT onwards
+ * - Weekdays (Mon-Thu): Starting at 6:30 PM EDT onwards
  */
-export const isLateArrivalUTC = (dayOfWeekUTC: number, hourUTC: number, minutesUTC: number): boolean => {
-  // Weekend (Saturday = 6, Sunday = 0 UTC)
-  if (dayOfWeekUTC === 6 || dayOfWeekUTC === 0) {
-    // Late starts at 10:00 AM EDT == 14:00 UTC
-    const startLateHourUTC = 14;
-    return hourUTC >= startLateHourUTC;
-  }
-  
-  // Weekday (Monday-Thursday UTC, Friday is excluded elsewhere)
-  // Late starts at 6:30 PM EDT == 22:30 UTC
-  if (dayOfWeekUTC >= 1 && dayOfWeekUTC <= 4) {
-    const startLateMinutesUTC = 22 * 60 + 30; // 22:30 UTC
-    const totalMinutesUTC = hourUTC * 60 + minutesUTC;
-    return totalMinutesUTC >= startLateMinutesUTC;
-  }
-  
-  // Default: Not considered late (e.g., if Friday data somehow gets here)
-  return false;
-};
-
-/**
- * Legacy function that uses local time - DEPRECATED
- * Use isLateArrivalUTC instead
- */
-export const isLateArrival = (date: Date, timeStr: string): boolean => {
-  console.warn('DEPRECATED: isLateArrival using local time is deprecated. Use isLateArrivalUTC instead.');
-  
-  const day = date.getDay();
-  
-  // Parse the time string (assuming format like "6:30 PM" or "10:45 AM")
-  const [timePart, ampm] = timeStr.split(' ');
-  const [hourStr, minuteStr] = timePart.split(':');
-  
-  const hour = parseInt(hourStr);
-  const minute = parseInt(minuteStr);
-  const isPM = ampm?.toLowerCase() === 'pm';
-  
-  // Convert to 24-hour format
-  const hour24 = isPM && hour !== 12 ? hour + 12 : (hour === 12 && !isPM ? 0 : hour);
+export const isLateArrivalEastern = (dateTime: Date): boolean => {
+  const easternTime = utcToZonedTime(dateTime, TIMEZONE);
+  const dayOfWeek = easternTime.getDay();
+  const hours = easternTime.getHours();
+  const minutes = easternTime.getMinutes();
   
   // Weekend (Saturday = 6, Sunday = 0)
-  if (day === 6 || day === 0) {
-    // Late on weekend: 10 AM - 4 PM (10:00-16:00)
-    return hour24 >= 10 && hour24 < 16;
+  if (dayOfWeek === 6 || dayOfWeek === 0) {
+    // Late starts at 10:00 AM Eastern
+    return hours >= 10;
   }
   
-  // Weekday (Monday-Thursday, Friday is typically excluded)
-  // Late on weekdays: 6:30 PM - 10 PM (18:30-22:00)
-  if (day >= 1 && day <= 4) {
-    const totalMinutes = hour24 * 60 + minute;
-    return totalMinutes >= (18 * 60 + 30) && totalMinutes < (22 * 60);
+  // Weekday (Monday-Thursday, Friday is excluded elsewhere)
+  if (dayOfWeek >= 1 && dayOfWeek <= 4) {
+    const totalMinutes = hours * 60 + minutes;
+    // Late starts at 6:30 PM Eastern (18:30)
+    return totalMinutes >= (18 * 60 + 30);
   }
   
+  // Default: Not considered late
   return false;
 };
+
+// Legacy functions below are kept for backward compatibility
+export { parseAsUTC, isLateArrivalUTC, isLateArrival } from './legacyDateUtils';

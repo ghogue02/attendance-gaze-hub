@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { Builder, BuilderStatus, AttendanceRecord } from '@/components/builder/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatISOTimeToEastern } from '@/utils/date/dateUtils';
 
 export const useFetchAttendanceHistory = (builder: Builder) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
@@ -37,7 +38,8 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
           id: record.id,
           date: record.date,
           status: record.status as BuilderStatus,
-          timeRecorded: record.time_recorded ? new Date(record.time_recorded).toLocaleTimeString() : '',
+          // Format time to Eastern Time
+          timeRecorded: record.time_recorded ? formatISOTimeToEastern(record.time_recorded) : '',
           notes: record.notes || '',
           excuseReason: record.excuse_reason || ''
         }));

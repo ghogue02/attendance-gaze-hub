@@ -1,6 +1,6 @@
 
 import { markAttendance as markAttendanceCore } from './markAttendance';
-import { getAllBuilders as getAllBuildersCore, clearAttendanceCache } from './attendanceData';
+import { getAllBuilders, clearAttendanceCache } from './attendanceData';
 import { cachedFetch } from './cacheManager';
 
 /**
@@ -18,7 +18,7 @@ export const getAllBuilders = (targetDateString: string) => {
   // Use the cached fetch utility with a 10-minute TTL
   return cachedFetch(
     cacheKey,
-    () => getAllBuildersCore(targetDateString),
+    () => getAllBuilders(targetDateString),
     10 * 60 * 1000 // 10 minute cache
   );
 };

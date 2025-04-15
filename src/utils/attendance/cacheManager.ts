@@ -1,130 +1,96 @@
 
 /**
- * A simple client-side cache manager for attendance data
- * Enhanced with longer TTL and storage efficiency
+ * Utility for managing cache to reduce API calls
  */
 
-// Extended to 15 minutes (was lower before)
-const DEFAULT_TTL = 15 * 60 * 1000;
-
-// Cache for general data
-const dataCache = new Map<string, {
-  data: any;
+type CacheEntry<T> = {
+  data: T;
   timestamp: number;
-  ttl: number;
-}>();
+};
 
-// In-flight request tracker
-const pendingRequests = new Map<string, Promise<any>>();
+// Global cache object
+const cache: Record<string, CacheEntry<any>> = {};
 
 /**
- * Store data in the cache with an optional TTL
+ * Get cached data if it's not expired
+ * @param key Cache key
+ * @param ttl Time to live in milliseconds (default: 5 minutes)
+ * @returns The cached data or null if not found or expired
  */
-export const setCachedData = <T>(key: string, data: T, ttl: number = DEFAULT_TTL): void => {
-  dataCache.set(key, {
+export function getCachedData<T>(key: string, ttl = 5 * 60 * 1000): T | null {
+  const entry = cache[key];
+  if (!entry) return null;
+
+  const now = Date.now();
+  if (now - entry.timestamp > ttl) {
+    // Cache expired
+    delete cache[key];
+    return null;
+  }
+
+  return entry.data;
+}
+
+/**
+ * Set data in cache with TTL
+ * @param key Cache key
+ * @param data Data to cache
+ * @param ttl Time to live in milliseconds (default: 5 minutes)
+ */
+export function setCachedData<T>(key: string, data: T, ttl = 5 * 60 * 1000): void {
+  cache[key] = {
     data,
     timestamp: Date.now(),
-    ttl
-  });
-};
-
-/**
- * Get data from the cache if it exists and hasn't expired
- */
-export const getCachedData = <T>(key: string): T | null => {
-  const cachedItem = dataCache.get(key);
+  };
   
-  if (!cachedItem) {
-    return null;
-  }
-  
-  const now = Date.now();
-  if (now - cachedItem.timestamp > cachedItem.ttl) {
-    // Data has expired, remove it
-    dataCache.delete(key);
-    return null;
-  }
-  
-  return cachedItem.data as T;
-};
-
-/**
- * Clear a specific item from the cache
- */
-export const clearCachedData = (key: string): void => {
-  dataCache.delete(key);
-};
-
-/**
- * Clear all cached data
- */
-export const clearAllCachedData = (): void => {
-  dataCache.clear();
-};
-
-/**
- * Register an in-flight request to prevent duplicate API calls
- */
-export const registerPendingRequest = <T>(key: string, promise: Promise<T>): Promise<T> => {
-  pendingRequests.set(key, promise);
-  
-  // Auto-cleanup when the promise resolves or rejects
-  promise.finally(() => {
-    if (pendingRequests.get(key) === promise) {
-      pendingRequests.delete(key);
+  // Set automatic cleanup after TTL
+  setTimeout(() => {
+    const entry = cache[key];
+    if (entry && entry.timestamp === cache[key].timestamp) {
+      delete cache[key];
     }
-  });
-  
-  return promise;
-};
+  }, ttl);
+}
 
 /**
- * Check if a request is already in flight
+ * Clear a specific cache entry or all cache
+ * @param key Optional cache key to clear specific entry
  */
-export const getPendingRequest = <T>(key: string): Promise<T> | undefined => {
-  return pendingRequests.get(key) as Promise<T> | undefined;
-};
+export function clearCachedData(key?: string): void {
+  if (key) {
+    delete cache[key];
+  } else {
+    // Clear all cache
+    Object.keys(cache).forEach((k) => delete cache[k]);
+  }
+}
 
 /**
- * Cache-first data fetcher that prevents duplicate API calls
- * @param cacheKey - Key to use for caching
- * @param fetchFunction - Function that returns a Promise with the data
- * @param ttl - Time to live in milliseconds
+ * Cached fetch utility - performs a fetch operation with caching
+ * @param cacheKey The key to store the result under
+ * @param fetchFn Function that returns a promise with the data
+ * @param ttl Time to live in milliseconds (default: 5 minutes)
+ * @returns The data from fetch operation or cache
  */
-export const cachedFetch = async <T>(
-  cacheKey: string, 
-  fetchFunction: () => Promise<T>,
-  ttl: number = DEFAULT_TTL
-): Promise<T> => {
-  // First check cache
-  const cachedData = getCachedData<T>(cacheKey);
-  if (cachedData) {
+export async function cachedFetch<T>(
+  cacheKey: string,
+  fetchFn: () => Promise<T>,
+  ttl = 5 * 60 * 1000
+): Promise<T> {
+  // Check if we have valid cached data
+  const cachedData = getCachedData<T>(cacheKey, ttl);
+  if (cachedData !== null) {
+    console.log(`[cachedFetch] Cache hit for key: ${cacheKey}`);
     return cachedData;
   }
-  
-  // Then check for pending requests
-  const pendingRequest = getPendingRequest<T>(cacheKey);
-  if (pendingRequest) {
-    return pendingRequest;
-  }
-  
-  // If not cached or pending, make a new request
-  const promise = fetchFunction().then(result => {
-    setCachedData(cacheKey, result, ttl);
-    return result;
-  });
-  
-  // Register this promise to prevent duplicate calls
-  return registerPendingRequest(cacheKey, promise);
-};
 
-// Periodically clean up expired cache entries to prevent memory leaks
-setInterval(() => {
-  const now = Date.now();
+  console.log(`[cachedFetch] Cache miss for key: ${cacheKey}, fetching fresh data`);
   
-  for (const [key, item] of dataCache.entries()) {
-    if (now - item.timestamp > item.ttl) {
-      dataCache.delete(key);
-    }
-  }
-}, 60000); // Run every minute
+  // No cache hit, execute the fetch function
+  const data = await fetchFn();
+  
+  // Store in cache
+  setCachedData(cacheKey, data, ttl);
+  
+  return data;
+}

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getCachedData, setCachedData } from '@/utils/attendance/cacheManager';
 
 interface BuildersListProps {
   builders: Builder[];
@@ -16,6 +17,9 @@ interface BuildersListProps {
   onStartRegistration: (builder: Builder) => void;
   onClearSearch: () => void;
 }
+
+// In-memory cache for images
+const imageCache = new Map<string, string>();
 
 export const BuildersList = ({
   builders,
@@ -35,8 +39,24 @@ export const BuildersList = ({
       const images: {[key: string]: string} = {};
       const errors: {[key: string]: boolean} = {};
       
-      for (const builder of filteredBuilders) {
+      const fetchPromises = filteredBuilders.map(async (builder) => {
         try {
+          // Check memory cache first
+          if (imageCache.has(builder.id)) {
+            images[builder.id] = imageCache.get(builder.id)!;
+            return;
+          }
+          
+          // Check persisted cache next
+          const cacheKey = `builder_image_${builder.id}`;
+          const cachedImage = getCachedData<string>(cacheKey, 5 * 60 * 1000); // 5 minutes TTL
+          
+          if (cachedImage) {
+            images[builder.id] = cachedImage;
+            imageCache.set(builder.id, cachedImage);
+            return;
+          }
+          
           // Get the most recent image from the students table
           const { data, error } = await supabase
             .from('students')
@@ -46,7 +66,12 @@ export const BuildersList = ({
             
           if (!error && data?.image_url) {
             images[builder.id] = data.image_url;
-          } else if (error) {
+            imageCache.set(builder.id, data.image_url);
+            setCachedData(cacheKey, data.image_url);
+            return;
+          } 
+          
+          if (error) {
             console.error('Error fetching student image:', error);
             errors[builder.id] = true;
             
@@ -61,6 +86,8 @@ export const BuildersList = ({
               
             if (!faceError && faceData?.face_data) {
               images[builder.id] = faceData.face_data;
+              imageCache.set(builder.id, faceData.face_data);
+              setCachedData(cacheKey, faceData.face_data);
               errors[builder.id] = false;
             }
           }
@@ -68,12 +95,19 @@ export const BuildersList = ({
           console.error('Error fetching builder image:', error);
           errors[builder.id] = true;
         }
-      }
+      });
+      
+      // Wait for all fetch operations to complete
+      await Promise.all(fetchPromises);
+      
       setBuilderImages(images);
       setImageLoadErrors(errors);
     };
 
-    fetchBuilderImages();
+    // Use a 500ms debounce to avoid rapid re-fetching when filteredBuilders changes quickly
+    const debounceTimeout = setTimeout(fetchBuilderImages, 500);
+    
+    return () => clearTimeout(debounceTimeout);
   }, [filteredBuilders, registrationStatus]);
 
   const handleImageError = (builderId: string) => {

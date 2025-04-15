@@ -6,6 +6,7 @@ import { formatDate } from '@/utils/attendance/formatUtils';
 import { fetchAttendanceRecords, deleteAttendanceRecord } from '@/services/attendanceHistoryService';
 import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { toast } from 'sonner';
+import { throttledRequest } from '@/utils/request/throttle';
 
 export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -20,7 +21,12 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     try {
       console.log(`Loading attendance history with filters: date=${dateFilter}, status=${statusFilter}`);
       
-      const records = await fetchAttendanceRecords(dateFilter, onError);
+      // Use throttled request for records
+      const records = await throttledRequest(
+        `attendance_history_${dateFilter || 'all'}`,
+        () => fetchAttendanceRecords(dateFilter, onError),
+        60000 // 1 minute cache
+      );
       
       // Filter out April 11, 2025 records as they've been deleted from the database
       const filteredByDate = records.filter(record => record.date !== '2025-04-11');

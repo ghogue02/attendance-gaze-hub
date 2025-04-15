@@ -5,6 +5,7 @@ import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/at
 import { getCurrentDateString } from '@/utils/date/dateUtils';
 import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { trackRequest } from '@/utils/debugging/requestTracker';
+import { throttledRequest } from '@/utils/request/throttle';
 
 export const useHomeData = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
@@ -32,7 +33,12 @@ export const useHomeData = () => {
         console.log(`Home: Loading builders for date: ${today}`);
         trackRequest('Home', 'load-builders', today);
         
-        const data = await getAllBuilders(today);
+        // Use throttled request with a cache key
+        const data = await throttledRequest(
+          `home_builders_${today}`, 
+          () => getAllBuilders(today),
+          60000 // 1 minute cache
+        );
         
         // Check if component is still mounted before updating state
         if (!isMountedRef.current) return;
@@ -72,10 +78,7 @@ export const useHomeData = () => {
           trackRequest('Home', 'subscription-triggered');
           
           // Use the cached data if it's recent, otherwise clear cache
-          const cacheAge = Date.now() - (window.__attendanceCache?.timestamp || 0);
-          if (cacheAge > 60000) { // If cache is older than 1 minute
-            clearAttendanceCache(getCurrentDateString());
-          }
+          clearAttendanceCache(getCurrentDateString());
           
           // Debounce multiple update events
           if (!isLoadingRef.current) {

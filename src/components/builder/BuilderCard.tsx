@@ -1,24 +1,26 @@
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Builder, BuilderStatus, BuilderCardProps } from './types';
 import ExcuseDialog from './ExcuseDialog';
 import AttendanceHistoryDialog from './AttendanceHistoryDialog';
 import BuilderNotesDialog from './BuilderNotesDialog';
-import { Button } from '@/components/ui/button';
 import CardHeader from './CardHeader';
 import CardContent from './CardContent';
 import CardActions from './CardActions';
 
-const BuilderCard = ({ builder, onVerify, onDeleteRequest, attendanceStats }: BuilderCardProps) => {
+// Memoize BuilderCard to prevent unnecessary re-renders
+const BuilderCard = memo(({ builder, onVerify, onDeleteRequest, attendanceStats }: BuilderCardProps) => {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [excuseReason, setExcuseReason] = useState(builder.excuseReason || '');
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [builderData, setBuilderData] = useState<Builder>(builder);
   
-  // Log to help debug attendance issues
-  console.log(`[BuilderCard] Rendering ${builderData.name} with stats:`, attendanceStats);
+  // Log to help debug attendance issues (but only when really needed)
+  if (attendanceStats) {
+    console.log(`[BuilderCard] Rendering ${builderData.name} with stats:`, attendanceStats);
+  }
 
   const handleStatusChange = (status: Builder['status']) => {
     if (status === 'excused') {
@@ -79,28 +81,37 @@ const BuilderCard = ({ builder, onVerify, onDeleteRequest, attendanceStats }: Bu
         </div>
       </motion.div>
 
-      {/* Dialogs */}
-      <ExcuseDialog 
-        isOpen={isExcuseDialogOpen}
-        onClose={() => setIsExcuseDialogOpen(false)}
-        onSubmit={handleExcuseSubmit}
-        initialReason={excuseReason}
-      />
+      {/* Only render dialogs when they're open to reduce DOM nodes */}
+      {isExcuseDialogOpen && (
+        <ExcuseDialog 
+          isOpen={true}
+          onClose={() => setIsExcuseDialogOpen(false)}
+          onSubmit={handleExcuseSubmit}
+          initialReason={excuseReason}
+        />
+      )}
 
-      <AttendanceHistoryDialog 
-        isOpen={isHistoryDialogOpen}
-        onClose={() => setIsHistoryDialogOpen(false)}
-        builder={builderData}
-      />
+      {isHistoryDialogOpen && (
+        <AttendanceHistoryDialog 
+          isOpen={true}
+          onClose={() => setIsHistoryDialogOpen(false)}
+          builder={builderData}
+        />
+      )}
       
-      <BuilderNotesDialog
-        isOpen={isNotesDialogOpen}
-        onClose={() => setIsNotesDialogOpen(false)}
-        builder={builderData}
-        onNotesUpdated={handleNotesUpdated}
-      />
+      {isNotesDialogOpen && (
+        <BuilderNotesDialog
+          isOpen={true}
+          onClose={() => setIsNotesDialogOpen(false)}
+          builder={builderData}
+          onNotesUpdated={handleNotesUpdated}
+        />
+      )}
     </>
   );
-};
+});
+
+// Add display name to help with debugging
+BuilderCard.displayName = 'BuilderCard';
 
 export default BuilderCard;

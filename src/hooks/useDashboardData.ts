@@ -6,6 +6,7 @@ import { useAttendanceSubscriptions } from './useAttendanceSubscriptions';
 import { useBuilderFilters } from './useBuilderFilters';
 import { useAttendanceOperations } from './useAttendanceOperations';
 import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/attendance';
+import { throttledRequest } from '@/utils/request/throttle';
 
 export const useDashboardData = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
@@ -29,8 +30,12 @@ export const useDashboardData = () => {
     if (showLoadingSpinner) setIsLoading(true);
     
     try {
-      // Use our optimized batch query method
-      const data = await getAllBuilders(targetDateString);
+      // Use throttled request to avoid multiple identical requests
+      const data = await throttledRequest(
+        `builders_${targetDateString}`,
+        () => getAllBuilders(targetDateString),
+        60000 // 1 minute cache
+      );
       
       if (isMounted.current) {
         setBuilders(data);

@@ -11,6 +11,7 @@ export interface HeadshotData {
 
 // Cache keys and TTL values
 const CACHE_KEY = 'headshots_carousel_data_v2';
+const METADATA_CACHE_KEY = 'headshots_carousel_metadata';
 const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
 
 /**
@@ -19,9 +20,17 @@ const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
 export const getCachedHeadshots = (): { data: HeadshotData[], timestamp: number } | null => {
   try {
     const cachedData = localStorage.getItem(CACHE_KEY);
-    if (!cachedData) return null;
+    const cachedMetadata = localStorage.getItem(METADATA_CACHE_KEY);
     
-    return JSON.parse(cachedData);
+    if (!cachedData || !cachedMetadata) return null;
+    
+    const metadata = JSON.parse(cachedMetadata);
+    const headshots = JSON.parse(cachedData);
+    
+    return {
+      data: headshots,
+      timestamp: metadata.timestamp
+    };
   } catch (error) {
     console.error('Error reading headshots cache:', error);
     return null;
@@ -33,11 +42,23 @@ export const getCachedHeadshots = (): { data: HeadshotData[], timestamp: number 
  */
 export const setCachedHeadshots = (data: HeadshotData[]): void => {
   try {
-    const cacheObject = {
-      data,
-      timestamp: Date.now()
+    // Store metadata separately
+    const metadata = {
+      timestamp: Date.now(),
+      count: data.length
     };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheObject));
+    
+    localStorage.setItem(METADATA_CACHE_KEY, JSON.stringify(metadata));
+    
+    // Store the headshots data without base64 to reduce storage usage
+    const headshotsForStorage = data.map(item => ({
+      name: item.name,
+      url: item.url
+    }));
+    
+    localStorage.setItem(CACHE_KEY, JSON.stringify(headshotsForStorage));
+    
+    console.log(`Cached ${data.length} headshot references (without base64 data)`);
   } catch (error) {
     console.error('Error setting headshots cache:', error);
   }
@@ -47,13 +68,16 @@ export const setCachedHeadshots = (data: HeadshotData[]): void => {
  * Checks if cached headshot data is valid
  */
 export const isHeadshotCacheValid = (): boolean => {
-  const cache = getCachedHeadshots();
-  return !!(
-    cache &&
-    cache.data.length > 0 &&
-    cache.data[0].base64Data &&
-    Date.now() - cache.timestamp < CACHE_TTL
-  );
+  try {
+    const cachedMetadata = localStorage.getItem(METADATA_CACHE_KEY);
+    if (!cachedMetadata) return false;
+    
+    const metadata = JSON.parse(cachedMetadata);
+    return Date.now() - metadata.timestamp < CACHE_TTL;
+  } catch (error) {
+    console.error('Error checking headshot cache validity:', error);
+    return false;
+  }
 };
 
 /**
@@ -85,4 +109,5 @@ export const fetchImageAsBase64 = async (url: string): Promise<string> => {
  */
 export const clearHeadshotCache = (): void => {
   localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem(METADATA_CACHE_KEY);
 };

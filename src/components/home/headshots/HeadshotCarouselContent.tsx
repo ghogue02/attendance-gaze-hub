@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Carousel, 
@@ -14,6 +15,16 @@ interface HeadshotCarouselContentProps {
 }
 
 const HeadshotCarouselContent = ({ headshots }: HeadshotCarouselContentProps) => {
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+
+  // Track when images are successfully loaded
+  const handleImageLoad = (name: string) => {
+    setLoadedImages(prev => ({
+      ...prev,
+      [name]: true
+    }));
+  };
+
   return (
     <div className="glass-card p-6 rounded-lg shadow-sm">
       <h2 className="text-xl font-semibold mb-4 text-center">Builder Spotlights</h2>
@@ -32,9 +43,10 @@ const HeadshotCarouselContent = ({ headshots }: HeadshotCarouselContentProps) =>
               <div className="relative w-40 h-40 mx-auto mb-4">
                 <Avatar className="w-40 h-40 border-2 border-primary/10">
                   <AvatarImage 
-                    src={headshot.base64Data || headshot.url} 
+                    src={headshot.url} 
                     alt={headshot.name}
-                    className="object-cover" 
+                    className="object-cover"
+                    onLoad={() => handleImageLoad(headshot.name)}
                     onError={(e) => {
                       console.error(`Error loading image for ${headshot.name}`);
                       e.currentTarget.style.display = 'none';

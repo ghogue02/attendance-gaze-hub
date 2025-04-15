@@ -25,6 +25,8 @@ export const useHeadshots = () => {
         if (isHeadshotCacheValid()) {
           const cachedData = getCachedHeadshots();
           console.log(`Using cached headshots data (${cachedData?.data.length} items)`);
+          
+          // Process the cached URLs but load images on-demand instead of storing base64
           setHeadshots(cachedData?.data || []);
           setLoading(false);
           return;
@@ -101,22 +103,16 @@ export const useHeadshots = () => {
         const shuffledHeadshots = [...processedHeadshots].sort(() => Math.random() - 0.5);
         console.log(`Prepared ${shuffledHeadshots.length} headshots for carousel`);
         
-        // Fetch all images as base64 (in parallel with Promise.all)
-        const headshotsWithBase64 = await Promise.all(
-          shuffledHeadshots.map(async (headshot) => {
-            const base64Data = await fetchImageAsBase64(headshot.url);
-            return {
-              ...headshot,
-              base64Data
-            };
-          })
-        );
+        // Store metadata and URLs in cache (NOT the base64 data)
+        try {
+          setCachedHeadshots(shuffledHeadshots);
+        } catch (error) {
+          console.error('Error setting headshots cache:', error);
+          // Continue even if caching fails
+        }
         
-        // Store in cache for extended period
-        setCachedHeadshots(headshotsWithBase64);
-        
-        setHeadshots(headshotsWithBase64);
-        toast.success(`Loaded ${headshotsWithBase64.length} headshots`);
+        setHeadshots(shuffledHeadshots);
+        toast.success(`Loaded ${shuffledHeadshots.length} headshots`);
       } catch (error) {
         console.error('Error in headshots carousel:', error);
         setError('Failed to load headshots');

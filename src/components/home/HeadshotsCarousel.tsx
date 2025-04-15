@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -11,41 +12,13 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-
-interface HeadshotData {
-  name: string;
-  url: string;
-}
-
-// Create a module-level cache with extended expiration (1 year)
-const HEADSHOTS_CACHE_KEY = 'headshots_carousel_data_v1';
-const HEADSHOTS_CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
-
-// Utility to get cached headshots
-const getCachedHeadshots = (): { data: HeadshotData[], timestamp: number } | null => {
-  try {
-    const cachedData = localStorage.getItem(HEADSHOTS_CACHE_KEY);
-    if (!cachedData) return null;
-    
-    return JSON.parse(cachedData);
-  } catch (error) {
-    console.error('Error reading headshots cache:', error);
-    return null;
-  }
-};
-
-// Utility to cache headshots
-const setCachedHeadshots = (data: HeadshotData[]): void => {
-  try {
-    const cacheObject = {
-      data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(HEADSHOTS_CACHE_KEY, JSON.stringify(cacheObject));
-  } catch (error) {
-    console.error('Error setting headshots cache:', error);
-  }
-};
+import { 
+  HeadshotData,
+  getCachedHeadshots, 
+  setCachedHeadshots, 
+  isHeadshotCacheValid,
+  fetchImageAsBase64 
+} from '@/utils/headshots/headshotCache';
 
 const HeadshotsCarousel = () => {
   const [headshots, setHeadshots] = useState<HeadshotData[]>([]);
@@ -59,12 +32,10 @@ const HeadshotsCarousel = () => {
         setError(null);
         
         // Check for cached data first with extended TTL
-        const cachedHeadshots = getCachedHeadshots();
-        if (cachedHeadshots && 
-            cachedHeadshots.data.length > 0 && 
-            Date.now() - cachedHeadshots.timestamp < HEADSHOTS_CACHE_TTL) {
-          console.log(`Using cached headshots data (${cachedHeadshots.data.length} items)`);
-          setHeadshots(cachedHeadshots.data);
+        if (isHeadshotCacheValid()) {
+          const cachedData = getCachedHeadshots();
+          console.log(`Using cached headshots data (${cachedData?.data.length} items)`);
+          setHeadshots(cachedData?.data || []);
           setLoading(false);
           return;
         }
@@ -140,11 +111,22 @@ const HeadshotsCarousel = () => {
         const shuffledHeadshots = [...processedHeadshots].sort(() => Math.random() - 0.5);
         console.log(`Prepared ${shuffledHeadshots.length} headshots for carousel`);
         
-        // Store in cache for extended period
-        setCachedHeadshots(shuffledHeadshots);
+        // Fetch all images as base64 (in parallel with Promise.all)
+        const headshotsWithBase64 = await Promise.all(
+          shuffledHeadshots.map(async (headshot) => {
+            const base64Data = await fetchImageAsBase64(headshot.url);
+            return {
+              ...headshot,
+              base64Data
+            };
+          })
+        );
         
-        setHeadshots(shuffledHeadshots);
-        toast.success(`Loaded ${shuffledHeadshots.length} headshots`);
+        // Store in cache for extended period
+        setCachedHeadshots(headshotsWithBase64);
+        
+        setHeadshots(headshotsWithBase64);
+        toast.success(`Loaded ${headshotsWithBase64.length} headshots`);
       } catch (error) {
         console.error('Error in headshots carousel:', error);
         setError('Failed to load headshots');
@@ -156,7 +138,8 @@ const HeadshotsCarousel = () => {
     
     fetchHeadshots();
   }, []);
-  
+
+  // Loading state
   if (loading) {
     return (
       <div className="glass-card p-6 rounded-lg shadow-sm">
@@ -173,6 +156,7 @@ const HeadshotsCarousel = () => {
     );
   }
   
+  // Error state
   if (error || headshots.length === 0) {
     return (
       <div className="glass-card p-6 rounded-lg shadow-sm">
@@ -188,6 +172,7 @@ const HeadshotsCarousel = () => {
     );
   }
   
+  // Success state with carousel
   return (
     <div className="glass-card p-6 rounded-lg shadow-sm">
       <h2 className="text-xl font-semibold mb-4 text-center">Builder Spotlights</h2>
@@ -206,7 +191,7 @@ const HeadshotsCarousel = () => {
               <div className="relative w-40 h-40 mx-auto mb-4">
                 <Avatar className="w-40 h-40 border-2 border-primary/10">
                   <AvatarImage 
-                    src={headshot.url} 
+                    src={headshot.base64Data || headshot.url} 
                     alt={headshot.name}
                     className="object-cover" 
                     onError={(e) => {

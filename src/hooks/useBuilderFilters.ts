@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 
 interface FilterParams {
@@ -17,15 +17,14 @@ interface FilterReturn {
 
 /**
  * Hook to manage filtering of builders by search query and status
+ * Optimized with useMemo to prevent unnecessary recalculations
  */
 export const useBuilderFilters = ({ builders }: FilterParams): FilterReturn => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
-  const [filteredBuilders, setFilteredBuilders] = useState<Builder[]>([]);
-
-  // Effect for filtering
-  useEffect(() => {
-    console.log('[useBuilderFilters] Filtering effect running...');
+  
+  // Use useMemo to prevent unnecessary filtering on every render
+  const filteredBuilders = useMemo(() => {
     let results = [...builders];
     
     if (searchQuery) {
@@ -40,8 +39,7 @@ export const useBuilderFilters = ({ builders }: FilterParams): FilterReturn => {
       results = results.filter(builder => builder.status === statusFilter);
     }
     
-    console.log(`[useBuilderFilters] Setting filteredBuilders with ${results.length} builders.`);
-    setFilteredBuilders(results);
+    return results;
   }, [builders, searchQuery, statusFilter]);
 
   // Handler to clear filters

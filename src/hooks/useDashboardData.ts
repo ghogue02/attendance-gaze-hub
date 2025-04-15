@@ -13,20 +13,24 @@ export const useDashboardData = () => {
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isMounted = useRef(true);
+  const isInitialLoad = useRef(true);
   
   // Get the current date strings
   const currentDate = useMemo(() => getCurrentDateString(), []);
   const targetDateString = currentDate;
   const displayDateString = useMemo(() => getDisplayDateString(), []);
 
-  // Debug log the current date
-  logDateDebugInfo('useDashboardData', targetDateString);
+  // Debug log the current date only once
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      logDateDebugInfo('useDashboardData', targetDateString);
+      isInitialLoad.current = false;
+    }
+  }, [targetDateString]);
 
   // Function to load/refresh data for the target date
   const loadData = useCallback(async (showLoadingSpinner = true) => {
     if (!isMounted.current) return;
-    
-    console.log(`[useDashboardData] Executing loadData for date ${targetDateString} (showLoading: ${showLoadingSpinner})...`);
     
     if (showLoadingSpinner) setIsLoading(true);
     
@@ -40,15 +44,11 @@ export const useDashboardData = () => {
       
       if (isMounted.current) {
         setBuilders(data);
-        console.log(`[useDashboardData] setBuilders called with ${data.length} builders for ${targetDateString}.`);
-        console.log(`[useDashboardData] Present count: ${data.filter(b => b.status === 'present').length}`);
-        console.log(`[useDashboardData] Absent count: ${data.filter(b => b.status === 'absent').length}`);
-        console.log(`[useDashboardData] Pending count: ${data.filter(b => b.status === 'pending').length}`);
         
         // Preload user image data in batches to avoid individual requests
         const userImageData = data.map(builder => ({
           userId: builder.id,
-          imageUrl: '' // We'll fill this later when images are loaded
+          imageUrl: builder.image || '' // Use existing image if available
         }));
         
         // Preload student images from the batch
@@ -66,7 +66,6 @@ export const useDashboardData = () => {
   useAttendanceSubscriptions({
     targetDateString,
     onDataChange: () => {
-      console.log('[useDashboardData] Data change detected, invalidating cache');
       // Clear cache for target date
       clearAttendanceCache(targetDateString);
       // Reload in background without spinner
@@ -77,12 +76,10 @@ export const useDashboardData = () => {
   // Effect for initial load
   useEffect(() => {
     isMounted.current = true;
-    console.log('[useDashboardData] Component mounted. Initial load starting.');
     loadData(); // Initial load for the target date
     
     // Set up auto-refresh interval (every 5 minutes)
     const refreshInterval = setInterval(() => {
-      console.log('[useDashboardData] Auto-refresh triggered.');
       // Clear cache for current date on auto-refresh
       clearAttendanceCache(targetDateString);
       loadData(false); // Don't show loading spinner for auto refresh
@@ -117,7 +114,6 @@ export const useDashboardData = () => {
 
   // Function for manual refresh button
   const refreshData = useCallback(() => {
-    console.log('[useDashboardData] Manual refresh triggered.');
     // Clear cache on manual refresh
     clearAttendanceCache(targetDateString);
     loadData(true);

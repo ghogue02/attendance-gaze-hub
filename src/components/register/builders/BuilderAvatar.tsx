@@ -1,8 +1,7 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { toast } from 'sonner';
-import { isStudentImageInErrorCooldown, resetStudentImageErrorState, getCachedStudentImage } from '@/utils/cache/studentImageCache';
+import { isStudentImageInErrorCooldown, getCachedStudentImage } from '@/utils/cache/studentImageCache';
 
 interface BuilderAvatarProps {
   builderId: string;
@@ -12,7 +11,7 @@ interface BuilderAvatarProps {
   onImageError: (builderId: string) => void;
 }
 
-export const BuilderAvatar = ({
+export const BuilderAvatar = memo(({
   builderId,
   builderName,
   imageUrl,
@@ -37,13 +36,6 @@ export const BuilderAvatar = ({
       setCachedImage(cached);
     }
   }, [imageUrl, builderId]);
-  
-  // Reset error state when image URL changes
-  useEffect(() => {
-    if (imageUrl) {
-      setIsRetrying(false);
-    }
-  }, [imageUrl]);
 
   const handleImageError = () => {
     if (!isRetrying) {
@@ -77,6 +69,8 @@ export const BuilderAvatar = ({
       )}
     </Avatar>
   );
-};
+});
+
+BuilderAvatar.displayName = 'BuilderAvatar';
 
 export default BuilderAvatar;

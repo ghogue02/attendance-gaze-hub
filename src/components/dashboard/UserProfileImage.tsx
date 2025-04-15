@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { throttledRequest } from '@/utils/request/throttle';
@@ -20,19 +20,28 @@ interface UserProfileImageProps {
   className?: string;
 }
 
-export const UserProfileImage = ({ userId, userName, className = '' }: UserProfileImageProps) => {
+export const UserProfileImage = memo(({ userId, userName, className = '' }: UserProfileImageProps) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+  const hasAttemptedFetchRef = useRef(false);
 
   useEffect(() => {
     // Skip if we don't have a userId
     if (!userId) return;
     
+    // Set up cleanup for when component unmounts
+    isMountedRef.current = true;
+    
     const fetchImage = async () => {
+      // Prevent duplicate fetches within the same component lifecycle
+      if (hasAttemptedFetchRef.current) return;
+      hasAttemptedFetchRef.current = true;
+      
       try {
         // First check our global shared memory cache (fastest)
         const cached = imageCache.get(userId);
         if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-          setImageUrl(cached.url);
+          if (isMountedRef.current) setImageUrl(cached.url);
           return;
         }
 
@@ -40,12 +49,12 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
         const persistedImage = getCachedStudentImage(userId);
         if (persistedImage) {
           // Update our in-memory cache and state
-          setImageUrl(persistedImage);
+          if (isMountedRef.current) setImageUrl(persistedImage);
           imageCache.set(userId, {url: persistedImage, timestamp: Date.now()});
           return;
         }
         
-        // Prevent duplicate fetches for the same user ID
+        // Prevent duplicate fetches for the same user ID across components
         if (pendingFetches.has(userId)) {
           return;
         }
@@ -84,7 +93,7 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
           300000 // 5 minute cache for throttled requests
         );
         
-        if (data?.image_url) {
+        if (data?.image_url && isMountedRef.current) {
           setImageUrl(data.image_url);
         }
       } catch (error) {
@@ -96,6 +105,10 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
     };
     
     fetchImage();
+    
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [userId, userName]);
 
   // Fallback to first letter of name when no image
@@ -112,6 +125,8 @@ export const UserProfileImage = ({ userId, userName, className = '' }: UserProfi
       )}
     </Avatar>
   );
-};
+});
+
+UserProfileImage.displayName = 'UserProfileImage';
 
 export default UserProfileImage;

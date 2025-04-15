@@ -22,6 +22,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
   const [isLoading, setIsLoading] = useState(false);
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
+  const builderIdsRef = useRef<string[]>([]);
   const cacheRef = useRef<{
     builderIds: string[];
     rates: {[key: string]: number | null};
@@ -42,19 +43,27 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
     
     // Skip if we're already fetching
     if (isFetchingRef.current) {
-      DEBUG_LOGGING && console.log('[useBuilderAttendanceRates] Skipping fetch - already in progress');
       return;
     }
     
     // Extract builder IDs for comparison
-    const builderIds = builders.map(b => b.id).sort().join(',');
+    const builderIds = builders.map(b => b.id).sort();
+    const builderIdsStr = builderIds.join(',');
+    
+    // Skip if builder list hasn't changed
+    if (builderIdsStr === builderIdsRef.current.sort().join(',')) {
+      return;
+    }
+    
+    // Update current builder IDs for next comparison
+    builderIdsRef.current = [...builderIds];
     
     // Check if we have cached data for these exact builders
     if (
-      builderIds === cacheRef.current.builderIds.sort().join(',') &&
+      builderIdsStr === cacheRef.current.builderIds.sort().join(',') &&
       Date.now() - cacheRef.current.timestamp < CACHE_TTL
     ) {
-      DEBUG_LOGGING && console.log('[useBuilderAttendanceRates] Using cached attendance rates for this exact builder set');
+      if (DEBUG_LOGGING) console.log('[useBuilderAttendanceRates] Using cached attendance rates for this exact builder set');
       setBuilderAttendanceRates(cacheRef.current.rates);
       setBuilderAttendanceStats(cacheRef.current.stats);
       return;
@@ -63,14 +72,11 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
     // Check if we recently fetched (cache TTL)
     const now = Date.now();
     if (now - lastFetchTimeRef.current < CACHE_TTL) {
-      DEBUG_LOGGING && console.log('[useBuilderAttendanceRates] Using cached attendance data');
+      if (DEBUG_LOGGING) console.log('[useBuilderAttendanceRates] Using cached attendance data');
       return;
     }
     
     const fetchAttendanceRates = async () => {
-      // Extract builder IDs for the query filter
-      const builderIds = builders.map(b => b.id);
-      
       // If no builders, return early
       if (builderIds.length === 0) return;
       
@@ -78,10 +84,7 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
       isFetchingRef.current = true;
       
       try {
-        DEBUG_LOGGING && console.log(`[useBuilderAttendanceRates] Fetching ALL attendance records for ${builders.length} builders in a SINGLE batch query`);
-        
         // Use a single consolidated query to get ALL attendance records for all builders
-        // This avoids making individual requests for each builder
         const { data: allAttendanceRecords, error } = await supabase
           .from('attendance')
           .select('student_id, status, date')
@@ -96,9 +99,6 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           return;
         }
 
-        const recordCount = allAttendanceRecords?.length || 0;
-        DEBUG_LOGGING && console.log(`[useBuilderAttendanceRates] Successfully fetched ${recordCount} total attendance records for ${builders.length} builders`);
-        
         // Group records by student_id for efficient processing
         const recordsByStudent = allAttendanceRecords?.reduce((acc, record) => {
           if (!acc[record.student_id]) {

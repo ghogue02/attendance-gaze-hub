@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { BuilderStatus, Builder } from "@/components/builder/types";
 import { Search } from "lucide-react";
+import { memo } from "react";
 
 interface BuilderFiltersProps {
   searchQuery: string;
@@ -21,7 +22,8 @@ interface BuilderFiltersProps {
 
 // Export the sortBuilders function to use in other components
 export const sortBuilders = (builders: Builder[], sortOption: string, attendanceStats?: {[key: string]: any}): Builder[] => {
-  console.log(`Sorting builders with option: ${sortOption}`);
+  // Skip redundant sorting if there are no builders
+  if (!builders.length) return builders;
   
   return [...builders].sort((a, b) => {
     switch (sortOption) {
@@ -33,13 +35,11 @@ export const sortBuilders = (builders: Builder[], sortOption: string, attendance
         // Get attendance rates from the provided stats object if available
         const rateA = attendanceStats?.[a.id]?.rate ?? 0;
         const rateB = attendanceStats?.[b.id]?.rate ?? 0;
-        console.log(`Sorting ${a.name}(${rateA}) vs ${b.name}(${rateB}) by attendance high-low`);
         return rateB - rateA;
       case 'attendance-desc':
         // Sort by attendance rate low to high
         const rateC = attendanceStats?.[a.id]?.rate ?? 0;
         const rateD = attendanceStats?.[b.id]?.rate ?? 0;
-        console.log(`Sorting ${a.name}(${rateC}) vs ${b.name}(${rateD}) by attendance low-high`);
         return rateC - rateD;
       default:
         return 0;
@@ -47,7 +47,8 @@ export const sortBuilders = (builders: Builder[], sortOption: string, attendance
   });
 };
 
-const BuilderFilters = ({
+// Memoize the component to prevent unnecessary re-renders
+const BuilderFilters = memo(({
   searchQuery,
   setSearchQuery,
   statusFilter,
@@ -101,6 +102,8 @@ const BuilderFilters = ({
       </Select>
     </div>
   );
-};
+});
+
+BuilderFilters.displayName = 'BuilderFilters';
 
 export default BuilderFilters;

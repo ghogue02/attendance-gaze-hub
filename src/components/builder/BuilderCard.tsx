@@ -17,9 +17,10 @@ const BuilderCard = memo(({ builder, onVerify, onDeleteRequest, attendanceStats 
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [builderData, setBuilderData] = useState<Builder>(builder);
   
-  // Log to help debug attendance issues (but only when really needed)
-  if (attendanceStats) {
-    console.log(`[BuilderCard] Rendering ${builderData.name} with stats:`, attendanceStats);
+  // Only log when in development environment
+  if (process.env.NODE_ENV === 'development' && attendanceStats) {
+    // Suppressing these logs to reduce console noise
+    // console.log(`[BuilderCard] Rendering ${builderData.name} with stats:`, attendanceStats);
   }
 
   const handleStatusChange = (status: Builder['status']) => {

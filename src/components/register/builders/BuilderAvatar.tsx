@@ -1,7 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
+import { isStudentImageInErrorCooldown, resetStudentImageErrorState } from '@/utils/cache/studentImageCache';
 
 interface BuilderAvatarProps {
   builderId: string;
@@ -18,18 +19,43 @@ export const BuilderAvatar = ({
   hasLoadError,
   onImageError
 }: BuilderAvatarProps) => {
+  const [isRetrying, setIsRetrying] = useState(false);
+  
+  // Reset error state when image URL changes
+  useEffect(() => {
+    if (imageUrl) {
+      setIsRetrying(false);
+    }
+  }, [imageUrl]);
+
+  const handleImageError = () => {
+    if (!isRetrying) {
+      onImageError(builderId);
+    }
+  };
+
+  // Generate initials for fallback
+  const initials = builderName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase();
+
+  const inErrorCooldown = hasLoadError || isStudentImageInErrorCooldown(builderId);
+  const shouldShowImage = imageUrl && !inErrorCooldown;
+  
   return (
     <Avatar className="h-16 w-16 border-2 border-white/20">
-      {imageUrl && !hasLoadError ? (
+      {shouldShowImage ? (
         <AvatarImage 
           src={imageUrl} 
           alt={builderName} 
           className="object-cover"
-          onError={() => onImageError(builderId)}
+          onError={handleImageError}
         />
       ) : (
-        <AvatarFallback className="text-lg">
-          {builderName.split(' ').map(n => n[0]).join('')}
+        <AvatarFallback className="text-lg bg-primary/10 text-primary">
+          {initials}
         </AvatarFallback>
       )}
     </Avatar>

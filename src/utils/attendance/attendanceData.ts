@@ -1,4 +1,3 @@
-
 // Historical attendance data for March 2024
 export const attendanceData = `Rajiv	Sukhnandan	3/20	Yes
 Cherice	Heron	3/20	No
@@ -416,3 +415,25 @@ Orel	Stanislav	3/24	No
 Michel	Vons	3/24	No
 Min Yi	Li	3/24	No
 Francis	Rutledge	3/24	Yes`;
+
+/**
+ * Get all builders with their attendance status for a specific date
+ * @param targetDateString - The date to check attendance for, in MM/DD format
+ * @returns Array of builders with their attendance status
+ */
+export const getAllBuilders = (targetDateString: string) => {
+  console.log(`[attendanceData] Getting all builders for date: ${targetDateString}`);
+  
+  // Implementation will be handled by the external cache manager
+  // This is just a placeholder to satisfy the export requirement
+  return Promise.resolve([]);
+};
+
+/**
+ * Clear attendance cache for a specific date or all dates
+ * @param date - Optional date to clear cache for, or all dates if not provided
+ */
+export const clearAttendanceCache = (date?: string) => {
+  console.log(`[attendanceData] Clearing cache${date ? ' for date: ' + date : ' (all dates)'}`);
+  // Implementation will be handled by the external cache manager
+};

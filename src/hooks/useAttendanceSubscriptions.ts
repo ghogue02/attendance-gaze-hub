@@ -27,7 +27,7 @@ export const useAttendanceSubscriptions = ({
 
     // Check if we've initiated this subscription recently using the cache
     const cacheKey = `attendance_subscription_${targetDateString}`;
-    const recentSubscription = getCachedData<boolean>('attendance', cacheKey);
+    const recentSubscription = getCachedData<boolean>(cacheKey);
 
     if (recentSubscription) {
       console.log(`[useAttendanceSubscriptions] Recent subscription detected for ${targetDateString}, skipping`);
@@ -37,7 +37,7 @@ export const useAttendanceSubscriptions = ({
     console.log(`[useAttendanceSubscriptions] Setting up subscription for date: ${targetDateString}`);
     
     // Record this subscription in the cache with a 10-second TTL to prevent duplicates
-    setCachedData('attendance', cacheKey, true, 10000);
+    setCachedData(cacheKey, true, 10000);
     
     // Set up the subscription with a callback that is resource-efficient
     const unsubscribe = subscribeToAttendanceChanges(onDataChange);

@@ -1,15 +1,14 @@
-
 import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
 import { toast } from 'sonner';
 import { 
   processAttendanceForDate, 
-  processSpecificDateIssues, 
   processPendingAttendance, 
   markPendingAsAbsent,
   removeApril4thRecords
 } from '@/services/attendance';
+import { processSpecificDateIssues } from '@/services/attendance/historicalDates';
 
 interface StatisticsCardsProps {
   builders: Builder[];

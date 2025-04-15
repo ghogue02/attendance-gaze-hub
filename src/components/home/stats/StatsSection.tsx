@@ -5,12 +5,12 @@ import { StatCard } from './';
 import { 
   markPendingAsAbsent, 
   processAttendanceForDate, 
-  subscribeToAttendanceChanges, 
   fetchStats,
-  processSpecificDateIssues,
   processPendingAttendance,
-  clearAutomatedNotesForPresentStudents
+  clearAutomatedNotesForPresentStudents 
 } from '@/services/attendance';
+import { processSpecificDateIssues } from '@/services/attendance/historicalDates';
+import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 
 export const StatsSection = () => {
   const [stats, setStats] = useState({

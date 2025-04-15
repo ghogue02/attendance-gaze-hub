@@ -4,7 +4,7 @@ import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
 import { formatDate } from '@/utils/attendance/formatUtils';
 import { fetchAttendanceRecords, deleteAttendanceRecord } from '@/services/attendanceHistoryService';
-import { subscribeToAttendanceChanges } from '@/services/attendance';
+import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { toast } from 'sonner';
 
 export const useAttendanceHistory = (onError: (message: string) => void) => {

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { throttledRequest } from '@/utils/request/throttle';
@@ -105,7 +104,7 @@ export const batchMarkAttendance = async (
         .from('attendance')
         .select('id, student_id, status, notes')
         .eq('date', date)
-        .in('student_id', dateRecords.map(r => r.student_id));
+        .in('student_id', dateRecords.map(r => r.studentId));
 
       if (fetchError) {
         console.error('Error fetching existing attendance records:', fetchError);

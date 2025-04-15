@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -18,24 +17,17 @@ interface HeadshotData {
   url: string;
 }
 
-// Create a module-level cache with expiration
-const HEADSHOTS_CACHE_KEY = 'headshots_carousel_data';
-const HEADSHOTS_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+// Create a module-level cache with extended expiration (1 year)
+const HEADSHOTS_CACHE_KEY = 'headshots_carousel_data_v1';
+const HEADSHOTS_CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
 
 // Utility to get cached headshots
-const getCachedHeadshots = (): HeadshotData[] | null => {
+const getCachedHeadshots = (): { data: HeadshotData[], timestamp: number } | null => {
   try {
     const cachedData = localStorage.getItem(HEADSHOTS_CACHE_KEY);
     if (!cachedData) return null;
     
-    const { data, timestamp } = JSON.parse(cachedData);
-    
-    // Check if cache is still valid
-    if (Date.now() - timestamp < HEADSHOTS_CACHE_TTL) {
-      return data;
-    }
-    
-    return null;
+    return JSON.parse(cachedData);
   } catch (error) {
     console.error('Error reading headshots cache:', error);
     return null;
@@ -66,16 +58,18 @@ const HeadshotsCarousel = () => {
         setLoading(true);
         setError(null);
         
-        // Check for cached data first
+        // Check for cached data first with extended TTL
         const cachedHeadshots = getCachedHeadshots();
-        if (cachedHeadshots && cachedHeadshots.length > 0) {
-          console.log(`Using cached headshots data (${cachedHeadshots.length} items)`);
-          setHeadshots(cachedHeadshots);
+        if (cachedHeadshots && 
+            cachedHeadshots.data.length > 0 && 
+            Date.now() - cachedHeadshots.timestamp < HEADSHOTS_CACHE_TTL) {
+          console.log(`Using cached headshots data (${cachedHeadshots.data.length} items)`);
+          setHeadshots(cachedHeadshots.data);
           setLoading(false);
           return;
         }
         
-        console.log('No valid cache found, fetching headshots from storage...');
+        console.log('No valid cache found or cache expired, fetching headshots from storage...');
         
         // List all files in the headshots bucket once
         const { data: files, error: listError } = await supabase
@@ -119,11 +113,10 @@ const HeadshotsCarousel = () => {
         
         console.log(`Found ${imageFiles.length} image files after filtering.`);
         
-        // Instead of making separate getPublicUrl calls for each file,
-        // we'll construct the URLs directly since we know the bucket is public
+        // Base URL for headshots bucket
         const baseUrl = 'https://emswwbojtxipisaqfmrk.supabase.co/storage/v1/object/public/headshots/';
         
-        // Process headshots in a more efficient way
+        // Process headshots 
         const processedHeadshots: HeadshotData[] = imageFiles.map(file => {
           // Extract builder name from filename (removing extension)
           const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
@@ -131,8 +124,6 @@ const HeadshotsCarousel = () => {
           // Construct URL with proper encoding for spaces and special characters
           const encodedFileName = encodeURIComponent(file.name);
           const url = `${baseUrl}${encodedFileName}`;
-          
-          console.log(`Generated URL for ${name}: ${url}`);
           
           return { name, url };
         });
@@ -149,7 +140,7 @@ const HeadshotsCarousel = () => {
         const shuffledHeadshots = [...processedHeadshots].sort(() => Math.random() - 0.5);
         console.log(`Prepared ${shuffledHeadshots.length} headshots for carousel`);
         
-        // Store in cache for future use
+        // Store in cache for extended period
         setCachedHeadshots(shuffledHeadshots);
         
         setHeadshots(shuffledHeadshots);
@@ -164,22 +155,6 @@ const HeadshotsCarousel = () => {
     };
     
     fetchHeadshots();
-    
-    // Add cache invalidation listener (e.g., when a new headshot is uploaded)
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === HEADSHOTS_CACHE_KEY) {
-        console.log('Headshots cache updated in another tab, refreshing data');
-        const newCache = getCachedHeadshots();
-        if (newCache) {
-          setHeadshots(newCache);
-        }
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
   }, []);
   
   if (loading) {

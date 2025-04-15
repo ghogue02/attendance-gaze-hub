@@ -1,31 +1,32 @@
 
-import { useState, useCallback } from 'react';
-import { clearAutomatedNotesForPresentStudents } from '@/services/attendance';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { clearAutomatedNotesForPresentStudents } from '@/services/attendance/automatedNotes';
 
 export const useAttendanceClearNotes = (
   onError: (message: string) => void,
   refreshData: () => void
 ) => {
   const [isClearing, setIsClearing] = useState(false);
-  
-  const handleClearAutomatedNotes = useCallback(async () => {
-    setIsClearing(true);
+
+  const handleClearAutomatedNotes = async () => {
     try {
-      const result = await clearAutomatedNotesForPresentStudents();
-      if (result > 0) {
-        toast.success(`Cleared automated notes for ${result} students`);
+      setIsClearing(true);
+      const clearedCount = await clearAutomatedNotesForPresentStudents();
+      
+      if (clearedCount > 0) {
+        toast.success(`Cleared automated notes for ${clearedCount} records`);
         refreshData();
       } else {
-        toast.info('No automated notes needed to be cleared');
+        toast.info('No automated notes found that needed clearing');
       }
-    } catch (e) {
-      console.error('Error clearing automated notes:', e);
+    } catch (error) {
+      console.error('Error clearing automated notes:', error);
       onError('Failed to clear automated notes');
     } finally {
       setIsClearing(false);
     }
-  }, [refreshData, onError]);
+  };
 
   return {
     isClearing,

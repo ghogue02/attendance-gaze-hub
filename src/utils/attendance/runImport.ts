@@ -1,17 +1,21 @@
-// Update import to use the correct exported member
+
 import { clearAttendanceCache } from './attendanceData';
 import { getAllBuilders } from './attendanceData';
 
-async function runImport() {
-  // Example: Clear cache for a specific date
-  clearAttendanceCache('2024-01-01');
+export async function runAttendanceImport() {
+  try {
+    // Clear cache for current date
+    clearAttendanceCache();
 
-  // Example: Clear all attendance cache
-  clearAttendanceCache();
+    // Fetch all builders for current date
+    const builders = await getAllBuilders(new Date().toISOString().split('T')[0]);
+    console.log('Imported builders:', builders);
 
-  // Example: Fetch all builders for a specific date
-  const builders = await getAllBuilders('2024-01-01');
-  console.log('Builders:', builders);
+    // Return true to indicate successful import
+    return true;
+  } catch (error) {
+    console.error('Error during attendance import:', error);
+    // Return false to indicate import failure
+    return false;
+  }
 }
-
-runImport();

@@ -3,7 +3,7 @@
  * Utility functions for handling dates in the application
  */
 import { format, parseISO } from 'date-fns';
-import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 // Eastern timezone identifier
 export const TIMEZONE = 'America/New_York';
@@ -13,7 +13,7 @@ export const TIMEZONE = 'America/New_York';
  */
 export const getCurrentDateString = (): string => {
   const now = new Date();
-  const easternTime = utcToZonedTime(now, TIMEZONE);
+  const easternTime = toZonedTime(now, TIMEZONE);
   return formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd');
 };
 
@@ -30,7 +30,7 @@ export const getDisplayDateString = (): string => {
  */
 export const logDateDebugInfo = (context: string, dateString: string): void => {
   const now = new Date();
-  const easternTime = utcToZonedTime(now, TIMEZONE);
+  const easternTime = toZonedTime(now, TIMEZONE);
   console.log(`[${context}] Current date string: ${dateString}`);
   console.log(`[${context}] Current time in UTC: ${now.toISOString()}`);
   console.log(`[${context}] Current time in Eastern: ${formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd HH:mm:ss z')}`);
@@ -40,7 +40,7 @@ export const logDateDebugInfo = (context: string, dateString: string): void => {
  * Parse a date string as Eastern Time
  */
 export const parseAsEastern = (dateStr: string): Date => {
-  return utcToZonedTime(new Date(`${dateStr}T00:00:00`), TIMEZONE);
+  return toZonedTime(new Date(`${dateStr}T00:00:00`), TIMEZONE);
 };
 
 /**
@@ -70,7 +70,7 @@ export const formatISOTimeToEastern = (isoString: string): string => {
  * - Weekdays (Mon-Thu): Starting at 6:30 PM EDT onwards
  */
 export const isLateArrivalEastern = (dateTime: Date): boolean => {
-  const easternTime = utcToZonedTime(dateTime, TIMEZONE);
+  const easternTime = toZonedTime(dateTime, TIMEZONE);
   const dayOfWeek = easternTime.getDay();
   const hours = easternTime.getHours();
   const minutes = easternTime.getMinutes();

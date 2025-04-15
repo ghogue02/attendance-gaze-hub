@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { processHistoricalAttendance } from '@/utils/attendance/markAttendance';
+import { processHistoricalAttendance } from '@/utils/attendance/processing/historicalProcessor';
 
 interface HistoricalProcessDialogProps {
   open: boolean;

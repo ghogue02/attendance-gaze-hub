@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
-import { utcToZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { TIMEZONE } from '@/utils/date/dateUtils';
 
 /**
@@ -27,7 +27,7 @@ export const markAttendance = async (
   try {
     // Use the provided date or default to today's date in Eastern timezone
     const now = new Date();
-    const easternNow = utcToZonedTime(now, TIMEZONE);
+    const easternNow = toZonedTime(now, TIMEZONE);
     const targetDate = dateString || formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd');
     
     console.log(`[markAttendance] Setting attendance for student ${studentId} on date ${targetDate} with status ${status}`);
@@ -99,3 +99,6 @@ export const markAttendance = async (
     return false;
   }
 };
+
+// Export the processHistoricalAttendance function from the correct module
+export { processHistoricalAttendance } from '@/utils/attendance/processing/historicalProcessor';

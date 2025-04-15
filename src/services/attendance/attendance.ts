@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { throttledRequest } from '@/utils/request/throttle';
-import { utcToZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { TIMEZONE } from '@/utils/date/dateUtils';
 
 // Mark attendance for a specific student
@@ -29,7 +29,7 @@ export const markAttendance = async (
     
     // Get current timestamp in Eastern Time
     const now = new Date();
-    const easternTime = utcToZonedTime(now, TIMEZONE);
+    const easternTime = toZonedTime(now, TIMEZONE);
     const easternTimeISO = now.toISOString();
     
     console.log(`Marking attendance for student ${studentId} on ${date} at ${formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd HH:mm:ss z')}`);

@@ -1,154 +1,130 @@
 
 /**
- * Attendance Cache Manager
- * 
- * This utility provides centralized management of attendance data caching
- * to reduce database requests and improve application performance.
+ * A simple client-side cache manager for attendance data
+ * Enhanced with longer TTL and storage efficiency
  */
 
-// Global cache storage
-const cache = {
-  // Data storage by type and key
-  data: new Map<string, Map<string, any>>(),
-  
-  // Cache entry timestamps
-  timestamps: new Map<string, Map<string, number>>(),
-  
-  // Default TTL values by cache type (in milliseconds)
-  ttl: {
-    attendance: 5 * 60 * 1000,       // 5 minutes
-    builders: 10 * 60 * 1000,        // 10 minutes
-    history: 15 * 60 * 1000,         // 15 minutes
-    statistics: 20 * 60 * 1000,      // 20 minutes
-  }
-};
+// Extended to 15 minutes (was lower before)
+const DEFAULT_TTL = 15 * 60 * 1000;
 
-// Initialize cache storage for different data types
-['attendance', 'builders', 'history', 'statistics'].forEach(type => {
-  if (!cache.data.has(type)) {
-    cache.data.set(type, new Map());
-    cache.timestamps.set(type, new Map());
-  }
-});
+// Cache for general data
+const dataCache = new Map<string, {
+  data: any;
+  timestamp: number;
+  ttl: number;
+}>();
+
+// In-flight request tracker
+const pendingRequests = new Map<string, Promise<any>>();
 
 /**
- * Get data from cache if available and not expired
- * @param type Cache type (attendance, builders, etc.)
- * @param key Cache key (usually a date or ID)
- * @returns Cached data or null if not found/expired
+ * Store data in the cache with an optional TTL
  */
-export const getCachedData = <T>(type: string, key: string): T | null => {
-  const typeCache = cache.data.get(type);
-  const timestampCache = cache.timestamps.get(type);
-  const ttl = cache.ttl[type as keyof typeof cache.ttl] || 5 * 60 * 1000; // Default 5 minutes
-  
-  if (!typeCache || !timestampCache) return null;
-  
-  const data = typeCache.get(key);
-  const timestamp = timestampCache.get(key) || 0;
-  
-  if (data && Date.now() - timestamp < ttl) {
-    console.log(`[CacheManager] Cache hit for ${type}:${key}`);
-    return data as T;
-  }
-  
-  console.log(`[CacheManager] Cache miss for ${type}:${key}`);
-  return null;
+export const setCachedData = <T>(key: string, data: T, ttl: number = DEFAULT_TTL): void => {
+  dataCache.set(key, {
+    data,
+    timestamp: Date.now(),
+    ttl
+  });
 };
 
 /**
- * Store data in cache with specified TTL
- * @param type Cache type (attendance, builders, etc.) 
- * @param key Cache key (usually a date or ID)
- * @param data Data to cache
- * @param customTTL Optional custom TTL in milliseconds
+ * Get data from the cache if it exists and hasn't expired
  */
-export const setCachedData = <T>(type: string, key: string, data: T, customTTL?: number): void => {
-  let typeCache = cache.data.get(type);
-  let timestampCache = cache.timestamps.get(type);
+export const getCachedData = <T>(key: string): T | null => {
+  const cachedItem = dataCache.get(key);
   
-  // Initialize cache maps if not exists
-  if (!typeCache) {
-    typeCache = new Map();
-    cache.data.set(type, typeCache);
+  if (!cachedItem) {
+    return null;
   }
   
-  if (!timestampCache) {
-    timestampCache = new Map();
-    cache.timestamps.set(type, timestampCache);
-  }
-  
-  // Store data and timestamp
-  typeCache.set(key, data);
-  timestampCache.set(key, Date.now());
-  
-  console.log(`[CacheManager] Cached data for ${type}:${key}`);
-  
-  // If customTTL is provided, we can override the default TTL for this specific entry
-  if (customTTL !== undefined) {
-    const ttlObject = cache.ttl as Record<string, number>;
-    ttlObject[`${type}:${key}`] = customTTL;
-  }
-};
-
-/**
- * Clear cache entries by type and optional key
- * @param type Cache type to clear (attendance, builders, etc.)
- * @param key Optional specific key to clear
- */
-export const clearCache = (type: string, key?: string): void => {
-  const typeCache = cache.data.get(type);
-  const timestampCache = cache.timestamps.get(type);
-  
-  if (!typeCache || !timestampCache) return;
-  
-  if (key) {
-    // Clear specific key
-    typeCache.delete(key);
-    timestampCache.delete(key);
-    console.log(`[CacheManager] Cleared ${type}:${key} from cache`);
-  } else {
-    // Clear all entries of this type
-    typeCache.clear();
-    timestampCache.clear();
-    console.log(`[CacheManager] Cleared all ${type} cache entries`);
-  }
-};
-
-/**
- * Clear all cache data
- */
-export const clearAllCache = (): void => {
-  cache.data.forEach((typeCache) => typeCache.clear());
-  cache.timestamps.forEach((timestampCache) => timestampCache.clear());
-  console.log('[CacheManager] Cleared all cache data');
-};
-
-/**
- * Get cache statistics
- * @returns Object with cache statistics
- */
-export const getCacheStats = (): Record<string, { entries: number, avgAge: number }> => {
-  const stats: Record<string, { entries: number, avgAge: number }> = {};
   const now = Date.now();
+  if (now - cachedItem.timestamp > cachedItem.ttl) {
+    // Data has expired, remove it
+    dataCache.delete(key);
+    return null;
+  }
   
-  cache.data.forEach((typeCache, type) => {
-    const timestamps = cache.timestamps.get(type) || new Map();
-    const ages: number[] = [];
-    
-    timestamps.forEach((timestamp) => {
-      ages.push(now - timestamp);
-    });
-    
-    const avgAge = ages.length > 0 ? 
-      ages.reduce((sum, age) => sum + age, 0) / ages.length :
-      0;
-    
-    stats[type] = {
-      entries: typeCache.size,
-      avgAge
-    };
+  return cachedItem.data as T;
+};
+
+/**
+ * Clear a specific item from the cache
+ */
+export const clearCachedData = (key: string): void => {
+  dataCache.delete(key);
+};
+
+/**
+ * Clear all cached data
+ */
+export const clearAllCachedData = (): void => {
+  dataCache.clear();
+};
+
+/**
+ * Register an in-flight request to prevent duplicate API calls
+ */
+export const registerPendingRequest = <T>(key: string, promise: Promise<T>): Promise<T> => {
+  pendingRequests.set(key, promise);
+  
+  // Auto-cleanup when the promise resolves or rejects
+  promise.finally(() => {
+    if (pendingRequests.get(key) === promise) {
+      pendingRequests.delete(key);
+    }
   });
   
-  return stats;
+  return promise;
 };
+
+/**
+ * Check if a request is already in flight
+ */
+export const getPendingRequest = <T>(key: string): Promise<T> | undefined => {
+  return pendingRequests.get(key) as Promise<T> | undefined;
+};
+
+/**
+ * Cache-first data fetcher that prevents duplicate API calls
+ * @param cacheKey - Key to use for caching
+ * @param fetchFunction - Function that returns a Promise with the data
+ * @param ttl - Time to live in milliseconds
+ */
+export const cachedFetch = async <T>(
+  cacheKey: string, 
+  fetchFunction: () => Promise<T>,
+  ttl: number = DEFAULT_TTL
+): Promise<T> => {
+  // First check cache
+  const cachedData = getCachedData<T>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+  
+  // Then check for pending requests
+  const pendingRequest = getPendingRequest<T>(cacheKey);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+  
+  // If not cached or pending, make a new request
+  const promise = fetchFunction().then(result => {
+    setCachedData(cacheKey, result, ttl);
+    return result;
+  });
+  
+  // Register this promise to prevent duplicate calls
+  return registerPendingRequest(cacheKey, promise);
+};
+
+// Periodically clean up expired cache entries to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  
+  for (const [key, item] of dataCache.entries()) {
+    if (now - item.timestamp > item.ttl) {
+      dataCache.delete(key);
+    }
+  }
+}, 60000); // Run every minute

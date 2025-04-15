@@ -57,11 +57,11 @@ export function useCamera({
   const startCamera = useCallback(() => {
     const now = Date.now();
     
-    // Don't allow more than 3 activation attempts per second
+    // Don't allow more than 2 activation attempts per second (reduced from 3)
     if (now - lastActivationAttemptRef.current < 1000) {
       activationAttemptCountRef.current += 1;
       
-      if (activationAttemptCountRef.current > 3) {
+      if (activationAttemptCountRef.current > 2) {
         console.warn("Too many camera activation attempts in short succession, throttling");
         return Promise.resolve();
       }
@@ -88,7 +88,7 @@ export function useCamera({
       .finally(() => {
         setTimeout(() => {
           startInProgressRef.current = false;
-        }, 500); // Add delay to prevent rapid consecutive attempts
+        }, 1000); // Increased delay to prevent rapid consecutive attempts
       });
   }, [startCameraBase, videoConstraints, stream, videoRef, isCapturing]);
 
@@ -122,7 +122,7 @@ export function useCamera({
       // Add small delay to prevent rapid initialization attempts
       const timer = setTimeout(() => {
         startCamera();
-      }, 100);
+      }, 300); // Increased delay to 300ms
       
       return () => clearTimeout(timer);
     } else {
@@ -136,7 +136,7 @@ export function useCamera({
     
     const intervalId = setInterval(() => {
       checkCameraHealth();
-    }, 15000); // Reduced frequency from 10s to 15s
+    }, 30000); // Reduced frequency from 15s to 30s
     
     return () => clearInterval(intervalId);
   }, [isCameraActive, checkCameraHealth]);

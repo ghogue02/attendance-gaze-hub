@@ -117,7 +117,7 @@ export function useCameraStart({
       if (retryCount < maxRetries) {
         const newRetryCount = retryCount + 1;
         setRetryCount(newRetryCount);
-        const delay = 2000 * Math.pow(2, newRetryCount); // Increased exponential backoff
+        const delay = 3000 * Math.pow(2, newRetryCount); // Increased exponential backoff
         console.log(`Retrying camera initialization in ${delay/1000} seconds (attempt ${newRetryCount} of ${maxRetries})...`);
         
         // Prevent new start attempts during the retry delay

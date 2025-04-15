@@ -10,8 +10,8 @@ const DEBUG_LOGGING = false;
 let attendanceChannel: RealtimeChannel | null = null;
 let lastCallbackTime = 0;
 
-// Significantly increased debounce time to reduce database load
-const DEBOUNCE_INTERVAL = 180000; // 3 minutes between callbacks (increased from 1 minute)
+// Drastically increased debounce time to reduce database load
+const DEBOUNCE_INTERVAL = 300000; // 5 minutes between callbacks (increased from 3 minutes)
 const callbackRegistry = new Set<() => void>();
 
 // Track if we're already in a callback execution cycle
@@ -19,6 +19,8 @@ let executingCallbacks = false;
 
 // Track subscription status to avoid duplicate subscriptions
 let isSubscribing = false;
+let lastSubscriptionFailure = 0;
+const SUBSCRIPTION_RETRY_DELAY = 60000; // 1 minute between subscription attempts
 
 export const subscribeToAttendanceChanges = (callback: () => void) => {
   trackRequest('subscribeToAttendanceChanges', 'create-subscription');
@@ -38,8 +40,10 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   }
 
   // Prevent multiple subscription attempts happening simultaneously
-  if (isSubscribing) {
-    DEBUG_LOGGING && console.log('Subscription already in progress, waiting...');
+  // Also prevent frequent reconnection attempts if they fail
+  const now = Date.now();
+  if (isSubscribing || (now - lastSubscriptionFailure < SUBSCRIPTION_RETRY_DELAY)) {
+    DEBUG_LOGGING && console.log('Subscription already in progress or recently failed, waiting...');
     return createUnsubscribeFunction(callback);
   }
 
@@ -102,25 +106,22 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
       )
       .subscribe((status) => {
         isSubscribing = false;
+        
         if (status === 'SUBSCRIBED') {
           DEBUG_LOGGING && console.log('Successfully subscribed to attendance changes.');
         } else {
           console.warn('Subscription status:', status);
           
           // If subscription fails with CHANNEL_ERROR, try to clean up and prevent reconnect storm
-          if (status === 'CHANNEL_ERROR') {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             trackRequest('attendanceChannel', 'subscription-error', status);
+            lastSubscriptionFailure = Date.now();
+            
             if (attendanceChannel) {
               // Clean up the broken channel
               try {
                 attendanceChannel.unsubscribe();
                 attendanceChannel = null;
-                
-                // Add a delay to prevent immediate reconnection attempts
-                DEBUG_LOGGING && console.log('Channel error detected, preventing reconnect for 30 seconds');
-                setTimeout(() => {
-                  isSubscribing = false;
-                }, 30000);
               } catch (err) {
                 console.error('Error removing channel:', err);
               }
@@ -131,6 +132,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
   } catch (error) {
     console.error('Error setting up attendance channel:', error);
     isSubscribing = false;
+    lastSubscriptionFailure = Date.now();
   }
 
   // Return unsubscribe function
@@ -144,7 +146,7 @@ function createUnsubscribeFunction(callback: () => void) {
     // Remove just this callback
     callbackRegistry.delete(callback);
     
-    // If no more callbacks, remove the channel
+    // If no more callbacks and at least 5 minutes have passed, remove the channel
     if (callbackRegistry.size === 0 && attendanceChannel) {
       DEBUG_LOGGING && console.log('No more subscribers, cleaning up attendance channel');
       try {

@@ -18,6 +18,43 @@ interface HeadshotData {
   url: string;
 }
 
+// Create a module-level cache with expiration
+const HEADSHOTS_CACHE_KEY = 'headshots_carousel_data';
+const HEADSHOTS_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+// Utility to get cached headshots
+const getCachedHeadshots = (): HeadshotData[] | null => {
+  try {
+    const cachedData = localStorage.getItem(HEADSHOTS_CACHE_KEY);
+    if (!cachedData) return null;
+    
+    const { data, timestamp } = JSON.parse(cachedData);
+    
+    // Check if cache is still valid
+    if (Date.now() - timestamp < HEADSHOTS_CACHE_TTL) {
+      return data;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error reading headshots cache:', error);
+    return null;
+  }
+};
+
+// Utility to cache headshots
+const setCachedHeadshots = (data: HeadshotData[]): void => {
+  try {
+    const cacheObject = {
+      data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(HEADSHOTS_CACHE_KEY, JSON.stringify(cacheObject));
+  } catch (error) {
+    console.error('Error setting headshots cache:', error);
+  }
+};
+
 const HeadshotsCarousel = () => {
   const [headshots, setHeadshots] = useState<HeadshotData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,9 +66,18 @@ const HeadshotsCarousel = () => {
         setLoading(true);
         setError(null);
         
-        console.log('Fetching headshots from Supabase storage...');
+        // Check for cached data first
+        const cachedHeadshots = getCachedHeadshots();
+        if (cachedHeadshots && cachedHeadshots.length > 0) {
+          console.log(`Using cached headshots data (${cachedHeadshots.length} items)`);
+          setHeadshots(cachedHeadshots);
+          setLoading(false);
+          return;
+        }
         
-        // List all files in the headshots bucket
+        console.log('No valid cache found, fetching headshots from storage...');
+        
+        // List all files in the headshots bucket once
         const { data: files, error: listError } = await supabase
           .storage
           .from('headshots')
@@ -50,13 +96,13 @@ const HeadshotsCarousel = () => {
         }
         
         if (!files || files.length === 0) {
-          console.log('No files found in the headshots bucket by list operation.');
+          console.log('No files found in the headshots bucket.');
           setError('No headshots found in the storage bucket');
           setLoading(false);
           return;
         }
         
-        console.log(`Found ${files.length} raw entries in headshots bucket:`, files.map(f => f.name).join(', '));
+        console.log(`Found ${files.length} raw entries in headshots bucket`);
         
         // Filter for image files
         const imageFiles = files.filter(file => 
@@ -73,39 +119,25 @@ const HeadshotsCarousel = () => {
         
         console.log(`Found ${imageFiles.length} image files after filtering.`);
         
-        // Process each headshot with simplified URL generation
-        const headshotPromises = imageFiles.map(async (file) => {
-          try {
-            // Extract builder name from filename (removing extension)
-            const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-            
-            // Directly get the public URL since the bucket is public
-            const { data: urlData } = supabase
-              .storage
-              .from('headshots')
-              .getPublicUrl(file.name);
-              
-            if (!urlData || !urlData.publicUrl) {
-              console.warn(`Could not get public URL for ${file.name}`);
-              return null;
-            }
-            
-            console.log(`Generated public URL for ${file.name}: ${urlData.publicUrl}`);
-            
-            // Add a cache-busting query parameter - use current timestamp
-            // instead of last_modified which doesn't exist in the FileObject type
-            const cacheBuster = `?t=${Date.now()}`;
-            return { name, url: `${urlData.publicUrl}${cacheBuster}` };
-          } catch (err) {
-            console.error(`Error processing file ${file.name}:`, err);
-            return null;
-          }
+        // Instead of making separate getPublicUrl calls for each file,
+        // we'll construct the URLs directly since we know the bucket is public
+        const baseUrl = 'https://emswwbojtxipisaqfmrk.supabase.co/storage/v1/object/public/headshots/';
+        
+        // Process headshots in a more efficient way
+        const processedHeadshots: HeadshotData[] = imageFiles.map(file => {
+          // Extract builder name from filename (removing extension)
+          const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+          
+          // Construct URL with proper encoding for spaces and special characters
+          const encodedFileName = encodeURIComponent(file.name);
+          const url = `${baseUrl}${encodedFileName}`;
+          
+          console.log(`Generated URL for ${name}: ${url}`);
+          
+          return { name, url };
         });
         
-        const processedHeadshots = await Promise.all(headshotPromises);
-        const validHeadshots = processedHeadshots.filter(Boolean) as HeadshotData[];
-        
-        if (validHeadshots.length === 0) {
+        if (processedHeadshots.length === 0) {
           console.error('Failed to process any headshot images or get URLs.');
           setError('Failed to process headshot images');
           toast.error('Failed to process headshot images');
@@ -114,8 +146,11 @@ const HeadshotsCarousel = () => {
         }
         
         // Shuffle the headshots array for random order
-        const shuffledHeadshots = [...validHeadshots].sort(() => Math.random() - 0.5);
+        const shuffledHeadshots = [...processedHeadshots].sort(() => Math.random() - 0.5);
         console.log(`Prepared ${shuffledHeadshots.length} headshots for carousel`);
+        
+        // Store in cache for future use
+        setCachedHeadshots(shuffledHeadshots);
         
         setHeadshots(shuffledHeadshots);
         toast.success(`Loaded ${shuffledHeadshots.length} headshots`);
@@ -129,6 +164,22 @@ const HeadshotsCarousel = () => {
     };
     
     fetchHeadshots();
+    
+    // Add cache invalidation listener (e.g., when a new headshot is uploaded)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === HEADSHOTS_CACHE_KEY) {
+        console.log('Headshots cache updated in another tab, refreshing data');
+        const newCache = getCachedHeadshots();
+        if (newCache) {
+          setHeadshots(newCache);
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
   
   if (loading) {
@@ -184,7 +235,7 @@ const HeadshotsCarousel = () => {
                     alt={headshot.name}
                     className="object-cover" 
                     onError={(e) => {
-                      console.error(`Error loading image for ${headshot.name}: ${headshot.url}`);
+                      console.error(`Error loading image for ${headshot.name}`);
                       e.currentTarget.style.display = 'none';
                     }}
                   />

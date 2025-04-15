@@ -1,19 +1,17 @@
+// Update import to use the correct exported member
+import { clearAttendanceCache } from './attendanceData';
+import { getAllBuilders } from './attendanceData';
 
-import { parseAttendanceData, importHistoricalAttendance } from './importHistoricalData';
+async function runImport() {
+  // Example: Clear cache for a specific date
+  clearAttendanceCache('2024-01-01');
 
-// The raw data is stored in attendanceData.ts
-import { attendanceData } from './attendanceData';
+  // Example: Clear all attendance cache
+  clearAttendanceCache();
 
-// This function will run the import
-export const runAttendanceImport = async () => {
-  console.log('Starting historical attendance import...');
-  
-  // Parse the raw data
-  const records = parseAttendanceData(attendanceData);
-  console.log(`Parsed ${records.length} attendance records`);
-  
-  // Run the import
-  const result = await importHistoricalAttendance(records);
-  
-  return result;
-};
+  // Example: Fetch all builders for a specific date
+  const builders = await getAllBuilders('2024-01-01');
+  console.log('Builders:', builders);
+}
+
+runImport();

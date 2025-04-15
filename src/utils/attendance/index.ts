@@ -1,6 +1,6 @@
 
 import { markAttendance as markAttendanceCore } from './markAttendance';
-import { getAllBuilders, clearAttendanceCache } from './attendanceData';
+import { clearAttendanceCache } from './attendanceData';
 import { cachedFetch } from './cacheManager';
 
 /**
@@ -9,21 +9,8 @@ import { cachedFetch } from './cacheManager';
 export const markAttendance = markAttendanceCore;
 
 /**
- * Enhanced version of getAllBuilders with advanced caching
+ * Re-export other functions
  */
-export const getAllBuilders = (targetDateString: string) => {
-  // Use a consistent cache key format
-  const cacheKey = `builders_${targetDateString}`;
-  
-  // Use the cached fetch utility with a 10-minute TTL
-  return cachedFetch(
-    cacheKey,
-    () => getAllBuilders(targetDateString),
-    10 * 60 * 1000 // 10 minute cache
-  );
-};
-
-// Re-export other functions
 export { clearAttendanceCache };
 
 /**

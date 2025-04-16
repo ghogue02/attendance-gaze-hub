@@ -1,8 +1,9 @@
-
 /**
  * Utility to track application visibility state
  * Used to reduce unnecessary network requests when the app is in background
  */
+
+import React, { useState, useEffect } from 'react';
 
 type VisibilityCallback = (isVisible: boolean) => void;
 
@@ -89,9 +90,9 @@ export const appVisibility = AppVisibilityTracker.getInstance();
  * React hook for using visibility in components
  */
 export const useAppVisibility = (): boolean => {
-  const [isVisible, setIsVisible] = React.useState<boolean>(appVisibility.getVisibility());
+  const [isVisible, setIsVisible] = useState<boolean>(appVisibility.getVisibility());
   
-  React.useEffect(() => {
+  useEffect(() => {
     return appVisibility.subscribe(visible => {
       setIsVisible(visible);
     });

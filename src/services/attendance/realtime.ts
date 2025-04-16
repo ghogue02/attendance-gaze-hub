@@ -2,6 +2,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { trackRequest } from '@/utils/debugging/requestTracker';
+import { isWindowVisible, isOvernightHours } from '@/utils/date/dateUtils';
+import { appVisibility } from '@/utils/visibility/appVisibility';
 
 // Global debug flag - set to false to reduce console noise
 const DEBUG_LOGGING = false;
@@ -10,8 +12,11 @@ const DEBUG_LOGGING = false;
 let attendanceChannel: RealtimeChannel | null = null;
 let lastCallbackTime = 0;
 
-// Drastically increased debounce time to reduce database load
-const DEBOUNCE_INTERVAL = 300000; // 5 minutes between callbacks (increased from 3 minutes)
+// Increased debounce times to reduce database load
+const NORMAL_DEBOUNCE_INTERVAL = 300000; // 5 minutes between callbacks
+const OVERNIGHT_DEBOUNCE_INTERVAL = 3600000; // 1 hour overnight
+const BACKGROUND_DEBOUNCE_INTERVAL = 1800000; // 30 minutes when tab is not visible
+
 const callbackRegistry = new Set<() => void>();
 
 // Track if we're already in a callback execution cycle
@@ -59,8 +64,22 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
     
     const now = Date.now();
     
+    // Determine appropriate debounce interval based on conditions
+    let debounceInterval = NORMAL_DEBOUNCE_INTERVAL;
+    
+    // Use longer interval during overnight hours
+    if (isOvernightHours()) {
+      debounceInterval = OVERNIGHT_DEBOUNCE_INTERVAL;
+      DEBUG_LOGGING && console.log('Using overnight debounce interval (1 hour)');
+    } 
+    // Use longer interval when tab is not visible
+    else if (!isWindowVisible()) {
+      debounceInterval = BACKGROUND_DEBOUNCE_INTERVAL;
+      DEBUG_LOGGING && console.log('Using background debounce interval (30 minutes)');
+    }
+    
     // Only invoke callbacks if sufficient time has passed since last invocation
-    if (now - lastCallbackTime >= DEBOUNCE_INTERVAL) {
+    if (now - lastCallbackTime >= debounceInterval) {
       executingCallbacks = true;
       DEBUG_LOGGING && console.log(`Invoking ${callbackRegistry.size} attendance change callbacks after debounce`);
       
@@ -76,7 +95,7 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         executingCallbacks = false;
       }
     } else {
-      DEBUG_LOGGING && console.log(`Debouncing callback (${Math.round((now - lastCallbackTime) / 1000)}s < ${DEBOUNCE_INTERVAL / 1000}s interval)`);
+      DEBUG_LOGGING && console.log(`Debouncing callback (${Math.round((now - lastCallbackTime) / 1000)}s < ${debounceInterval / 1000}s interval)`);
     }
   };
 
@@ -99,6 +118,13 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
         (payload) => {
           trackRequest('attendanceChannel', 'event-received', payload.eventType);
           DEBUG_LOGGING && console.log('Attendance change detected:', payload.eventType);
+          
+          // Skip updates entirely when app is in background and it's overnight
+          if (!isWindowVisible() && isOvernightHours()) {
+            DEBUG_LOGGING && console.log('Skipping update - app in background during overnight hours');
+            return;
+          }
+          
           // Apply extreme throttling to database updates
           // In a classroom setting, we don't need real-time updates to the second
           debouncedCallback();
@@ -129,6 +155,20 @@ export const subscribeToAttendanceChanges = (callback: () => void) => {
           }
         }
       });
+      
+    // Add visibility change handler to adjust refresh behavior
+    appVisibility.subscribe((isVisible) => {
+      if (isVisible) {
+        // Trigger an immediate refresh when tab becomes visible again
+        // but only if sufficient time has passed
+        const now = Date.now();
+        if (now - lastCallbackTime > 60000) { // At least 1 minute since last update
+          DEBUG_LOGGING && console.log('Tab became visible, triggering refresh');
+          debouncedCallback();
+        }
+      }
+    });
+    
   } catch (error) {
     console.error('Error setting up attendance channel:', error);
     isSubscribing = false;

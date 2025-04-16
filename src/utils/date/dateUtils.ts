@@ -92,5 +92,27 @@ export const isLateArrivalEastern = (dateTime: Date): boolean => {
   return false;
 };
 
+/**
+ * Check if the app window is currently visible to the user
+ * Used to reduce API calls when the app is in the background
+ */
+export const isWindowVisible = (): boolean => {
+  if (typeof document === 'undefined') return true;
+  return !document.hidden;
+};
+
+/**
+ * Check if we're in overnight hours when requests should be minimized
+ * Defined as between 11:00 PM and 6:00 AM Eastern Time
+ */
+export const isOvernightHours = (): boolean => {
+  const now = new Date();
+  const easternTime = toZonedTime(now, TIMEZONE);
+  const hours = easternTime.getHours();
+  
+  // Consider 11pm-6am as overnight hours
+  return hours >= 23 || hours < 6;
+};
+
 // Legacy functions below are kept for backward compatibility
 export { parseAsUTC, isLateArrivalUTC, isLateArrival } from './legacyDateUtils';

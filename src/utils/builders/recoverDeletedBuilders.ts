@@ -23,6 +23,8 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
       return 0;
     }
 
+    console.log(`Found ${attendanceData?.length || 0} total attendance records with student IDs`);
+
     // Get all current students for comparison
     const { data: currentStudents, error: studentsError } = await supabase
       .from('students')
@@ -34,16 +36,38 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
       return 0;
     }
 
+    console.log(`Found ${currentStudents?.length || 0} current students in database`);
+
     // Create a Set of current student IDs for faster lookup
     const currentStudentIds = new Set(currentStudents.map(s => s.id));
 
-    // Group attendance records by student_id and get the most recent info
-    const studentAttendanceMap = new Map();
+    // Extract unique student IDs from attendance that don't exist in students table
+    const missingStudentIds = new Set();
     attendanceData.forEach(record => {
-      if (!currentStudentIds.has(record.student_id)) { // Only process IDs not in the current students table
-        if (!studentAttendanceMap.has(record.student_id) || 
-            (record.date && studentAttendanceMap.get(record.student_id).date && 
-             new Date(record.date) > new Date(studentAttendanceMap.get(record.student_id).date))) {
+      if (record.student_id && !currentStudentIds.has(record.student_id)) {
+        missingStudentIds.add(record.student_id);
+      }
+    });
+
+    console.log(`Found ${missingStudentIds.size} potentially deleted builders`);
+    if (missingStudentIds.size === 0) {
+      toast.info('No deleted builders found to recover');
+      return 0;
+    }
+
+    // Map to store latest attendance info for each missing student
+    const studentAttendanceMap = new Map();
+    
+    // Process all attendance records for missing students to find most recent data
+    attendanceData.forEach(record => {
+      if (record.student_id && missingStudentIds.has(record.student_id)) {
+        const currentData = studentAttendanceMap.get(record.student_id);
+        const recordDate = record.date ? new Date(record.date) : 
+                           record.created_at ? new Date(record.created_at) : 
+                           new Date(0);
+        
+        if (!currentData || 
+            (recordDate > new Date(currentData.date || currentData.created_at || 0))) {
           studentAttendanceMap.set(record.student_id, {
             notes: record.notes,
             created_at: record.created_at,
@@ -54,8 +78,8 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
     });
 
     // Find student IDs that exist in attendance but not in current students
-    const deletedStudentIds = [...studentAttendanceMap.keys()];
-    console.log(`Found ${deletedStudentIds.length} potentially deleted builders`);
+    const deletedStudentIds = [...missingStudentIds];
+    console.log(`Processing ${deletedStudentIds.length} deleted builders`);
 
     let recoveredCount = 0;
     for (const studentId of deletedStudentIds) {
@@ -64,7 +88,7 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
       
       // Try to extract the name from notes (assuming format "Name - Other info")
       let firstName = 'Recovered';
-      let lastName = 'Builder';
+      let lastName = `Builder-${studentId.substring(0, 6)}`;
       
       if (attendanceInfo?.notes) {
         const noteParts = attendanceInfo.notes.split(' - ');
@@ -82,7 +106,7 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
         .from('students')
         .select('id')
         .eq('id', studentId)
-        .single();
+        .maybeSingle();
         
       if (existingArchived) {
         console.log(`Builder ${studentId} already exists in the database, skipping`);
@@ -95,13 +119,14 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
           ? new Date(attendanceInfo.created_at).toLocaleDateString()
           : 'Unknown';
       
+      // Force all attendance record-only IDs to be recovered
       const { error: insertError } = await supabase
         .from('students')
         .insert({
           id: studentId,
           first_name: firstName,
           last_name: lastName,
-          email: `recovered-${studentId}@example.com`,
+          email: `recovered-${studentId.substring(0, 8)}@example.com`,
           archived_at: new Date().toISOString(),
           archived_reason: `Recovered from deleted status. Last seen: ${lastSeenDate}`
         });

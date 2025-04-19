@@ -11,7 +11,7 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
   try {
     console.log('Attempting to recover previously deleted builders');
 
-    // First, get ALL attendance records that have student_ids, regardless of current student existence
+    // First, get ALL attendance records with student_ids 
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
       .select('student_id, notes, created_at, date')
@@ -44,7 +44,6 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
         if (!studentAttendanceMap.has(record.student_id) || 
             (record.date && studentAttendanceMap.get(record.student_id).date && 
              new Date(record.date) > new Date(studentAttendanceMap.get(record.student_id).date))) {
-          // Update with this record if it's more recent
           studentAttendanceMap.set(record.student_id, {
             notes: record.notes,
             created_at: record.created_at,
@@ -78,7 +77,7 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
       
       console.log(`Attempting to recover builder: ${firstName} ${lastName} (${studentId})`);
       
-      // Check if this builder is already archived in the students table
+      // Check if this builder already exists in the students table
       const { data: existingArchived } = await supabase
         .from('students')
         .select('id')

@@ -23,7 +23,7 @@ const ArchivedTab = () => {
     try {
       setIsLoading(true);
       
-      // Fetch archived builders - make sure to get ALL builders where archived_at is not null
+      // Fetch students - Get ALL builders where archived_at is not null
       const { data: builders, error: buildersError } = await supabase
         .from('students')
         .select('id, first_name, last_name, archived_at, archived_reason')

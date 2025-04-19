@@ -36,6 +36,7 @@ export const getBuilders = async (): Promise<Builder[]> => {
     const { data, error } = await supabase
       .from('students')
       .select('*')
+      .is('archived_at', null) // Only fetch non-archived builders
       .order('first_name', { ascending: true });
       
     if (error) {

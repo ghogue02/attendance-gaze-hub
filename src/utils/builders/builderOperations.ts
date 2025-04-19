@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
 import { toast } from 'sonner';
@@ -100,6 +101,13 @@ export const deleteBuilder = async (builderId: string): Promise<boolean> => {
   }
 };
 
+// Clear the builders cache to ensure fresh data after operations
+export const clearBuildersCache = () => {
+  // This is a placeholder - the actual implementation will depend on how the cache is managed
+  console.log('Clearing builders cache');
+  // If you're using a global cache in memory, you'd reset it here
+};
+
 /**
  * Archives a builder instead of deleting them
  * @param builderId The ID of the builder to archive
@@ -129,6 +137,9 @@ export const archiveBuilder = async (builderId: string, reason: string): Promise
       toast.error(`Failed to archive builder: ${error.message}`);
       return false;
     }
+    
+    // Clear any cached builder data to ensure UI updates
+    clearBuildersCache();
     
     console.log('Builder archived successfully');
     toast.success('Builder archived successfully');

@@ -11,10 +11,10 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
   try {
     console.log('Attempting to recover previously deleted builders');
 
-    // First, get all attendance records that have student_ids
+    // First, get ALL attendance records that have student_ids, regardless of current student existence
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
-      .select('student_id')
+      .select('student_id, notes, created_at')
       .not('student_id', 'is', null);
 
     if (attendanceError) {
@@ -22,61 +22,76 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
       return 0;
     }
 
-    // Extract unique student IDs
-    const studentIds = [...new Set(attendanceData.map(record => record.student_id))];
-    console.log(`Found ${studentIds.length} unique student IDs in attendance records`);
+    // Get all current students for comparison
+    const { data: currentStudents, error: studentsError } = await supabase
+      .from('students')
+      .select('id');
 
-    // Check which of these students don't exist in the students table
+    if (studentsError) {
+      console.error('Error fetching current students:', studentsError);
+      return 0;
+    }
+
+    // Create a Set of current student IDs for faster lookup
+    const currentStudentIds = new Set(currentStudents.map(s => s.id));
+
+    // Group attendance records by student_id and get the most recent notes
+    const studentAttendanceMap = new Map();
+    attendanceData.forEach(record => {
+      if (!studentAttendanceMap.has(record.student_id)) {
+        studentAttendanceMap.set(record.student_id, {
+          notes: record.notes,
+          created_at: record.created_at
+        });
+      } else if (new Date(record.created_at) > new Date(studentAttendanceMap.get(record.student_id).created_at)) {
+        // Update if this record is more recent
+        studentAttendanceMap.set(record.student_id, {
+          notes: record.notes,
+          created_at: record.created_at
+        });
+      }
+    });
+
+    // Find student IDs that exist in attendance but not in current students
+    const deletedStudentIds = [...studentAttendanceMap.keys()].filter(id => !currentStudentIds.has(id));
+    console.log(`Found ${deletedStudentIds.length} potentially deleted builders`);
+
     let recoveredCount = 0;
-    for (const studentId of studentIds) {
-      const { data: existingStudent } = await supabase
-        .from('students')
-        .select('id')
-        .eq('id', studentId)
-        .maybeSingle();
-
-      if (!existingStudent) {
-        // This student exists in attendance records but not in students table - create a placeholder
-        console.log(`Creating placeholder for deleted student ID: ${studentId}`);
-        
-        // First check if there's any additional info we can recover from attendance records
-        const { data: attendanceInfo } = await supabase
-          .from('attendance')
-          .select('notes')
-          .eq('student_id', studentId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-          
-        const builderName = attendanceInfo?.notes ? 
-          attendanceInfo.notes.split(' - ')[0] : 'Recovered Builder';
-        
-        // Try to extract first and last name from notes if possible
-        let firstName = 'Recovered';
-        let lastName = 'Builder';
-        
-        if (builderName && builderName !== 'Recovered Builder') {
-          const nameParts = builderName.split(' ');
+    for (const studentId of deletedStudentIds) {
+      // Get the most recent attendance record for this student
+      const attendanceInfo = studentAttendanceMap.get(studentId);
+      
+      // Try to extract the name from notes (assuming format "Name - Other info")
+      let firstName = 'Recovered';
+      let lastName = 'Builder';
+      
+      if (attendanceInfo?.notes) {
+        const noteParts = attendanceInfo.notes.split(' - ');
+        if (noteParts[0] && noteParts[0] !== 'Recovered Builder') {
+          const nameParts = noteParts[0].trim().split(' ');
           if (nameParts.length >= 1) firstName = nameParts[0];
           if (nameParts.length >= 2) lastName = nameParts.slice(1).join(' ');
         }
-        
-        const { error: insertError } = await supabase
-          .from('students')
-          .insert({
-            id: studentId,
-            first_name: firstName,
-            last_name: lastName,
-            email: `recovered-${studentId}@example.com`, // Placeholder email
-            archived_at: new Date().toISOString(),
-            archived_reason: 'Recovered from deleted status'
-          });
+      }
+      
+      console.log(`Attempting to recover builder: ${firstName} ${lastName} (${studentId})`);
+      
+      const { error: insertError } = await supabase
+        .from('students')
+        .insert({
+          id: studentId,
+          first_name: firstName,
+          last_name: lastName,
+          email: `recovered-${studentId}@example.com`,
+          archived_at: new Date().toISOString(),
+          archived_reason: `Recovered from deleted status. Last seen: ${new Date(attendanceInfo?.created_at || '').toLocaleDateString()}`
+        });
 
-        if (!insertError) {
-          recoveredCount++;
-        } else {
-          console.error(`Error recovering builder ${studentId}:`, insertError);
-        }
+      if (!insertError) {
+        recoveredCount++;
+        console.log(`Successfully recovered builder: ${firstName} ${lastName}`);
+      } else {
+        console.error(`Error recovering builder ${studentId}:`, insertError);
       }
     }
 

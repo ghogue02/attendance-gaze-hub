@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BuildersTab from './BuildersTab';
 import HistoryTab from './HistoryTab';
 import AnalyticsTab from './AnalyticsTab';
+import ArchivedTab from './ArchivedTab';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 
 interface DashboardTabsProps {

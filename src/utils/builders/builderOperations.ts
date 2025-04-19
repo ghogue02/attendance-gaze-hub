@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
 import { toast } from 'sonner';
@@ -97,6 +96,47 @@ export const deleteBuilder = async (builderId: string): Promise<boolean> => {
   } catch (error) {
     console.error('Unexpected error deleting builder:', error);
     toast.error('An unexpected error occurred while deleting the builder');
+    return false;
+  }
+};
+
+/**
+ * Archives a builder instead of deleting them
+ * @param builderId The ID of the builder to archive
+ * @param reason The reason for archiving
+ * @returns True if archival was successful, false otherwise
+ */
+export const archiveBuilder = async (builderId: string, reason: string): Promise<boolean> => {
+  try {
+    console.log(`Archiving builder with ID: ${builderId}`);
+    
+    if (!builderId) {
+      toast.error('Builder ID is required');
+      return false;
+    }
+    
+    // Update the student record with archive information
+    const { error } = await supabase
+      .from('students')
+      .update({
+        archived_at: new Date().toISOString(),
+        archived_reason: reason
+      })
+      .eq('id', builderId);
+      
+    if (error) {
+      console.error('Error archiving builder:', error);
+      toast.error(`Failed to archive builder: ${error.message}`);
+      return false;
+    }
+    
+    console.log('Builder archived successfully');
+    toast.success('Builder archived successfully');
+    return true;
+    
+  } catch (error) {
+    console.error('Unexpected error archiving builder:', error);
+    toast.error('An unexpected error occurred while archiving the builder');
     return false;
   }
 };

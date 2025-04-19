@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { BuilderStatus } from '@/components/builder/types';
 import BuilderFilters from './BuilderFilters';
 import { AddBuilderDialog } from '@/components/builder/AddBuilderDialog';
-import { DeleteBuilderDialog } from '@/components/builder/DeleteBuilderDialog';
+import { ArchiveBuilderDialog } from '@/components/builder/ArchiveBuilderDialog';
 import BuildersHeader from './builders/BuildersHeader';
 import SortedBuildersList from './builders/SortedBuildersList';
 
@@ -33,14 +33,14 @@ const BuildersTab = ({
   highlightBuilderId
 }: BuildersTabProps) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [builderToDelete, setBuilderToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [builderToArchive, setBuilderToArchive] = useState<{ id: string, name: string } | null>(null);
   const [sortOption, setSortOption] = useState('name');
   const highlightedBuilderRef = useRef<HTMLDivElement>(null);
   
-  const handleDeleteRequest = (builderId: string, builderName: string) => {
-    setBuilderToDelete({ id: builderId, name: builderName });
-    setIsDeleteDialogOpen(true);
+  const handleArchiveRequest = (builderId: string, builderName: string) => {
+    setBuilderToArchive({ id: builderId, name: builderName });
+    setIsArchiveDialogOpen(true);
   };
 
   // Effect to scroll to the highlighted builder
@@ -80,7 +80,7 @@ const BuildersTab = ({
         sortOption={sortOption}
         onClearFilters={onClearFilters}
         onVerify={onVerify}
-        onDeleteRequest={handleDeleteRequest}
+        onDeleteRequest={handleArchiveRequest}
         highlightBuilderId={highlightBuilderId}
         highlightedBuilderRef={highlightedBuilderRef}
       />
@@ -91,11 +91,11 @@ const BuildersTab = ({
         onBuilderAdded={refreshData}
       />
       
-      <DeleteBuilderDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        builder={builderToDelete}
-        onBuilderDeleted={refreshData}
+      <ArchiveBuilderDialog
+        open={isArchiveDialogOpen}
+        onOpenChange={setIsArchiveDialogOpen}
+        builder={builderToArchive}
+        onBuilderArchived={refreshData}
       />
     </div>
   );

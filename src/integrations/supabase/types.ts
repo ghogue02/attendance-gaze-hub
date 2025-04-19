@@ -119,6 +119,8 @@ export type Database = {
       }
       students: {
         Row: {
+          archived_at: string | null
+          archived_reason: string | null
           created_at: string | null
           email: string
           first_name: string
@@ -131,6 +133,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_reason?: string | null
           created_at?: string | null
           email: string
           first_name: string
@@ -143,6 +147,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_reason?: string | null
           created_at?: string | null
           email?: string
           first_name?: string

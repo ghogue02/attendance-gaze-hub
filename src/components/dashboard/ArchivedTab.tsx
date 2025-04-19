@@ -55,7 +55,7 @@ const ArchivedTab = () => {
 
         return {
           id: builder.id,
-          name: `${builder.first_name || ''} ${builder.last_name || ''}`.trim(),
+          name: `${builder.first_name || ''} ${builder.last_name || ''}`.trim() || 'Unknown',
           lastAttendance: lastAttendanceDate,
           archivedAt: builder.archived_at ? new Date(builder.archived_at).toLocaleDateString() : 'Unknown',
           reason: builder.archived_reason || 'No reason provided'

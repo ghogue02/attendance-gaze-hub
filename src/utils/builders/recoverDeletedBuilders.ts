@@ -38,12 +38,35 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
       if (!existingStudent) {
         // This student exists in attendance records but not in students table - create a placeholder
         console.log(`Creating placeholder for deleted student ID: ${studentId}`);
+        
+        // First check if there's any additional info we can recover from attendance records
+        const { data: attendanceInfo } = await supabase
+          .from('attendance')
+          .select('notes')
+          .eq('student_id', studentId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        const builderName = attendanceInfo?.notes ? 
+          attendanceInfo.notes.split(' - ')[0] : 'Recovered Builder';
+        
+        // Try to extract first and last name from notes if possible
+        let firstName = 'Recovered';
+        let lastName = 'Builder';
+        
+        if (builderName && builderName !== 'Recovered Builder') {
+          const nameParts = builderName.split(' ');
+          if (nameParts.length >= 1) firstName = nameParts[0];
+          if (nameParts.length >= 2) lastName = nameParts.slice(1).join(' ');
+        }
+        
         const { error: insertError } = await supabase
           .from('students')
           .insert({
             id: studentId,
-            first_name: 'Recovered',
-            last_name: 'Builder',
+            first_name: firstName,
+            last_name: lastName,
             email: `recovered-${studentId}@example.com`, // Placeholder email
             archived_at: new Date().toISOString(),
             archived_reason: 'Recovered from deleted status'

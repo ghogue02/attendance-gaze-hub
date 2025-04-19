@@ -42,10 +42,10 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
     const currentStudentIds = new Set(currentStudents.map(s => s.id));
 
     // Extract unique student IDs from attendance that don't exist in students table
-    const missingStudentIds = new Set();
+    const missingStudentIds = new Set<string>();
     attendanceData.forEach(record => {
       if (record.student_id && !currentStudentIds.has(record.student_id)) {
-        missingStudentIds.add(record.student_id);
+        missingStudentIds.add(record.student_id as string);
       }
     });
 
@@ -60,7 +60,7 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
     
     // Process all attendance records for missing students to find most recent data
     attendanceData.forEach(record => {
-      if (record.student_id && missingStudentIds.has(record.student_id)) {
+      if (record.student_id && missingStudentIds.has(record.student_id as string)) {
         const currentData = studentAttendanceMap.get(record.student_id);
         const recordDate = record.date ? new Date(record.date) : 
                            record.created_at ? new Date(record.created_at) : 
@@ -78,7 +78,7 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
     });
 
     // Find student IDs that exist in attendance but not in current students
-    const deletedStudentIds = [...missingStudentIds];
+    const deletedStudentIds = Array.from(missingStudentIds);
     console.log(`Processing ${deletedStudentIds.length} deleted builders`);
 
     let recoveredCount = 0;

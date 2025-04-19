@@ -128,7 +128,7 @@ export const archiveBuilder = async (builderId: string, reason: string): Promise
       .from('students')
       .update({
         archived_at: new Date().toISOString(),
-        archived_reason: reason
+        archived_reason: reason || 'No reason provided'  // Ensure we always have some value
       })
       .eq('id', builderId);
       

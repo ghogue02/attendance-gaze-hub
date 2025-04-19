@@ -18,7 +18,7 @@ const ArchivedTab = () => {
   useEffect(() => {
     const fetchArchivedBuilders = async () => {
       try {
-        // Fetch archived builders
+        // Fetch archived builders - make sure to get ALL builders where archived_at is not null
         const { data: builders, error: buildersError } = await supabase
           .from('students')
           .select('id, first_name, last_name, archived_at, archived_reason')
@@ -27,26 +27,39 @@ const ArchivedTab = () => {
 
         if (buildersError) throw buildersError;
 
+        console.log('Archived builders found:', builders?.length || 0);
+        
+        if (!builders || builders.length === 0) {
+          setArchivedBuilders([]);
+          setIsLoading(false);
+          return;
+        }
+
         // Fetch last attendance dates for these builders
-        const builderPromises = (builders || []).map(async (builder) => {
+        const builderPromises = builders.map(async (builder) => {
+          // Get the most recent attendance record for this builder
           const { data: attendance } = await supabase
             .from('attendance')
             .select('date')
             .eq('student_id', builder.id)
             .order('date', { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
+
+          const lastAttendanceDate = attendance && attendance[0]?.date 
+            ? new Date(attendance[0].date).toLocaleDateString() 
+            : 'N/A';
 
           return {
             id: builder.id,
-            name: `${builder.first_name} ${builder.last_name}`,
-            lastAttendance: attendance?.date ? new Date(attendance.date).toLocaleDateString() : 'N/A',
-            archivedAt: new Date(builder.archived_at).toLocaleDateString(),
+            name: `${builder.first_name || ''} ${builder.last_name || ''}`.trim(),
+            lastAttendance: lastAttendanceDate,
+            archivedAt: builder.archived_at ? new Date(builder.archived_at).toLocaleDateString() : 'Unknown',
             reason: builder.archived_reason || 'No reason provided'
           };
         });
 
         const resolvedBuilders = await Promise.all(builderPromises);
+        console.log('Processed archived builders:', resolvedBuilders.length);
         setArchivedBuilders(resolvedBuilders);
       } catch (error) {
         console.error('Error fetching archived builders:', error);

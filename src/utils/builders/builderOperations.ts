@@ -71,32 +71,38 @@ export const addBuilder = async (
  */
 export const deleteBuilder = async (builderId: string): Promise<boolean> => {
   try {
-    console.log(`Deleting builder with ID: ${builderId}`);
+    console.log(`Archiving builder with ID (previously deleted): ${builderId}`);
     
     if (!builderId) {
       toast.error('Builder ID is required');
       return false;
     }
     
-    // Delete the student from the database
+    // Instead of deleting, we'll archive the builder
     const { error } = await supabase
       .from('students')
-      .delete()
+      .update({
+        archived_at: new Date().toISOString(),
+        archived_reason: 'Builder deleted by user'  // Default reason for previously deleted builders
+      })
       .eq('id', builderId);
       
     if (error) {
-      console.error('Error deleting builder:', error);
-      toast.error(`Failed to delete builder: ${error.message}`);
+      console.error('Error archiving builder:', error);
+      toast.error(`Failed to archive builder: ${error.message}`);
       return false;
     }
     
-    console.log('Builder deleted successfully');
-    toast.success('Builder deleted successfully');
+    // Clear any cached builder data to ensure UI updates
+    clearBuildersCache();
+    
+    console.log('Builder archived successfully (from delete function)');
+    toast.success('Builder archived successfully');
     return true;
     
   } catch (error) {
-    console.error('Unexpected error deleting builder:', error);
-    toast.error('An unexpected error occurred while deleting the builder');
+    console.error('Unexpected error archiving builder:', error);
+    toast.error('An unexpected error occurred while archiving the builder');
     return false;
   }
 };

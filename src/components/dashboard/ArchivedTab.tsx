@@ -22,6 +22,7 @@ const ArchivedTab = () => {
   const fetchArchivedBuilders = async () => {
     try {
       setIsLoading(true);
+      
       // Fetch archived builders - make sure to get ALL builders where archived_at is not null
       const { data: builders, error: buildersError } = await supabase
         .from('students')
@@ -29,7 +30,12 @@ const ArchivedTab = () => {
         .not('archived_at', 'is', null)
         .order('archived_at', { ascending: false });
 
-      if (buildersError) throw buildersError;
+      if (buildersError) {
+        console.error('Error fetching archived builders:', buildersError);
+        setArchivedBuilders([]);
+        setIsLoading(false);
+        return;
+      }
 
       console.log('Archived builders found:', builders?.length || 0);
       
@@ -67,6 +73,7 @@ const ArchivedTab = () => {
       setArchivedBuilders(resolvedBuilders);
     } catch (error) {
       console.error('Error fetching archived builders:', error);
+      setArchivedBuilders([]);
     } finally {
       setIsLoading(false);
     }
@@ -82,6 +89,8 @@ const ArchivedTab = () => {
       await recoverDeletedBuilders();
       // Refresh the list after recovery
       await fetchArchivedBuilders();
+    } catch (error) {
+      console.error('Error during recovery process:', error);
     } finally {
       setIsRecovering(false);
     }

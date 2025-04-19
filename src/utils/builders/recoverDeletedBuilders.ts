@@ -14,11 +14,12 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
     // First, get ALL attendance records that have student_ids, regardless of current student existence
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
-      .select('student_id, notes, created_at')
+      .select('student_id, notes, created_at, date')
       .not('student_id', 'is', null);
 
     if (attendanceError) {
       console.error('Error fetching attendance data:', attendanceError);
+      toast.error('Failed to fetch attendance data');
       return 0;
     }
 
@@ -29,31 +30,32 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
 
     if (studentsError) {
       console.error('Error fetching current students:', studentsError);
+      toast.error('Failed to fetch current students');
       return 0;
     }
 
     // Create a Set of current student IDs for faster lookup
     const currentStudentIds = new Set(currentStudents.map(s => s.id));
 
-    // Group attendance records by student_id and get the most recent notes
+    // Group attendance records by student_id and get the most recent info
     const studentAttendanceMap = new Map();
     attendanceData.forEach(record => {
-      if (!studentAttendanceMap.has(record.student_id)) {
-        studentAttendanceMap.set(record.student_id, {
-          notes: record.notes,
-          created_at: record.created_at
-        });
-      } else if (new Date(record.created_at) > new Date(studentAttendanceMap.get(record.student_id).created_at)) {
-        // Update if this record is more recent
-        studentAttendanceMap.set(record.student_id, {
-          notes: record.notes,
-          created_at: record.created_at
-        });
+      if (!currentStudentIds.has(record.student_id)) { // Only process IDs not in the current students table
+        if (!studentAttendanceMap.has(record.student_id) || 
+            (record.date && studentAttendanceMap.get(record.student_id).date && 
+             new Date(record.date) > new Date(studentAttendanceMap.get(record.student_id).date))) {
+          // Update with this record if it's more recent
+          studentAttendanceMap.set(record.student_id, {
+            notes: record.notes,
+            created_at: record.created_at,
+            date: record.date
+          });
+        }
       }
     });
 
     // Find student IDs that exist in attendance but not in current students
-    const deletedStudentIds = [...studentAttendanceMap.keys()].filter(id => !currentStudentIds.has(id));
+    const deletedStudentIds = [...studentAttendanceMap.keys()];
     console.log(`Found ${deletedStudentIds.length} potentially deleted builders`);
 
     let recoveredCount = 0;
@@ -76,6 +78,24 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
       
       console.log(`Attempting to recover builder: ${firstName} ${lastName} (${studentId})`);
       
+      // Check if this builder is already archived in the students table
+      const { data: existingArchived } = await supabase
+        .from('students')
+        .select('id')
+        .eq('id', studentId)
+        .single();
+        
+      if (existingArchived) {
+        console.log(`Builder ${studentId} already exists in the database, skipping`);
+        continue;
+      }
+      
+      const lastSeenDate = attendanceInfo?.date 
+        ? new Date(attendanceInfo.date).toLocaleDateString() 
+        : attendanceInfo?.created_at 
+          ? new Date(attendanceInfo.created_at).toLocaleDateString()
+          : 'Unknown';
+      
       const { error: insertError } = await supabase
         .from('students')
         .insert({
@@ -84,7 +104,7 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
           last_name: lastName,
           email: `recovered-${studentId}@example.com`,
           archived_at: new Date().toISOString(),
-          archived_reason: `Recovered from deleted status. Last seen: ${new Date(attendanceInfo?.created_at || '').toLocaleDateString()}`
+          archived_reason: `Recovered from deleted status. Last seen: ${lastSeenDate}`
         });
 
       if (!insertError) {
@@ -98,11 +118,14 @@ export const recoverDeletedBuilders = async (): Promise<number> => {
     console.log(`Recovery process complete. Recovered ${recoveredCount} builders`);
     if (recoveredCount > 0) {
       toast.success(`Recovered ${recoveredCount} previously deleted builders`);
+    } else {
+      toast.info('No new deleted builders found to recover');
     }
     
     return recoveredCount;
   } catch (error) {
     console.error('Error during builder recovery process:', error);
+    toast.error('An error occurred during builder recovery');
     return 0;
   }
 };

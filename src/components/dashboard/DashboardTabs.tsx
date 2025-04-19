@@ -59,10 +59,11 @@ const DashboardTabs = ({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
-      <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto mb-8">
+      <TabsList className="grid grid-cols-4 w-full max-w-md mx-auto mb-8">
         <TabsTrigger value="builders">Builders</TabsTrigger>
         <TabsTrigger value="history">History</TabsTrigger>
         <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        <TabsTrigger value="archived">Archived</TabsTrigger>
       </TabsList>
       
       <TabsContent value="builders">
@@ -86,6 +87,10 @@ const DashboardTabs = ({
       
       <TabsContent value="analytics">
         <AnalyticsTab builders={builders} />
+      </TabsContent>
+
+      <TabsContent value="archived">
+        <ArchivedTab />
       </TabsContent>
     </Tabs>
   );

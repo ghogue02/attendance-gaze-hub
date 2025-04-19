@@ -2,9 +2,10 @@
 import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { RefreshCcw, UserX } from 'lucide-react';
+import { RefreshCcw, UserX, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { recoverDeletedBuilders } from '@/utils/builders/recoverDeletedBuilders';
+import { toast } from 'sonner';
 
 interface ArchivedBuilder {
   id: string;
@@ -12,12 +13,14 @@ interface ArchivedBuilder {
   lastAttendance: string;
   archivedAt: string;
   reason: string;
+  isRecovered: boolean;
 }
 
 const ArchivedTab = () => {
   const [archivedBuilders, setArchivedBuilders] = useState<ArchivedBuilder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryCount, setRecoveryCount] = useState(0);
 
   const fetchArchivedBuilders = async () => {
     try {
@@ -32,6 +35,7 @@ const ArchivedTab = () => {
 
       if (buildersError) {
         console.error('Error fetching archived builders:', buildersError);
+        toast.error('Failed to fetch archived builders');
         setArchivedBuilders([]);
         setIsLoading(false);
         return;
@@ -58,13 +62,17 @@ const ArchivedTab = () => {
         const lastAttendanceDate = attendance && attendance[0]?.date 
           ? new Date(attendance[0].date).toLocaleDateString() 
           : 'N/A';
+        
+        // Check if this is a recovered builder (based on reason containing "Recovered")
+        const isRecovered = builder.archived_reason?.includes('Recovered') || false;
 
         return {
           id: builder.id,
           name: `${builder.first_name || ''} ${builder.last_name || ''}`.trim() || 'Unknown',
           lastAttendance: lastAttendanceDate,
           archivedAt: builder.archived_at ? new Date(builder.archived_at).toLocaleDateString() : 'Unknown',
-          reason: builder.archived_reason || 'No reason provided'
+          reason: builder.archived_reason || 'No reason provided',
+          isRecovered
         };
       });
 
@@ -73,6 +81,7 @@ const ArchivedTab = () => {
       setArchivedBuilders(resolvedBuilders);
     } catch (error) {
       console.error('Error fetching archived builders:', error);
+      toast.error('Failed to process archived builders');
       setArchivedBuilders([]);
     } finally {
       setIsLoading(false);
@@ -86,19 +95,23 @@ const ArchivedTab = () => {
   const handleRecoverDeletedBuilders = async () => {
     setIsRecovering(true);
     try {
-      await recoverDeletedBuilders();
+      const recovered = await recoverDeletedBuilders();
+      setRecoveryCount(recovered);
+      
       // Refresh the list after recovery
-      await fetchArchivedBuilders();
+      if (recovered > 0) {
+        await fetchArchivedBuilders();
+      }
     } catch (error) {
       console.error('Error during recovery process:', error);
+      toast.error('Error during recovery process');
     } finally {
       setIsRecovering(false);
     }
   };
 
-  if (isLoading) {
-    return <div className="text-center py-8">Loading archived builders...</div>;
-  }
+  // Stats for the recovered builders
+  const recoveredCount = archivedBuilders.filter(b => b.isRecovered).length;
 
   return (
     <div className="space-y-4">
@@ -124,10 +137,19 @@ const ArchivedTab = () => {
           </Button>
         </div>
       </div>
+      
+      {recoveredCount > 0 && (
+        <div className="bg-muted/50 p-3 rounded-md flex items-center gap-2 text-sm">
+          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <span>
+            <strong>{recoveredCount}</strong> builders have been recovered from deleted records
+          </span>
+        </div>
+      )}
 
       {archivedBuilders.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          No archived builders found
+          {isLoading ? 'Loading archived builders...' : 'No archived builders found'}
         </div>
       ) : (
         <Table>
@@ -136,16 +158,24 @@ const ArchivedTab = () => {
               <TableHead>Name</TableHead>
               <TableHead>Last Attendance</TableHead>
               <TableHead>Archived Date</TableHead>
-              <TableHead>Reason</TableHead>
+              <TableHead className="w-1/3">Reason</TableHead>
+              <TableHead className="w-[100px]">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {archivedBuilders.map((builder) => (
-              <TableRow key={builder.id}>
+              <TableRow key={builder.id} className={builder.isRecovered ? "bg-muted/30" : ""}>
                 <TableCell>{builder.name}</TableCell>
                 <TableCell>{builder.lastAttendance}</TableCell>
                 <TableCell>{builder.archivedAt}</TableCell>
                 <TableCell className="max-w-md truncate">{builder.reason}</TableCell>
+                <TableCell>
+                  {builder.isRecovered && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-200">
+                      Recovered
+                    </span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

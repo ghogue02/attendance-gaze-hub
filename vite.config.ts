@@ -11,9 +11,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [
-    react({
-      jsxRuntime: 'automatic', // Ensure JSX runtime is properly configured
-    }),
+    react(), // Remove the jsxRuntime option
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),

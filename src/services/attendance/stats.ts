@@ -30,15 +30,22 @@ export const fetchStats = async () => {
       throw attendanceError;
     }
     
-    // Filter out records for Fridays or April 4th, 2025, or before MINIMUM_DATE
+    // Filter out records for Fridays, Sundays, or April 4th, 2025, or before MINIMUM_DATE
     const filteredAttendance = attendanceData?.filter(record => {
       const date = new Date(record.date);
-      // Check if it's a Friday or April 4th, 2025
+      // Check if it's a Friday or Sunday or April 4th, 2025
       const isFriday = date.getDay() === 5;
+      const isSunday = date.getDay() === 0;
       const isApril4th = date.getFullYear() === 2025 && 
                           date.getMonth() === 3 && // April is month 3 (0-indexed)
                           date.getDate() === 4;
-      return !isFriday && !isApril4th && date >= MINIMUM_DATE;
+      
+      // Also filter out April 20th, 2025 as it's a holiday
+      const isApril20th = date.getFullYear() === 2025 && 
+                           date.getMonth() === 3 && 
+                           date.getDate() === 20;
+                           
+      return !isFriday && !isSunday && !isApril4th && !isApril20th && date >= MINIMUM_DATE;
     }) || [];
 
     console.log(`Stats: Filtered ${attendanceData?.length || 0} records down to ${filteredAttendance.length}`);

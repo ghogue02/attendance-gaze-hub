@@ -1,7 +1,7 @@
 
 // src/pages/Dashboard.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -12,6 +12,7 @@ import { AttendanceNavigationState } from '@/hooks/attendance-capture/types';
 import { deleteAttendanceRecordsByDate } from '@/services/attendanceHistoryService';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { processSpecificDateIssues } from '@/services/attendance/historicalDates';
 
 const Dashboard = () => {
   const location = useLocation();
@@ -22,6 +23,7 @@ const Dashboard = () => {
   const [highlightBuilderId, setHighlightBuilderId] = useState<string | undefined>(
     navigationState?.highlightBuilderId
   );
+  const processingRef = useRef(false);
 
   // Destructure state and handlers from the custom hook
   const {
@@ -87,54 +89,66 @@ const Dashboard = () => {
   // Delete attendance records for problematic dates when the component loads
   useEffect(() => {
     const deleteProblematicDates = async () => {
-      const dates = [
-        { date: '2025-04-11', storageKey: 'deleted_april11_2025_records' },
-        { date: '2025-04-04', storageKey: 'deleted_april04_2025_records' }
-      ];
+      if (processingRef.current) return;
+      processingRef.current = true;
       
-      for (const { date, storageKey } of dates) {
-        // Track deletion attempts to prevent infinite loops
-        const maxAttempts = 3;
-        const attemptsKey = `${date.replace(/-/g, '')}_deletion_attempts`;
-        const attemptsMade = parseInt(localStorage.getItem(attemptsKey) || '0', 10);
+      try {
+        // Process specific date issues first
+        await processSpecificDateIssues();
         
-        // Skip if we've already deleted this date's records or made max attempts
-        if (localStorage.getItem(storageKey) || attemptsMade >= maxAttempts) {
-          console.log(`Skipping deletion for ${date} - already processed or max attempts reached`);
-          continue;
-        }
+        // Now handle problematic dates (Fridays and Sundays)
+        const dates = [
+          { date: '2025-04-20', storageKey: 'deleted_april20_2025_records', description: 'Sunday (Holiday)' },
+          { date: '2025-04-11', storageKey: 'deleted_april11_2025_records', description: 'Friday' },
+          { date: '2025-04-04', storageKey: 'deleted_april04_2025_records', description: 'Friday' }
+        ];
         
-        try {
-          console.log(`Initiating deletion of attendance records for ${date}`);
-          localStorage.setItem(attemptsKey, (attemptsMade + 1).toString());
+        for (const { date, storageKey, description } of dates) {
+          // Track deletion attempts to prevent infinite loops
+          const maxAttempts = 3;
+          const attemptsKey = `${date.replace(/-/g, '')}_deletion_attempts`;
+          const attemptsMade = parseInt(localStorage.getItem(attemptsKey) || '0', 10);
           
-          // First try with standard delete
-          const result = await deleteAttendanceRecordsByDate(date, (errorMessage) => {
-            toast.error(errorMessage);
-          });
-          
-          if (result) {
-            toast.success(`Successfully removed all attendance records from ${date}`);
-            localStorage.setItem(storageKey, 'true');
-            refreshData();
+          // Skip if we've already deleted this date's records or made max attempts
+          if (localStorage.getItem(storageKey) || attemptsMade >= maxAttempts) {
+            console.log(`Skipping deletion for ${date} (${description}) - already processed or max attempts reached`);
             continue;
           }
           
-          // If standard delete failed, try with direct SQL approach
-          console.log(`Standard delete failed for ${date}, attempting force delete via Edge Function`);
-          const forceResult = await forceDeleteRecords(date);
-          
-          if (forceResult) {
-            toast.success(`Successfully force-deleted all records from ${date}`);
-            localStorage.setItem(storageKey, 'true');
-            refreshData();
-          } else {
-            toast.error(`Failed to delete ${date} records even with force method`);
+          try {
+            console.log(`Initiating deletion of attendance records for ${date} (${description})`);
+            localStorage.setItem(attemptsKey, (attemptsMade + 1).toString());
+            
+            // First try with standard delete
+            const result = await deleteAttendanceRecordsByDate(date, (errorMessage) => {
+              toast.error(errorMessage);
+            });
+            
+            if (result) {
+              toast.success(`Successfully removed all attendance records from ${date} (${description})`);
+              localStorage.setItem(storageKey, 'true');
+              refreshData();
+              continue;
+            }
+            
+            // If standard delete failed, try with direct SQL approach
+            console.log(`Standard delete failed for ${date}, attempting force delete via Edge Function`);
+            const forceResult = await forceDeleteRecords(date);
+            
+            if (forceResult) {
+              toast.success(`Successfully force-deleted all records from ${date} (${description})`);
+              localStorage.setItem(storageKey, 'true');
+              refreshData();
+            } else {
+              toast.error(`Failed to delete ${date} records even with force method`);
+            }
+          } catch (error) {
+            console.error(`Failed to delete ${date} records:`, error);
+            toast.error(`Failed to delete ${date} records`);
           }
-        } catch (error) {
-          console.error(`Failed to delete ${date} records:`, error);
-          toast.error(`Failed to delete ${date} records`);
         }
+      } finally {
+        processingRef.current = false;
       }
     };
     

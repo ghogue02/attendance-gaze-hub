@@ -58,7 +58,8 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
   // Ensure we're using UTC for filtering to be consistent
   const filteredData = chartData.filter(item => {
     const date = parseAsUTC(item.date);
-    return date.getUTCDay() !== 5; // Filter out Fridays (5) using UTC
+    // Filter out Fridays (5) AND Sundays (0) using UTC
+    return date.getUTCDay() !== 5 && date.getUTCDay() !== 0;
   });
   
   // Log specific dates we care about
@@ -69,11 +70,11 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
   console.log('Bar chart April 2 data:', apr2Data);
   console.log('Bar chart April 3 data:', apr3Data);
   
-  // If after filtering Fridays we have no data, show empty state
+  // If after filtering Fridays and Sundays we have no data, show empty state
   if (filteredData.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">No attendance data available (after filtering out Fridays)</p>
+        <p className="text-muted-foreground">No attendance data available (after filtering out Fridays and Sundays)</p>
       </div>
     );
   }

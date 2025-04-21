@@ -18,10 +18,20 @@ export interface DailyAttendance {
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
 
+// Define holidays - dates when we don't have class
+const HOLIDAY_DATES = new Set([
+  '2025-04-20' // Easter Sunday
+]);
+
 // Helper to log date debugging info
 const logDateDebug = (dateStr: string, message: string): void => {
   const date = parseAsUTC(dateStr);
   console.log(`${message}: ${dateStr} - UTC Day: ${date.getUTCDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getUTCDay()]})`);
+};
+
+// Helper to check if a date is a holiday
+const isHoliday = (dateString: string): boolean => {
+  return HOLIDAY_DATES.has(dateString);
 };
 
 export const useAttendanceChartData = (builders: Builder[], days: number) => {
@@ -93,7 +103,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
         // Create a map to aggregate attendance by date
         const dateMap = new Map<string, { Present: number; Late: number; Absent: number; Excused: number }>();
         
-        // Initialize the dateMap with all dates in the range (excluding Fridays)
+        // Initialize the dateMap with all dates in the range (excluding Fridays and Sundays)
         // Generate all dates in the range - completely recreated to ensure consistency
         const startDateObj = parseAsUTC(dateRange.start);
         const endDateObj = parseAsUTC(dateRange.end);
@@ -105,8 +115,8 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           const checkDate = parseAsUTC(dateStr);
           const dayOfWeek = checkDate.getUTCDay(); // Use UTC day
           
-          // Skip Fridays (UTC day 5)
-          if (dayOfWeek !== 5) {
+          // Skip Fridays (UTC day 5) and Sundays (UTC day 0) and Holidays
+          if (dayOfWeek !== 5 && dayOfWeek !== 0 && !isHoliday(dateStr)) {
             dateMap.set(dateStr, {
               Present: 0,
               Late: 0,
@@ -115,7 +125,8 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
             });
             logDateDebug(dateStr, `Added to chart`);
           } else {
-            logDateDebug(dateStr, `Excluding Friday from chart`);
+            const skipReason = dayOfWeek === 5 ? 'Friday' : (dayOfWeek === 0 ? 'Sunday' : 'Holiday');
+            logDateDebug(dateStr, `Excluding ${skipReason} from chart`);
           }
           
           // Move to next day - add exactly 24 hours to ensure UTC consistency
@@ -141,9 +152,9 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
             const recordDate = parseAsUTC(dateStr);
             const dayOfWeek = recordDate.getUTCDay(); // Use UTC day
             
-            // Skip Friday records
-            if (dayOfWeek === 5) {
-              logDateDebug(dateStr, `Skipping Friday records`);
+            // Skip Friday and Sunday records, and holiday dates
+            if (dayOfWeek === 5 || dayOfWeek === 0 || isHoliday(dateStr)) {
+              logDateDebug(dateStr, `Skipping ${dayOfWeek === 5 ? 'Friday' : dayOfWeek === 0 ? 'Sunday' : 'Holiday'} records`);
               return;
             }
             
@@ -154,7 +165,9 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
               const startDateObj = parseAsUTC(dateRange.start);
               const endDateObj = parseAsUTC(dateRange.end);
               
-              if (checkDate >= startDateObj && checkDate <= endDateObj && checkDate.getUTCDay() !== 5) {
+              if (checkDate >= startDateObj && checkDate <= endDateObj && 
+                  checkDate.getUTCDay() !== 5 && checkDate.getUTCDay() !== 0 && 
+                  !isHoliday(dateStr)) {
                 dateMap.set(dateStr, {
                   Present: 0,
                   Late: 0,
@@ -249,11 +262,19 @@ export const useAttendanceChartData = (builders: Builder[], days: number) => {
           }
         });
         
-        // Double-check to ensure no Friday data is in the final result
+        // Double-check to ensure no Friday or Sunday data is in the final result
         const cleanedData = formattedData.filter(item => {
           const itemDate = parseAsUTC(item.date);
           if (itemDate.getUTCDay() === 5) {
             logDateDebug(item.date, `Removing Friday data from final chart`);
+            return false;
+          }
+          if (itemDate.getUTCDay() === 0) {
+            logDateDebug(item.date, `Removing Sunday data from final chart`);
+            return false;
+          }
+          if (isHoliday(item.date)) {
+            logDateDebug(item.date, `Removing Holiday data from final chart`);
             return false;
           }
           return true;

@@ -1,3 +1,4 @@
+
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
@@ -19,10 +20,10 @@ const isHoliday = (dateString: string): boolean => {
 /**
  * Calculates attendance statistics based on a defined period and rules.
  * 
- * Assumes class days are EVERY DAY EXCEPT FRIDAY between the start date (inclusive)
+ * Assumes class days are EVERY DAY EXCEPT FRIDAY AND SUNDAY between the start date (inclusive)
  * and current date (inclusive).
  * 
- * Rate = (Days Present or Late) / (Total Days Excluding Fridays and Holidays between Start and Current Date) * 100
+ * Rate = (Days Present or Late) / (Total Days Excluding Fridays, Sundays, and Holidays between Start and Current Date) * 100
  * 
  * @param attendanceRecords Attendance records for a specific builder
  * @returns An object containing the rate, present count, and total class days.
@@ -69,7 +70,7 @@ export function calculateAttendanceStatistics(
     return { rate: 0, presentCount: 0, totalClassDays: 0 };
   }
   
-  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday and Holidays) ---
+  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday, Sunday and Holidays) ---
   let totalClassDays = 0;
   
   // Iterate day by day from startDateUTC up to and including currentDateUTC
@@ -86,8 +87,8 @@ export function calculateAttendanceStatistics(
     const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const dateString = tempDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Count the day if it's NOT a Friday AND NOT a holiday
-    if (dayOfWeek !== 5 && !isHoliday(dateString)) {
+    // Count the day if it's NOT a Friday AND NOT a Sunday AND NOT a holiday
+    if (dayOfWeek !== 5 && dayOfWeek !== 0 && !isHoliday(dateString)) {
       totalClassDays++;
       if (DEBUG_LOGGING && countedDates) countedDates.push(dateString);
       
@@ -95,7 +96,8 @@ export function calculateAttendanceStatistics(
         console.log(`[calculateAttendanceStatistics] Counted Day (Saeed): ${dateString}, DayOfWeek: ${dayOfWeek}, New Total: ${totalClassDays}`);
       }
     } else if (DEBUG_LOGGING && isSaeed) {
-      console.log(`[calculateAttendanceStatistics] Skipped ${dayOfWeek === 5 ? 'Friday' : 'Holiday'}: ${dateString}`);
+      const skipReason = dayOfWeek === 5 ? 'Friday' : (dayOfWeek === 0 ? 'Sunday' : 'Holiday');
+      console.log(`[calculateAttendanceStatistics] Skipped ${skipReason}: ${dateString}`);
     }
     
     // Move to the next day in UTC

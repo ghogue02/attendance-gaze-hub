@@ -1,3 +1,4 @@
+
 import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
@@ -19,12 +20,20 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   
   // Calculate statistics based on builders data
   const stats = useMemo(() => {
+    // Filter out Sunday records (day 0) before calculating statistics
+    const todayDate = new Date();
+    const isSunday = todayDate.getDay() === 0;
+    
+    // If today is Sunday, we should not show any attendance data in the stats
+    // because no attendance is expected on Sundays
     const totalBuilders = builders.length;
-    const presentCount = builders.filter(s => s.status === 'present').length;
-    const absentCount = builders.filter(s => s.status === 'absent').length;
-    const excusedCount = builders.filter(s => s.status === 'excused').length;
-    const pendingCount = builders.filter(s => s.status === 'pending').length;
-    const attendanceRate = totalBuilders > 0 ? Math.round((presentCount / totalBuilders) * 100) : 0;
+    
+    // Only count attendance if it's not Sunday
+    const presentCount = isSunday ? 0 : builders.filter(s => s.status === 'present').length;
+    const absentCount = isSunday ? 0 : builders.filter(s => s.status === 'absent').length;
+    const excusedCount = isSunday ? 0 : builders.filter(s => s.status === 'excused').length;
+    const pendingCount = isSunday ? 0 : builders.filter(s => s.status === 'pending').length;
+    const attendanceRate = (totalBuilders > 0 && !isSunday) ? Math.round((presentCount / totalBuilders) * 100) : 0;
     
     console.log('Statistics calculation:', { 
       totalBuilders, 
@@ -33,6 +42,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       excusedCount, 
       pendingCount,
       attendanceRate,
+      isSunday,
       currentDate: new Date().toISOString().split('T')[0]
     });
     
@@ -42,7 +52,8 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       absentCount,
       excusedCount,
       pendingCount,
-      attendanceRate
+      attendanceRate,
+      isSunday
     };
   }, [builders]);
 
@@ -81,9 +92,10 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
           }
         }
         
-        // Define additional specific dates we want to process - excluding Fridays
+        // Define additional specific dates we want to process - excluding Fridays and Sundays
         const additionalDates = [
-          { date: '2025-04-05', storageKey: 'stats_april_5_2025_fix_applied', isFriday: false },
+          { date: '2025-04-20', storageKey: 'stats_april_20_2025_fix_applied', isSunday: true },
+          { date: '2025-04-05', storageKey: 'stats_april_5_2025_fix_applied', isSaturday: true, isWeekend: true },
           { date: '2025-04-04', storageKey: 'stats_april_4_2025_fix_applied', isFriday: true },
           { date: '2025-04-03', storageKey: 'stats_april_3_2025_fix_applied', isFriday: false },
           { date: '2025-04-02', storageKey: 'stats_april_2_2025_fix_applied', isFriday: false },
@@ -91,10 +103,20 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
           { date: '2025-03-31', storageKey: 'stats_march_31_2025_fix_applied', isFriday: false }
         ];
         
-        // Process each date only if it hasn't been processed before - and not a Friday
-        for (const { date, storageKey, isFriday } of additionalDates) {
+        // Process each date only if it hasn't been processed before - excluding Fridays and Sundays
+        for (const { date, storageKey, isFriday, isSunday, isWeekend } of additionalDates) {
           if (isFriday) {
             console.log(`Skipping ${date} - it's a Friday (no classes)`);
+            continue;
+          }
+          
+          if (isSunday) {
+            console.log(`Skipping ${date} - it's a Sunday (no classes)`);
+            continue;
+          }
+          
+          if (isWeekend) {
+            console.log(`Skipping ${date} - it's a weekend day (only processing weekdays except Friday)`);
             continue;
           }
           
@@ -148,36 +170,36 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       {/* Present Card */}
       <StatisticCard
         title="Present"
-        value={stats.presentCount}
+        value={stats.isSunday ? 'N/A' : stats.presentCount}
         color="green"
-        percentage={stats.attendanceRate}
+        percentage={stats.isSunday ? 0 : stats.attendanceRate}
         delay={0.2}
       />
       
       {/* Absent Card */}
       <StatisticCard
         title="Absent"
-        value={stats.absentCount}
+        value={stats.isSunday ? 'N/A' : stats.absentCount}
         color="red"
-        percentage={stats.totalBuilders > 0 ? (stats.absentCount / stats.totalBuilders * 100) : 0}
+        percentage={stats.isSunday ? 0 : (stats.totalBuilders > 0 ? (stats.absentCount / stats.totalBuilders * 100) : 0)}
         delay={0.3}
       />
       
       {/* Excused Card */}
       <StatisticCard
         title="Excused"
-        value={stats.excusedCount}
+        value={stats.isSunday ? 'N/A' : stats.excusedCount}
         color="amber"
-        percentage={stats.totalBuilders > 0 ? (stats.excusedCount / stats.totalBuilders * 100) : 0}
+        percentage={stats.isSunday ? 0 : (stats.totalBuilders > 0 ? (stats.excusedCount / stats.totalBuilders * 100) : 0)}
         delay={0.35}
       />
       
       {/* Pending Card */}
       <StatisticCard
         title="Pending"
-        value={stats.pendingCount}
+        value={stats.isSunday ? 'N/A' : stats.pendingCount}
         color="yellow"
-        percentage={stats.totalBuilders > 0 ? (stats.pendingCount / stats.totalBuilders * 100) : 0}
+        percentage={stats.isSunday ? 0 : (stats.totalBuilders > 0 ? (stats.pendingCount / stats.totalBuilders * 100) : 0)}
         delay={0.4}
       />
     </div>

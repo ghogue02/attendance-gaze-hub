@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,10 +9,13 @@ import Home from "./pages/Home";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import { initializeDebugTools } from './utils/debugging/initDebugTools';
+import { setupEnvironment } from './utils/setup';
+
+// Initialize environment
+setupEnvironment();
 
 const queryClient = new QueryClient();
-
-import { initializeDebugTools } from './utils/debugging/initDebugTools';
 
 // Initialize debug tools
 if (process.env.NODE_ENV !== 'production') {

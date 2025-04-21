@@ -44,8 +44,12 @@ export function calculateAttendanceStatistics(
     console.log(`[calculateAttendanceStatistics] Input records for Saeed:`, attendanceRecords);
   }
   
-  // Filter out holiday dates from attendance records
+  // Filter out holiday dates from attendance records 
   const filteredAttendanceRecords = attendanceRecords.filter(record => !isHoliday(record.date));
+  
+  if (DEBUG_LOGGING && isSaeed && attendanceRecords.length !== filteredAttendanceRecords.length) {
+    console.log(`[calculateAttendanceStatistics] Filtered out ${attendanceRecords.length - filteredAttendanceRecords.length} holiday records`);
+  }
   
   // Get current date components in UTC
   const now = new Date();
@@ -96,7 +100,11 @@ export function calculateAttendanceStatistics(
         console.log(`[calculateAttendanceStatistics] Counted Day (Saeed): ${dateString}, DayOfWeek: ${dayOfWeek}, New Total: ${totalClassDays}`);
       }
     } else if (DEBUG_LOGGING && isSaeed) {
-      const skipReason = dayOfWeek === 5 ? 'Friday' : (dayOfWeek === 0 ? 'Sunday' : 'Holiday');
+      let skipReason = "Unknown";
+      if (dayOfWeek === 5) skipReason = 'Friday';
+      else if (dayOfWeek === 0) skipReason = 'Sunday';
+      else if (isHoliday(dateString)) skipReason = 'Holiday';
+      
       console.log(`[calculateAttendanceStatistics] Skipped ${skipReason}: ${dateString}`);
     }
     
@@ -138,7 +146,7 @@ export function calculateAttendanceStatistics(
   if (isSaeed && presentOrLateDays > 0) {
     // Check if all the days Saeed has records for are marked as present/late
     // This would indicate perfect attendance for the days he was eligible to attend
-    const totalRecords = attendanceRecords.length;
+    const totalRecords = filteredAttendanceRecords.length;
     const presentOrLateRatio = presentOrLateDays / totalRecords;
     
     if (DEBUG_LOGGING) {

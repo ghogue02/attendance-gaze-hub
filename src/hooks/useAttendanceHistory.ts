@@ -8,6 +8,11 @@ import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { toast } from 'sonner';
 import { throttledRequest } from '@/utils/request/throttle';
 
+// Define holidays to be filtered out
+const HOLIDAY_DATES = new Set([
+  '2025-04-20' // Easter Sunday
+]);
+
 export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -28,8 +33,12 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         60000 // 1 minute cache
       );
       
-      // Filter out April 11, 2025 records as they've been deleted from the database
-      const filteredByDate = records.filter(record => record.date !== '2025-04-11');
+      // Filter out April 11, 2025, April 4, 2025, and holidays
+      const filteredByDate = records.filter(record => 
+        record.date !== '2025-04-11' && 
+        record.date !== '2025-04-04' &&
+        !HOLIDAY_DATES.has(record.date)
+      );
       
       let filteredRecords = filteredByDate;
       if (statusFilter !== 'all') {

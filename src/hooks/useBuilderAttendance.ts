@@ -5,6 +5,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord, BuilderStatus } from '@/components/builder/types';
 
+// Define holidays to be filtered out
+const HOLIDAY_DATES = new Set([
+  '2025-04-20' // Easter Sunday
+]);
+
 interface UseBuilderAttendanceHistoryReturn {
   history: AttendanceRecord[];
   isLoading: boolean;
@@ -39,8 +44,11 @@ export const useBuilderAttendance = (builderId: string | null, isHistoryDialogOp
 
         if (dbError) throw dbError;
 
+        // Filter out holidays
+        const filteredData = data?.filter(record => !HOLIDAY_DATES.has(record.date)) || [];
+
         // Map Supabase data structure with explicit type assertion for status
-        const formattedHistory: AttendanceRecord[] = (data || []).map(record => ({
+        const formattedHistory: AttendanceRecord[] = filteredData.map(record => ({
            id: record.id, // Ensure you have an ID column or use date/builderId combo
            date: record.date,
            status: record.status as BuilderStatus, // Add type assertion here

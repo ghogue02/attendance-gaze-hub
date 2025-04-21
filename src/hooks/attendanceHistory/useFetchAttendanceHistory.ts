@@ -5,6 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatISOTimeToEastern } from '@/utils/date/dateUtils';
 
+// Define holidays to be filtered out
+const HOLIDAY_DATES = new Set([
+  '2025-04-20' // Easter Sunday
+]);
+
 export const useFetchAttendanceHistory = (builder: Builder) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -29,9 +34,11 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
       }
       
       if (data) {
-        // Filter out April 11, 2025 and April 4, 2025 records as they've been deleted from the database
+        // Filter out April 11, April 4, and April 20 (holiday) records
         const filteredData = data.filter(record => 
-          record.date !== '2025-04-11' && record.date !== '2025-04-04'
+          record.date !== '2025-04-11' && 
+          record.date !== '2025-04-04' &&
+          !HOLIDAY_DATES.has(record.date)
         );
         
         const formattedHistory = filteredData.map(record => ({

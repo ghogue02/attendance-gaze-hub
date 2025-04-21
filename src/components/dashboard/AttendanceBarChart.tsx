@@ -13,6 +13,11 @@ import {
 import { DailyAttendance } from '@/hooks/useAttendanceChartData';
 import { parseAsUTC } from '@/utils/date/dateUtils';
 
+// Holiday dates to filter out
+const HOLIDAY_DATES = new Set([
+  '2025-04-20' // Easter Sunday
+]);
+
 interface AttendanceBarChartProps {
   chartData: DailyAttendance[];
   isLoading: boolean;
@@ -58,8 +63,11 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
   // Ensure we're using UTC for filtering to be consistent
   const filteredData = chartData.filter(item => {
     const date = parseAsUTC(item.date);
-    // Filter out Fridays (5) AND Sundays (0) using UTC
-    return date.getUTCDay() !== 5 && date.getUTCDay() !== 0;
+    
+    // Filter out Fridays (5), Sundays (0), and specific holidays
+    return date.getUTCDay() !== 5 && 
+           date.getUTCDay() !== 0 && 
+           !HOLIDAY_DATES.has(item.date);
   });
   
   // Log specific dates we care about
@@ -70,11 +78,11 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
   console.log('Bar chart April 2 data:', apr2Data);
   console.log('Bar chart April 3 data:', apr3Data);
   
-  // If after filtering Fridays and Sundays we have no data, show empty state
+  // If after filtering Fridays, Sundays, and holidays we have no data, show empty state
   if (filteredData.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">No attendance data available (after filtering out Fridays and Sundays)</p>
+        <p className="text-muted-foreground">No attendance data available (after filtering)</p>
       </div>
     );
   }

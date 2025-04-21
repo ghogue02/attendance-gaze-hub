@@ -8,15 +8,19 @@ import { processPendingAttendance } from './pendingAttendance';
 export const processSpecificDateIssues = async () => {
   try {
     // Delete attendance records for April 20, 2025 (Holiday)
-    const { error: deleteError } = await supabase
+    console.log('[processSpecificDateIssues] Deleting April 20, 2025 records (Holiday)');
+    
+    const { error: deleteError, count } = await supabase
       .from('attendance')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('date', '2025-04-20');
 
     if (deleteError) {
       console.error('Error deleting April 20 records:', deleteError);
       return;
     }
+    
+    console.log(`[processSpecificDateIssues] Deleted ${count || 0} records for April 20, 2025`);
 
     // These dates need to be processed for missing absences
     const specificDates = [

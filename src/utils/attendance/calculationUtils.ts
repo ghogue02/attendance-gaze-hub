@@ -1,9 +1,20 @@
-
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
+// Define holidays - dates when we don't have class
+const HOLIDAY_DATES = new Set([
+  '2025-04-20' // Easter Sunday
+]);
+
 // Global debug flag - set to false to reduce console noise
 const DEBUG_LOGGING = false;
+
+/**
+ * Check if a date is a holiday
+ */
+const isHoliday = (dateString: string): boolean => {
+  return HOLIDAY_DATES.has(dateString);
+};
 
 /**
  * Calculates attendance statistics based on a defined period and rules.
@@ -11,7 +22,7 @@ const DEBUG_LOGGING = false;
  * Assumes class days are EVERY DAY EXCEPT FRIDAY between the start date (inclusive)
  * and current date (inclusive).
  * 
- * Rate = (Days Present or Late) / (Total Days Excluding Fridays between Start and Current Date) * 100
+ * Rate = (Days Present or Late) / (Total Days Excluding Fridays and Holidays between Start and Current Date) * 100
  * 
  * @param attendanceRecords Attendance records for a specific builder
  * @returns An object containing the rate, present count, and total class days.
@@ -31,6 +42,9 @@ export function calculateAttendanceStatistics(
     console.log(`[calculateAttendanceStatistics] Calculating for Saeed (${studentId}). Received ${attendanceRecords.length} records.`);
     console.log(`[calculateAttendanceStatistics] Input records for Saeed:`, attendanceRecords);
   }
+  
+  // Filter out holiday dates from attendance records
+  const filteredAttendanceRecords = attendanceRecords.filter(record => !isHoliday(record.date));
   
   // Get current date components in UTC
   const now = new Date();
@@ -55,7 +69,7 @@ export function calculateAttendanceStatistics(
     return { rate: 0, presentCount: 0, totalClassDays: 0 };
   }
   
-  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday) ---
+  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday and Holidays) ---
   let totalClassDays = 0;
   
   // Iterate day by day from startDateUTC up to and including currentDateUTC
@@ -72,8 +86,8 @@ export function calculateAttendanceStatistics(
     const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const dateString = tempDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Count the day if it's NOT a Friday (day 5)
-    if (dayOfWeek !== 5) {
+    // Count the day if it's NOT a Friday AND NOT a holiday
+    if (dayOfWeek !== 5 && !isHoliday(dateString)) {
       totalClassDays++;
       if (DEBUG_LOGGING && countedDates) countedDates.push(dateString);
       
@@ -81,7 +95,7 @@ export function calculateAttendanceStatistics(
         console.log(`[calculateAttendanceStatistics] Counted Day (Saeed): ${dateString}, DayOfWeek: ${dayOfWeek}, New Total: ${totalClassDays}`);
       }
     } else if (DEBUG_LOGGING && isSaeed) {
-      console.log(`[calculateAttendanceStatistics] Skipped Friday (Saeed): ${dateString}`);
+      console.log(`[calculateAttendanceStatistics] Skipped ${dayOfWeek === 5 ? 'Friday' : 'Holiday'}: ${dateString}`);
     }
     
     // Move to the next day in UTC
@@ -99,7 +113,7 @@ export function calculateAttendanceStatistics(
   }
   
   // --- Calculate Numerator (Present or Late Days) ---
-  const presentOrLateRecords = attendanceRecords.filter(record => {
+  const presentOrLateRecords = filteredAttendanceRecords.filter(record => {
     const isPresentOrLate = record.status === 'present' || record.status === 'late';
     
     if (DEBUG_LOGGING && isSaeed) {

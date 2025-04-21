@@ -1,10 +1,22 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { processPendingAttendance } from './pendingAttendance';
 
-// Process specific dates that had issues with absent marking
-export const processSpecificDateIssues = async (): Promise<void> => {
+/**
+ * Process specific dates with known issues
+ */
+export const processSpecificDateIssues = async () => {
   try {
+    // Delete attendance records for April 20, 2025 (Holiday)
+    const { error: deleteError } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('date', '2025-04-20');
+
+    if (deleteError) {
+      console.error('Error deleting April 20 records:', deleteError);
+      return;
+    }
+
     // These dates need to be processed for missing absences
     const specificDates = [
       { date: '2025-04-01', storageKey: 'april_1_2025_fix_applied' },
@@ -27,6 +39,6 @@ export const processSpecificDateIssues = async (): Promise<void> => {
       }
     }
   } catch (error) {
-    console.error('[processSpecificDateIssues] Error:', error);
+    console.error('Error processing historical dates:', error);
   }
 };

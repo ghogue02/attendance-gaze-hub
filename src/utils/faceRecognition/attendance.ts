@@ -8,6 +8,11 @@ import { toast } from 'sonner';
 // Global debug flag - set to false to reduce console noise
 const DEBUG_LOGGING = false;
 
+// Define holidays - dates when we don't have class
+const HOLIDAY_DATES = new Set([
+  '2025-04-20' // Easter Sunday
+]);
+
 // Extend Window interface to allow storing caches globally
 declare global {
   interface Window {
@@ -42,9 +47,9 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
   try {
     DEBUG_LOGGING && console.log(`${functionName} Starting fetch for date: ${targetDateString}`);
     
-    // Skip processing if the date is April 11 or April 4, 2025 (problematic dates)
-    if (targetDateString === '2025-04-11' || targetDateString === '2025-04-04') {
-      console.warn(`${functionName} Skipping problematic date: ${targetDateString}`);
+    // Skip processing if the date is a holiday, April 11 or April 4, 2025 (problematic dates)
+    if (targetDateString === '2025-04-11' || targetDateString === '2025-04-04' || HOLIDAY_DATES.has(targetDateString)) {
+      console.warn(`${functionName} Skipping problematic or holiday date: ${targetDateString}`);
       return [];
     }
 

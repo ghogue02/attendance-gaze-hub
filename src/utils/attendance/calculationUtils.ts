@@ -8,7 +8,7 @@ const HOLIDAY_DATES = new Set([
 ]);
 
 // Global debug flag - set to false to reduce console noise
-const DEBUG_LOGGING = false;
+const DEBUG_LOGGING = true; // Temporarily set to true for debugging
 
 /**
  * Check if a date is a holiday
@@ -39,15 +39,15 @@ export function calculateAttendanceStatistics(
   const isSaeed = studentName === "Saeed" || 
                   studentId === "c80ac741-bee0-441d-aa3b-02aafa3dc018";
   
-  if (DEBUG_LOGGING && isSaeed) {
-    console.log(`[calculateAttendanceStatistics] Calculating for Saeed (${studentId}). Received ${attendanceRecords.length} records.`);
-    console.log(`[calculateAttendanceStatistics] Input records for Saeed:`, attendanceRecords);
+  if (DEBUG_LOGGING) {
+    console.log(`[calculateAttendanceStatistics] Calculating for student ID: ${studentId}. Received ${attendanceRecords.length} records.`);
+    console.log(`[calculateAttendanceStatistics] Input records:`, attendanceRecords);
   }
   
   // Filter out holiday dates from attendance records 
   const filteredAttendanceRecords = attendanceRecords.filter(record => !isHoliday(record.date));
   
-  if (DEBUG_LOGGING && isSaeed && attendanceRecords.length !== filteredAttendanceRecords.length) {
+  if (DEBUG_LOGGING && attendanceRecords.length !== filteredAttendanceRecords.length) {
     console.log(`[calculateAttendanceStatistics] Filtered out ${attendanceRecords.length - filteredAttendanceRecords.length} holiday records`);
   }
   
@@ -63,7 +63,7 @@ export function calculateAttendanceStatistics(
   // Start date is March 15, 2025 (UTC)
   const startDateUTC = MINIMUM_DATE_UTC;
   
-  if (DEBUG_LOGGING && isSaeed) {
+  if (DEBUG_LOGGING) {
     console.log(`[calculateAttendanceStatistics] Start Date UTC: ${new Date(startDateUTC).toISOString()}`);
     console.log(`[calculateAttendanceStatistics] Current Date UTC: ${new Date(currentDateUTC).toISOString()}`);
   }
@@ -82,11 +82,11 @@ export function calculateAttendanceStatistics(
   const tempDate = new Date(startDateUTC);
   let iteration = 0; // Safety check
   
-  if (DEBUG_LOGGING && isSaeed) {
+  if (DEBUG_LOGGING) {
     console.log(`[calculateAttendanceStatistics] Starting Day Calculation Loop...`);
   }
   
-  const countedDates = DEBUG_LOGGING && isSaeed ? [] : null;
+  const countedDates = DEBUG_LOGGING ? [] : null;
   
   while (tempDate.getTime() <= currentDateUTC && iteration < 1000) {
     const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
@@ -98,10 +98,10 @@ export function calculateAttendanceStatistics(
       if (classDates) classDates.push(dateString);
       if (DEBUG_LOGGING && countedDates) countedDates.push(dateString);
       
-      if (DEBUG_LOGGING && isSaeed) {
-        console.log(`[calculateAttendanceStatistics] Counted Day (Saeed): ${dateString}, DayOfWeek: ${dayOfWeek}, New Total: ${totalClassDays}`);
+      if (DEBUG_LOGGING) {
+        console.log(`[calculateAttendanceStatistics] Counted Day: ${dateString}, DayOfWeek: ${dayOfWeek}, New Total: ${totalClassDays}`);
       }
-    } else if (DEBUG_LOGGING && isSaeed) {
+    } else if (DEBUG_LOGGING) {
       let skipReason = "Unknown";
       if (dayOfWeek === 5) skipReason = 'Friday';
       else if (dayOfWeek === 0) skipReason = 'Sunday';
@@ -119,7 +119,7 @@ export function calculateAttendanceStatistics(
     console.error("[calculateAttendanceStatistics] Loop exceeded max iterations!");
   }
   
-  if (DEBUG_LOGGING || totalClassDays > 32) { // Added condition to log when total class days > 32
+  if (DEBUG_LOGGING) {
     console.log(`[calculateAttendanceStatistics] Total class days counted: ${totalClassDays}`);
     console.log(`[calculateAttendanceStatistics] All class dates:`, classDates);
     console.log(`[calculateAttendanceStatistics] Date range: ${new Date(startDateUTC).toISOString().split('T')[0]} to ${new Date(currentDateUTC).toISOString().split('T')[0]}`);
@@ -129,8 +129,8 @@ export function calculateAttendanceStatistics(
   const presentOrLateRecords = filteredAttendanceRecords.filter(record => {
     const isPresentOrLate = record.status === 'present' || record.status === 'late';
     
-    if (DEBUG_LOGGING && isSaeed) {
-      console.log(`[calculateAttendanceStatistics] Filtering record (Saeed): Date=${record.date}, Status=${record.status}, IsPresentOrLate=${isPresentOrLate}`);
+    if (DEBUG_LOGGING) {
+      console.log(`[calculateAttendanceStatistics] Filtering record: Date=${record.date}, Status=${record.status}, IsPresentOrLate=${isPresentOrLate}`);
     }
     
     return isPresentOrLate;
@@ -138,16 +138,17 @@ export function calculateAttendanceStatistics(
   
   const presentOrLateDays = presentOrLateRecords.length;
   
-  if (DEBUG_LOGGING && isSaeed) {
-    console.log(`[calculateAttendanceStatistics] Filtered Present/Late Records (Saeed):`, presentOrLateRecords);
+  if (DEBUG_LOGGING) {
+    console.log(`[calculateAttendanceStatistics] Filtered Present/Late Records:`, presentOrLateRecords);
     console.log(`[calculateAttendanceStatistics] Final presentOrLateDays = ${presentOrLateDays}`);
   }
   
   // --- Calculate Rate ---
+  // IMPORTANT: Never cap this at 100% as that causes incorrect rates
   let rate = 0;
   if (totalClassDays > 0) {
-    // Calculate the rate - cap it at 100% to prevent values over 100%
-    rate = Math.min(100, Math.round((presentOrLateDays / totalClassDays) * 100));
+    // Calculate the rate without capping - this shows accurate percentages
+    rate = Math.round((presentOrLateDays / totalClassDays) * 100);
   }
   
   // Ensure rate, presentCount, and totalClassDays are accurate
@@ -157,8 +158,9 @@ export function calculateAttendanceStatistics(
     totalClassDays,
   };
   
-  if (DEBUG_LOGGING || presentOrLateDays > totalClassDays) {
+  if (DEBUG_LOGGING) {
     console.log(`[calculateAttendanceStatistics] Student ID: ${studentId}`);
+    console.log(`[calculateAttendanceStatistics] Calculated: ${presentOrLateDays} present or late days out of ${totalClassDays} total class days`);
     console.log(`[calculateAttendanceStatistics] Final Result:`, result);
   }
   

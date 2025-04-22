@@ -76,6 +76,7 @@ export function calculateAttendanceStatistics(
   
   // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday, Sunday and Holidays) ---
   let totalClassDays = 0;
+  let classDates: string[] = []; // Track all class dates for debugging
   
   // Iterate day by day from startDateUTC up to and including currentDateUTC
   const tempDate = new Date(startDateUTC);
@@ -94,6 +95,7 @@ export function calculateAttendanceStatistics(
     // Count the day if it's NOT a Friday AND NOT a Sunday AND NOT a holiday
     if (dayOfWeek !== 5 && dayOfWeek !== 0 && !isHoliday(dateString)) {
       totalClassDays++;
+      if (classDates) classDates.push(dateString);
       if (DEBUG_LOGGING && countedDates) countedDates.push(dateString);
       
       if (DEBUG_LOGGING && isSaeed) {
@@ -117,9 +119,10 @@ export function calculateAttendanceStatistics(
     console.error("[calculateAttendanceStatistics] Loop exceeded max iterations!");
   }
   
-  if (DEBUG_LOGGING && isSaeed) {
-    console.log(`[calculateAttendanceStatistics] Finished Day Calculation Loop. Final totalClassDays = ${totalClassDays}`);
-    if (countedDates) console.log(`[calculateAttendanceStatistics] All counted dates:`, countedDates);
+  if (DEBUG_LOGGING || totalClassDays > 32) { // Added condition to log when total class days > 32
+    console.log(`[calculateAttendanceStatistics] Total class days counted: ${totalClassDays}`);
+    console.log(`[calculateAttendanceStatistics] All class dates:`, classDates);
+    console.log(`[calculateAttendanceStatistics] Date range: ${new Date(startDateUTC).toISOString().split('T')[0]} to ${new Date(currentDateUTC).toISOString().split('T')[0]}`);
   }
   
   // --- Calculate Numerator (Present or Late Days) ---
@@ -140,25 +143,23 @@ export function calculateAttendanceStatistics(
     console.log(`[calculateAttendanceStatistics] Final presentOrLateDays = ${presentOrLateDays}`);
   }
   
-  // --- FIX: Remove the special case for Saeed that was causing incorrect 100% rates ---
-  // The issue was that if someone had perfect attendance within their recorded days 
-  // (even if they didn't have records for all days), they would get 100%
-  
   // --- Calculate Rate ---
   let rate = 0;
   if (totalClassDays > 0) {
-    // Calculate the rate - No longer capping at 100% if records don't match expected count
-    rate = Math.round((presentOrLateDays / totalClassDays) * 100);
+    // Calculate the rate - cap it at 100% to prevent values over 100%
+    rate = Math.min(100, Math.round((presentOrLateDays / totalClassDays) * 100));
   }
   
+  // Ensure rate, presentCount, and totalClassDays are accurate
   const result = {
     rate,
     presentCount: presentOrLateDays,
     totalClassDays,
   };
   
-  if (DEBUG_LOGGING && isSaeed) {
-    console.log(`[calculateAttendanceStatistics] Final Result for Saeed:`, result);
+  if (DEBUG_LOGGING || presentOrLateDays > totalClassDays) {
+    console.log(`[calculateAttendanceStatistics] Student ID: ${studentId}`);
+    console.log(`[calculateAttendanceStatistics] Final Result:`, result);
   }
   
   return result;

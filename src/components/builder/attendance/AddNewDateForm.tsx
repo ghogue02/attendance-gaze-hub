@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,11 @@ interface AddNewDateFormProps {
 
 const isFriday = (date: Date): boolean => {
   return date.getDay() === 5;
+};
+
+// Add specific check for April 18th 2025 (Good Friday)
+const isApril18th2025 = (date: Date): boolean => {
+  return date.getFullYear() === 2025 && date.getMonth() === 3 && date.getDate() === 18;
 };
 
 const isApril4th2025 = (date: Date): boolean => {
@@ -45,8 +51,8 @@ const AddNewDateForm = ({ onCancel, onSave, isLoading, existingDates }: AddNewDa
       return;
     }
     
-    if (isApril4th2025(date)) {
-      setDateError('April 4th, 2025 is not a valid class day');
+    if (isApril4th2025(date) || isApril18th2025(date)) {
+      setDateError('This specific date is not a valid class day');
       return;
     }
 
@@ -86,7 +92,7 @@ const AddNewDateForm = ({ onCancel, onSave, isLoading, existingDates }: AddNewDa
                 setOpen(false);
               }}
               disabled={(date) => {
-                return isFriday(date) || isApril4th2025(date);
+                return isFriday(date) || isApril4th2025(date) || isApril18th2025(date);
               }}
               initialFocus
             />

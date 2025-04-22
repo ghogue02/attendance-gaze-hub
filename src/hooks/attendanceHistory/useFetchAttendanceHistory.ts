@@ -10,6 +10,13 @@ const HOLIDAY_DATES = new Set([
   '2025-04-20' // Easter Sunday
 ]);
 
+// Define problematic dates to filter out
+const PROBLEMATIC_DATES = new Set([
+  '2025-04-18', // Good Friday
+  '2025-04-11', // Friday
+  '2025-04-04'  // Friday
+]);
+
 export const useFetchAttendanceHistory = (builder: Builder) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -34,10 +41,9 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
       }
       
       if (data) {
-        // Filter out April 11, April 4, and April 20 (holiday) records
+        // Filter out Fridays, April 18th (Good Friday), and holidays
         const filteredData = data.filter(record => 
-          record.date !== '2025-04-11' && 
-          record.date !== '2025-04-04' &&
+          !PROBLEMATIC_DATES.has(record.date) &&
           !HOLIDAY_DATES.has(record.date)
         );
         

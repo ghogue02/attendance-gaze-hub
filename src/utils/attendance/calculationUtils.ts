@@ -1,9 +1,17 @@
+
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
 // Define holidays - dates when we don't have class
 const HOLIDAY_DATES = new Set([
   '2025-04-20' // Easter Sunday
+]);
+
+// Add April 18th, 2025 explicitly to the problematic dates for clarity
+const PROBLEMATIC_DATES = new Set([
+  '2025-04-18', // Good Friday - explicitly excluded
+  '2025-04-04',
+  '2025-04-11'
 ]);
 
 // Global debug flag - set to true for debugging this issue
@@ -17,11 +25,18 @@ const isHoliday = (dateString: string): boolean => {
 };
 
 /**
- * Check if a date is a valid class day (not Friday, not Sunday, not holiday)
+ * Check if a date is explicitly problematic (specific Fridays we want to exclude)
+ */
+const isProblematicDate = (dateString: string): boolean => {
+  return PROBLEMATIC_DATES.has(dateString);
+};
+
+/**
+ * Check if a date is a valid class day (not Friday, not Sunday, not holiday, not problematic)
  */
 const isValidClassDay = (dateObj: Date, dateString: string): boolean => {
   const dayOfWeek = dateObj.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  return dayOfWeek !== 5 && dayOfWeek !== 0 && !isHoliday(dateString);
+  return dayOfWeek !== 5 && dayOfWeek !== 0 && !isHoliday(dateString) && !isProblematicDate(dateString);
 };
 
 /**
@@ -45,10 +60,11 @@ export function calculateAttendanceStatistics(
     console.log(`[calculateAttendanceStatistics] Calculating for student ID: ${studentId}. Received ${attendanceRecords.length} records.`);
   }
   
-  // Filter out holiday dates from attendance records 
-  // But keep track of dates with recorded attendance (even if they are Fridays or Sundays)
+  // Filter out holiday dates from attendance records and problematic dates
   const allAttendanceDates = new Set(attendanceRecords.map(record => record.date));
-  const filteredAttendanceRecords = attendanceRecords.filter(record => !isHoliday(record.date));
+  const filteredAttendanceRecords = attendanceRecords.filter(record => 
+    !isHoliday(record.date) && !isProblematicDate(record.date)
+  );
   
   // Get current date components in UTC
   const now = new Date();
@@ -89,7 +105,7 @@ export function calculateAttendanceStatistics(
     const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const dateString = tempDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Count the day if it's NOT a Friday AND NOT a Sunday AND NOT a holiday
+    // Count the day if it's a valid class day (not Friday, not Sunday, not holiday, not problematic)
     if (isValidClassDay(tempDate, dateString)) {
       totalClassDays++;
       if (DEBUG_LOGGING) classDates.push(dateString);
@@ -102,6 +118,7 @@ export function calculateAttendanceStatistics(
       if (dayOfWeek === 5) skipReason = 'Friday';
       else if (dayOfWeek === 0) skipReason = 'Sunday';
       else if (isHoliday(dateString)) skipReason = 'Holiday';
+      else if (isProblematicDate(dateString)) skipReason = 'Problematic Date';
       
       console.log(`[calculateAttendanceStatistics] Skipped ${skipReason}: ${dateString}`);
     }
@@ -116,7 +133,8 @@ export function calculateAttendanceStatistics(
   const presentOrLateRecords = filteredAttendanceRecords.filter(record => {
     // Check if this is a valid class day
     const recordDate = new Date(record.date);
-    const isClassDay = isValidClassDay(recordDate, record.date);
+    const dateString = record.date;
+    const isClassDay = isValidClassDay(recordDate, dateString);
     
     // Only count present or late records on valid class days 
     const isPresentOrLate = (record.status === 'present' || record.status === 'late') && isClassDay;

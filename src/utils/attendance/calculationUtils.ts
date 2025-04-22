@@ -1,4 +1,3 @@
-
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
@@ -154,10 +153,15 @@ export function calculateAttendanceStatistics(
   }
   
   // --- Calculate Rate ---
-  // Cap rate at 100% to prevent showing rates above 100%
   let rate = 0;
   if (totalClassDays > 0) {
-    rate = Math.min(100, Math.round((presentOrLateDays / totalClassDays) * 100));
+    // If the student has attended all classes, set rate to 100%
+    if (presentOrLateDays >= totalClassDays) {
+      rate = 100;
+    } else {
+      // Otherwise calculate the percentage
+      rate = Math.round((presentOrLateDays / totalClassDays) * 100);
+    }
   }
   
   // Ensure rate, presentCount, and totalClassDays are accurate

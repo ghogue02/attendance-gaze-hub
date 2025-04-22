@@ -57,7 +57,9 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
   }
 
   // Calculate the correct ratio to display
-  const attendedCount = Math.min(presentCount, totalClassDays);
+  // If present count matches or exceeds total class days, show perfect attendance
+  const displayedCount = Math.min(presentCount, totalClassDays);
+  const perfectAttendance = presentCount >= totalClassDays;
   
   return (
     <div className="mb-4 p-3 bg-muted/30 rounded-md">
@@ -74,7 +76,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
         </span>
       </p>
       <p className="text-xs text-center text-muted-foreground mt-1">
-        Based on {attendedCount}/{totalClassDays} class sessions attended
+        Based on {perfectAttendance ? 'all' : displayedCount}/{totalClassDays} class sessions attended
       </p>
     </div>
   );

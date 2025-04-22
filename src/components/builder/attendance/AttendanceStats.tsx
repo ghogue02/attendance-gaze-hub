@@ -56,6 +56,9 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     </div>;
   }
 
+  // Calculate the correct ratio to display
+  const attendedCount = Math.min(presentCount, totalClassDays);
+  
   return (
     <div className="mb-4 p-3 bg-muted/30 rounded-md">
       <p className="font-medium text-center">
@@ -71,7 +74,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
         </span>
       </p>
       <p className="text-xs text-center text-muted-foreground mt-1">
-        Based on {presentCount}/{totalClassDays} class sessions attended
+        Based on {attendedCount}/{totalClassDays} class sessions attended
       </p>
     </div>
   );

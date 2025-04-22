@@ -64,11 +64,42 @@ export function calculateAttendanceStatistics(
     return { rate: 0, presentCount: 0, totalClassDays: 0 };
   }
   
-  // --- FIXED: Hard-code the total class days to 31 as confirmed by the user ---
-  const totalClassDays = 31;
+  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday, Sunday and Holidays) ---
+  let totalClassDays = 0;
+  let classDates: string[] = []; // Track all class dates for debugging
+  
+  // Iterate day by day from startDateUTC up to and including currentDateUTC
+  const tempDate = new Date(startDateUTC);
+  let iteration = 0; // Safety check
   
   if (DEBUG_LOGGING) {
-    console.log(`[calculateAttendanceStatistics] Total class days hardcoded to: ${totalClassDays}`);
+    console.log(`[calculateAttendanceStatistics] Starting Day Calculation Loop...`);
+  }
+  
+  while (tempDate.getTime() <= currentDateUTC && iteration < 100) {
+    const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const dateString = tempDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Count the day if it's NOT a Friday AND NOT a Sunday AND NOT a holiday
+    if (dayOfWeek !== 5 && dayOfWeek !== 0 && !isHoliday(dateString)) {
+      totalClassDays++;
+      if (DEBUG_LOGGING) classDates.push(dateString);
+      
+      if (DEBUG_LOGGING) {
+        console.log(`[calculateAttendanceStatistics] Counted Day: ${dateString}, DayOfWeek: ${dayOfWeek}, TotalDays: ${totalClassDays}`);
+      }
+    } else if (DEBUG_LOGGING) {
+      let skipReason = "Unknown";
+      if (dayOfWeek === 5) skipReason = 'Friday';
+      else if (dayOfWeek === 0) skipReason = 'Sunday';
+      else if (isHoliday(dateString)) skipReason = 'Holiday';
+      
+      console.log(`[calculateAttendanceStatistics] Skipped ${skipReason}: ${dateString}`);
+    }
+    
+    // Move to the next day in UTC
+    tempDate.setUTCDate(tempDate.getUTCDate() + 1);
+    iteration++;
   }
   
   // --- Calculate Numerator (Present or Late Days) ---

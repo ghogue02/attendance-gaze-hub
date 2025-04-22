@@ -9,6 +9,13 @@ const HOLIDAY_DATES = new Set([
   '2025-04-20' // Easter Sunday
 ]);
 
+// Define problematic dates - Fridays we don't have class
+const PROBLEMATIC_DATES = new Set([
+  '2025-04-18', // Good Friday
+  '2025-04-11', // Friday
+  '2025-04-04'  // Friday
+]);
+
 // Get attendance statistics for the front page
 export const fetchStats = async () => {
   try {
@@ -35,20 +42,17 @@ export const fetchStats = async () => {
       throw attendanceError;
     }
     
-    // Filter out records for Fridays, Sundays, holidays (April 20, 2025), or April 4th, 2025, or before MINIMUM_DATE
+    // Filter out records for Fridays, holidays, or problematic dates, or before MINIMUM_DATE
     const filteredAttendance = attendanceData?.filter(record => {
       const date = new Date(record.date);
-      // Check if it's a Friday or Sunday or April 4th, 2025
+      // Check if it's a Friday
       const isFriday = date.getDay() === 5;
-      const isSunday = date.getDay() === 0;
-      const isApril4th = date.getFullYear() === 2025 && 
-                          date.getMonth() === 3 && // April is month 3 (0-indexed)
-                          date.getDate() === 4;
-      
-      // Check if it's a holiday (April 20th, 2025)
+      // Check if it's a problematic date
+      const isProblematicDate = PROBLEMATIC_DATES.has(record.date);
+      // Check if it's a holiday
       const isHoliday = HOLIDAY_DATES.has(record.date);
                            
-      return !isFriday && !isSunday && !isApril4th && !isHoliday && date >= MINIMUM_DATE;
+      return !isFriday && !isProblematicDate && !isHoliday && date >= MINIMUM_DATE;
     }) || [];
 
     console.log(`Stats: Filtered ${attendanceData?.length || 0} records down to ${filteredAttendance.length}`);

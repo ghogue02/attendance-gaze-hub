@@ -1,3 +1,4 @@
+
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
@@ -31,20 +32,21 @@ const isProblematicDate = (dateString: string): boolean => {
 };
 
 /**
- * Check if a date is a valid class day (not Friday, not Sunday, not holiday, not problematic)
+ * Check if a date is a valid class day (not Friday, not a holiday, not problematic)
+ * NOTE: Sundays ARE valid class days except for holidays
  */
 const isValidClassDay = (dateObj: Date, dateString: string): boolean => {
   const dayOfWeek = dateObj.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  return dayOfWeek !== 5 && dayOfWeek !== 0 && !isHoliday(dateString) && !isProblematicDate(dateString);
+  return dayOfWeek !== 5 && !isHoliday(dateString) && !isProblematicDate(dateString);
 };
 
 /**
  * Calculates attendance statistics based on a defined period and rules.
  * 
- * Assumes class days are EVERY DAY EXCEPT FRIDAY AND SUNDAY between the start date (inclusive)
- * and current date (inclusive).
+ * Assumes class days are EVERY DAY EXCEPT FRIDAY between the start date (inclusive)
+ * and current date (inclusive). Sundays ARE counted as class days except for holidays.
  * 
- * Rate = (Days Present or Late) / (Total Days Excluding Fridays, Sundays, and Holidays between Start and Current Date) * 100
+ * Rate = (Days Present or Late) / (Total Days Excluding Fridays and Holidays between Start and Current Date) * 100
  * 
  * @param attendanceRecords Attendance records for a specific builder
  * @returns An object containing the rate, present count, and total class days.
@@ -88,7 +90,7 @@ export function calculateAttendanceStatistics(
     return { rate: 0, presentCount: 0, totalClassDays: 0 };
   }
   
-  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday, Sunday and Holidays) ---
+  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday and Holidays) ---
   let totalClassDays = 0;
   let classDates: string[] = []; // Track all class dates for debugging
   
@@ -104,7 +106,8 @@ export function calculateAttendanceStatistics(
     const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const dateString = tempDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Count the day if it's a valid class day (not Friday, not Sunday, not holiday, not problematic)
+    // Count the day if it's a valid class day (not Friday, not holiday, not problematic)
+    // Note: Sundays ARE now counted as class days except for holidays
     if (isValidClassDay(tempDate, dateString)) {
       totalClassDays++;
       if (DEBUG_LOGGING) classDates.push(dateString);
@@ -115,7 +118,6 @@ export function calculateAttendanceStatistics(
     } else if (DEBUG_LOGGING) {
       let skipReason = "Unknown";
       if (dayOfWeek === 5) skipReason = 'Friday';
-      else if (dayOfWeek === 0) skipReason = 'Sunday';
       else if (isHoliday(dateString)) skipReason = 'Holiday';
       else if (isProblematicDate(dateString)) skipReason = 'Problematic Date';
       
@@ -128,7 +130,7 @@ export function calculateAttendanceStatistics(
   }
   
   // --- Calculate Numerator (Present or Late Days) ---
-  // Only count present/late days that are on valid class days (not Fridays or Sundays or holidays)
+  // Only count present/late days that are on valid class days (not Fridays or holidays)
   const presentOrLateRecords = filteredAttendanceRecords.filter(record => {
     // Check if this is a valid class day
     const recordDate = new Date(record.date);

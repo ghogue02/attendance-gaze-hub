@@ -13,6 +13,13 @@ const HOLIDAY_DATES = new Set([
   '2025-04-20' // Easter Sunday
 ]);
 
+// Define problematic dates - Fridays we don't have class
+const PROBLEMATIC_DATES = new Set([
+  '2025-04-18', // Good Friday
+  '2025-04-11', // Friday
+  '2025-04-04'  // Friday
+]);
+
 // Extend Window interface to allow storing caches globally
 declare global {
   interface Window {
@@ -47,8 +54,8 @@ export const getAllBuilders = async (targetDateString: string): Promise<Builder[
   try {
     DEBUG_LOGGING && console.log(`${functionName} Starting fetch for date: ${targetDateString}`);
     
-    // Skip processing if the date is a holiday, April 11 or April 4, 2025 (problematic dates)
-    if (targetDateString === '2025-04-11' || targetDateString === '2025-04-04' || HOLIDAY_DATES.has(targetDateString)) {
+    // Skip processing if the date is a holiday or problematic date
+    if (PROBLEMATIC_DATES.has(targetDateString) || HOLIDAY_DATES.has(targetDateString)) {
       console.warn(`${functionName} Skipping problematic or holiday date: ${targetDateString}`);
       return [];
     }

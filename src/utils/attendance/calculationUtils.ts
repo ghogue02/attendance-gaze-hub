@@ -140,36 +140,15 @@ export function calculateAttendanceStatistics(
     console.log(`[calculateAttendanceStatistics] Final presentOrLateDays = ${presentOrLateDays}`);
   }
   
-  // --- Special handling for Saeed (temporary fix) ---
-  // If this is Saeed and he has perfect attendance (based on database records vs. counted days)
-  // Force override the rate to 100%
-  if (isSaeed && presentOrLateDays > 0) {
-    // Check if all the days Saeed has records for are marked as present/late
-    // This would indicate perfect attendance for the days he was eligible to attend
-    const totalRecords = filteredAttendanceRecords.length;
-    const presentOrLateRatio = presentOrLateDays / totalRecords;
-    
-    if (DEBUG_LOGGING) {
-      console.log(`[calculateAttendanceStatistics] Saeed's records: Total=${totalRecords}, Present/Late=${presentOrLateDays}, Ratio=${presentOrLateRatio}`);
-    }
-    
-    if (presentOrLateRatio === 1) {
-      if (DEBUG_LOGGING) {
-        console.log(`[calculateAttendanceStatistics] APPLYING SAEED OVERRIDE: Setting to 100% as all his records are present/late`);
-      }
-      return {
-        rate: 100,
-        presentCount: totalClassDays,  // Set to the total class days for display purposes
-        totalClassDays,
-      };
-    }
-  }
+  // --- FIX: Remove the special case for Saeed that was causing incorrect 100% rates ---
+  // The issue was that if someone had perfect attendance within their recorded days 
+  // (even if they didn't have records for all days), they would get 100%
   
   // --- Calculate Rate ---
   let rate = 0;
   if (totalClassDays > 0) {
-    // Calculate the rate and cap it at 100%
-    rate = Math.min(100, Math.round((presentOrLateDays / totalClassDays) * 100));
+    // Calculate the rate - No longer capping at 100% if records don't match expected count
+    rate = Math.round((presentOrLateDays / totalClassDays) * 100);
   }
   
   const result = {

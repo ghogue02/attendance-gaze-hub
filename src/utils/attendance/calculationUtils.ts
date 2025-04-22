@@ -40,6 +40,14 @@ const isValidClassDay = (dateObj: Date, dateString: string): boolean => {
   return dayOfWeek !== 5 && !isHoliday(dateString) && !isProblematicDate(dateString);
 };
 
+// Define a consistent return type that always includes hasPerfectAttendance
+interface AttendanceStats {
+  rate: number;
+  presentCount: number;
+  totalClassDays: number;
+  hasPerfectAttendance: boolean;
+}
+
 /**
  * Calculates attendance statistics based on a defined period and rules.
  * 
@@ -53,7 +61,7 @@ const isValidClassDay = (dateObj: Date, dateString: string): boolean => {
  */
 export function calculateAttendanceStatistics(
   attendanceRecords: { date: string; status?: string; student_id?: string }[]
-) {
+): AttendanceStats {
   // --- Log Inputs ---
   const studentId = attendanceRecords.length > 0 ? attendanceRecords[0].student_id : 'Unknown';
   
@@ -87,7 +95,7 @@ export function calculateAttendanceStatistics(
   // Edge Case: If current date is before the start date, return zeros.
   if (currentDateUTC < startDateUTC) {
     console.warn("Current date is before the minimum start date.");
-    return { rate: 0, presentCount: 0, totalClassDays: 0 };
+    return { rate: 0, presentCount: 0, totalClassDays: 0, hasPerfectAttendance: false };
   }
   
   // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday and Holidays) ---
@@ -167,7 +175,7 @@ export function calculateAttendanceStatistics(
   }
   
   // Ensure rate, presentCount, and totalClassDays are accurate
-  const result = {
+  const result: AttendanceStats = {
     rate,
     presentCount: Math.min(presentOrLateDays, totalClassDays), // Cannot exceed total class days
     totalClassDays,

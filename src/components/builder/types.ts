@@ -25,6 +25,7 @@ export interface AttendanceStats {
   rate: number;
   presentCount: number;
   totalClassDays: number;
+  hasPerfectAttendance: boolean; // Add this property to match calculationUtils.ts
 }
 
 export interface BuilderCardProps {

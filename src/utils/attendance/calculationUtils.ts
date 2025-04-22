@@ -157,7 +157,7 @@ export function calculateAttendanceStatistics(
   // --- Calculate Rate ---
   let rate = 0;
   if (totalClassDays > 0) {
-    // If the student has attended all classes, set rate to 100%
+    // If the student has attended all or more days than required, set rate to 100%
     if (presentOrLateDays >= totalClassDays) {
       rate = 100;
     } else {
@@ -169,8 +169,10 @@ export function calculateAttendanceStatistics(
   // Ensure rate, presentCount, and totalClassDays are accurate
   const result = {
     rate,
-    presentCount: presentOrLateDays,
+    presentCount: Math.min(presentOrLateDays, totalClassDays), // Cannot exceed total class days
     totalClassDays,
+    // If they've attended all days, they have perfect attendance
+    hasPerfectAttendance: presentOrLateDays >= totalClassDays 
   };
   
   if (DEBUG_LOGGING) {

@@ -66,8 +66,10 @@ export const fetchStats = async () => {
     const lateCount = todayAttendance?.filter(r => r.status === 'late').length || 0;
     
     // Calculate attendance rate (present + late)
+    // If all students are present or late, it's 100%
+    const presentAndLateCount = presentCount + lateCount;
     const attendanceRate = totalBuilders > 0 
-      ? Math.round(((presentCount + lateCount) / totalBuilders) * 100)
+      ? (presentAndLateCount >= totalBuilders ? 100 : Math.round((presentAndLateCount / totalBuilders) * 100))
       : 0;
 
     console.log(`Stats: Attendance rate for today: ${attendanceRate}%, Present: ${presentCount}, Late: ${lateCount}, Total: ${totalBuilders}`);

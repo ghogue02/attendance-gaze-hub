@@ -41,11 +41,20 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
       }
       
       if (data) {
-        // Filter out Fridays, April 18th (Good Friday), and holidays
-        const filteredData = data.filter(record => 
-          !PROBLEMATIC_DATES.has(record.date) &&
-          !HOLIDAY_DATES.has(record.date)
-        );
+        // Filter out Fridays and specific dates (like April 18th - Good Friday)
+        // but NOT Sundays generally - only Easter Sunday
+        const filteredData = data.filter(record => {
+          const date = new Date(record.date);
+          // Check if it's a Friday (day 5)
+          const isFriday = date.getDay() === 5;
+          // Check if it's a problematic date
+          const isProblematicDate = PROBLEMATIC_DATES.has(record.date);
+          // Check if it's Easter Sunday
+          const isHoliday = HOLIDAY_DATES.has(record.date);
+          
+          // Include all days EXCEPT Fridays, problematic dates, and Easter Sunday
+          return !isFriday && !isProblematicDate && !isHoliday;
+        });
         
         const formattedHistory = filteredData.map(record => ({
           id: record.id,

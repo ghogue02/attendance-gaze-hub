@@ -11,6 +11,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
   const [attendanceRate, setAttendanceRate] = useState<number>(0);
   const [totalClassDays, setTotalClassDays] = useState<number>(0);
   const [presentCount, setPresentCount] = useState<number>(0);
+  const [isPerfect, setIsPerfect] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
   useEffect(() => {
@@ -32,6 +33,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
         setAttendanceRate(stats.rate);
         setPresentCount(stats.presentCount);
         setTotalClassDays(stats.totalClassDays);
+        setIsPerfect(stats.hasPerfectAttendance || stats.rate === 100);
       } catch (error) {
         console.error('Error calculating attendance rate:', error);
       } finally {
@@ -56,11 +58,6 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     </div>;
   }
 
-  // Calculate the correct ratio to display
-  // If present count matches or exceeds total class days, show perfect attendance
-  const displayedCount = Math.min(presentCount, totalClassDays);
-  const perfectAttendance = presentCount >= totalClassDays;
-  
   return (
     <div className="mb-4 p-3 bg-muted/30 rounded-md">
       <p className="font-medium text-center">
@@ -76,7 +73,11 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
         </span>
       </p>
       <p className="text-xs text-center text-muted-foreground mt-1">
-        Based on {perfectAttendance ? 'all' : displayedCount}/{totalClassDays} class sessions attended
+        {isPerfect ? (
+          <>Based on all {totalClassDays} class sessions attended</>
+        ) : (
+          <>Based on {presentCount}/{totalClassDays} class sessions attended</>
+        )}
       </p>
     </div>
   );

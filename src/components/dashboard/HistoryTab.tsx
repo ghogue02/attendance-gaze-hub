@@ -1,4 +1,3 @@
-
 import { useState, useCallback, memo, useMemo, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import AttendanceHistory from './AttendanceHistory';
@@ -6,6 +5,7 @@ import AttendanceErrorDisplay from './AttendanceErrorDisplay';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import ExportAttendanceButton from './ExportAttendanceButton';
 
 interface HistoryTabProps {
   builders: Builder[];
@@ -24,11 +24,14 @@ const HistoryTab = memo(({ builders }: HistoryTabProps) => {
     setError(message);
   }, []);
   
-  // Memoize the builders array to prevent unnecessary re-renders
   const memoizedBuilders = useMemo(() => builders, [builders]);
   
   return (
     <div className="space-y-6">      
+      <div className="flex justify-end">
+        <ExportAttendanceButton />
+      </div>
+      
       {error && (
         <AttendanceErrorDisplay 
           message={error}

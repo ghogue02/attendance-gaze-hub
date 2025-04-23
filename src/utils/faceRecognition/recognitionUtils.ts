@@ -11,7 +11,7 @@ import {
   fetchRegisteredStudents,
   groupRegistrationsByStudent,
   recordAttendance
-} from './recognition';
+} from './recognition/index';
 
 export {
   detectFaces,

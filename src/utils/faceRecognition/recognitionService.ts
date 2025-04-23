@@ -1,6 +1,6 @@
 
 // Import existing functionalities
-import { detectFaces, manageRecognitionHistory, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory } from './recognition';
+import { detectFaces, manageRecognitionHistory, checkRecentlyRecognized, fetchRegisteredStudents, groupRegistrationsByStudent, fetchStudentDetails, recordAttendance, updateRecognitionHistory } from './recognition/index';
 import { getRecognitionSettings } from './setup';
 import { Builder } from '@/components/builder/types';
 import { markAttendance } from '@/utils/attendance/markAttendance';

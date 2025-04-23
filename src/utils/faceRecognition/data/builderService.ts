@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Builder } from '@/components/builder/types';
+import { Builder, BuilderStatus } from '@/components/builder/types';
 import { shouldSkipDate } from '../validation/dateValidation';
 import { toast } from 'sonner';
 
@@ -59,13 +59,13 @@ export const fetchBuildersWithAttendance = async (targetDateString: string): Pro
     return students.map(student => {
       const attendanceRecord = attendanceMap.get(student.id);
       
-      let calculatedStatus = 'pending';
+      let calculatedStatus: BuilderStatus = 'pending';
       let timeRecorded: string | undefined = undefined;
       let excuseReason: string | undefined = undefined;
       let attendanceNotes: string | undefined = undefined;
 
       if (attendanceRecord) {
-        calculatedStatus = attendanceRecord.status;
+        calculatedStatus = attendanceRecord.status as BuilderStatus;
         excuseReason = attendanceRecord.excuse_reason || undefined;
         attendanceNotes = attendanceRecord.notes || undefined;
         

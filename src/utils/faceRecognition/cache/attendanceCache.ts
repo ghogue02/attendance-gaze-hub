@@ -1,4 +1,6 @@
 
+import { Builder } from '@/components/builder/types';
+
 // Create a global singleton cache to prevent duplicate storage
 declare global {
   interface Window {

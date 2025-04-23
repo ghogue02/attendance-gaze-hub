@@ -1,9 +1,13 @@
 
 import { Builder } from '@/components/builder/types';
-import { FaceDetectionOptions } from './types';
+import { FaceDetectionOptions, FaceDetectionResult } from './types';
 
 // Face detection functionality
-export const detectFaces = async (imageData: string, preview = false, debugAttempt = 0) => {
+export const detectFaces = async (
+  imageData: string, 
+  preview = false, 
+  debugAttempt = 0
+): Promise<FaceDetectionResult> => {
   try {
     console.log(`Face detection attempt #${debugAttempt}`);
     

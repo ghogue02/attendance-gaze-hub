@@ -9,7 +9,7 @@ import {
   recordAttendance,
   updateRecognitionHistory,
   selectStudentForRecognition
-} from './recognitionUtils';
+} from './recognition';
 import { markAttendance } from '@/utils/attendance/markAttendance';
 
 export const recognizeFace = async (imageData: string, passive = false): Promise<RecognitionResult> => {

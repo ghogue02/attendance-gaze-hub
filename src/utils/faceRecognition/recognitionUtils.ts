@@ -7,7 +7,10 @@ import {
   updateRecognitionHistory,
   fetchStudentDetails,
   checkFaceRegistrationStatus,
-  selectStudentForRecognition
+  selectStudentForRecognition,
+  fetchRegisteredStudents,
+  groupRegistrationsByStudent,
+  recordAttendance
 } from './recognition';
 
 export {
@@ -17,7 +20,10 @@ export {
   updateRecognitionHistory,
   fetchStudentDetails,
   checkFaceRegistrationStatus,
-  selectStudentForRecognition
+  selectStudentForRecognition,
+  fetchRegisteredStudents,
+  groupRegistrationsByStudent,
+  recordAttendance
 };
 
 // Expose the detectFacesWithFallback as the main public API

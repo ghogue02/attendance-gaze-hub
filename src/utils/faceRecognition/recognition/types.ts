@@ -28,4 +28,5 @@ export interface FaceDetectionResult {
   faceVertices?: any;
 }
 
-export { Builder, BuilderStatus };
+// Re-export these types properly with 'export type'
+export type { Builder, BuilderStatus };

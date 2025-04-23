@@ -1,15 +1,6 @@
+
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { RecognitionResult } from './types';
-import { 
-  fetchRegisteredStudents,
-  groupRegistrationsByStudent,
-  manageRecognitionHistory,
-  checkRecentlyRecognized,
-  fetchStudentDetails,
-  recordAttendance,
-  updateRecognitionHistory,
-  selectStudentForRecognition
-} from './recognition';
 import { markAttendance } from '@/utils/attendance/markAttendance';
 
 export const recognizeFace = async (imageData: string, passive = false): Promise<RecognitionResult> => {
@@ -17,6 +8,17 @@ export const recognizeFace = async (imageData: string, passive = false): Promise
     setTimeout(async () => {
       try {
         console.log("Starting face recognition process with Vision API integration...");
+        
+        // Import these functions dynamically to avoid circular dependencies
+        const { 
+          fetchRegisteredStudents,
+          groupRegistrationsByStudent,
+          manageRecognitionHistory,
+          checkRecentlyRecognized,
+          fetchStudentDetails,
+          recordAttendance,
+          updateRecognitionHistory
+        } = await import('./recognition/index');
         
         const registeredStudentsResult = await fetchRegisteredStudents();
         

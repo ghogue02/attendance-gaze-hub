@@ -4,18 +4,7 @@ import { Builder, BuilderStatus, AttendanceRecord } from '@/components/builder/t
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatISOTimeToEastern } from '@/utils/date/dateUtils';
-
-// Define holidays to be filtered out
-const HOLIDAY_DATES = new Set([
-  '2025-04-20' // Easter Sunday
-]);
-
-// Define problematic dates to filter out
-const PROBLEMATIC_DATES = new Set([
-  '2025-04-18', // Good Friday
-  '2025-04-11', // Friday
-  '2025-04-04'  // Friday
-]);
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 export const useFetchAttendanceHistory = (builder: Builder) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
@@ -41,20 +30,8 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
       }
       
       if (data) {
-        // Filter out Fridays and specific dates (like April 18th - Good Friday)
-        // but NOT Sundays generally - only Easter Sunday
-        const filteredData = data.filter(record => {
-          const date = new Date(record.date);
-          // Check if it's a Friday (day 5)
-          const isFriday = date.getDay() === 5;
-          // Check if it's a problematic date
-          const isProblematicDate = PROBLEMATIC_DATES.has(record.date);
-          // Check if it's Easter Sunday
-          const isHoliday = HOLIDAY_DATES.has(record.date);
-          
-          // Include all days EXCEPT Fridays, problematic dates, and Easter Sunday
-          return !isFriday && !isProblematicDate && !isHoliday;
-        });
+        // Filter records to only include class days using the isClassDay helper
+        const filteredData = data.filter(record => isClassDay(record.date));
         
         const formattedHistory = filteredData.map(record => ({
           id: record.id,

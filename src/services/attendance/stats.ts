@@ -1,20 +1,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
-
-// Define holidays - dates when we don't have class
-const HOLIDAY_DATES = new Set([
-  '2025-04-20' // Easter Sunday
-]);
-
-// Define problematic dates - Fridays we don't have class
-const PROBLEMATIC_DATES = new Set([
-  '2025-04-18', // Good Friday
-  '2025-04-11', // Friday
-  '2025-04-04'  // Friday
-]);
 
 // Get attendance statistics for the front page
 export const fetchStats = async () => {
@@ -42,17 +31,10 @@ export const fetchStats = async () => {
       throw attendanceError;
     }
     
-    // Filter out records for Fridays, holidays, or problematic dates, or before MINIMUM_DATE
+    // Filter out records for non-class days or before MINIMUM_DATE
     const filteredAttendance = attendanceData?.filter(record => {
       const date = new Date(record.date);
-      // Check if it's a Friday
-      const isFriday = date.getDay() === 5;
-      // Check if it's a problematic date
-      const isProblematicDate = PROBLEMATIC_DATES.has(record.date);
-      // Check if it's a holiday
-      const isHoliday = HOLIDAY_DATES.has(record.date);
-                           
-      return !isFriday && !isProblematicDate && !isHoliday && date >= MINIMUM_DATE;
+      return isClassDay(record.date) && date >= MINIMUM_DATE;
     }) || [];
 
     console.log(`Stats: Filtered ${attendanceData?.length || 0} records down to ${filteredAttendance.length}`);

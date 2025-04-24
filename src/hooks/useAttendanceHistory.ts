@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -7,11 +6,7 @@ import { fetchAttendanceRecords, deleteAttendanceRecord } from '@/services/atten
 import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { toast } from 'sonner';
 import { throttledRequest } from '@/utils/request/throttle';
-
-// Define holidays to be filtered out
-const HOLIDAY_DATES = new Set([
-  '2025-04-20' // Easter Sunday
-]);
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -33,16 +28,11 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         60000 // 1 minute cache
       );
       
-      // Filter out April 11, 2025, April 4, 2025, and holidays
-      const filteredByDate = records.filter(record => 
-        record.date !== '2025-04-11' && 
-        record.date !== '2025-04-04' &&
-        !HOLIDAY_DATES.has(record.date)
-      );
+      // Note: fetchAttendanceRecords now handles the filtering using isClassDay
       
-      let filteredRecords = filteredByDate;
+      let filteredRecords = records;
       if (statusFilter !== 'all') {
-        filteredRecords = filteredByDate.filter(record => record.status === statusFilter);
+        filteredRecords = records.filter(record => record.status === statusFilter);
       }
       
       setAttendanceRecords(filteredRecords);

@@ -2,6 +2,7 @@
 import { Builder } from '@/components/builder/types';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { supabase } from '@/integrations/supabase/client';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 interface BuilderAttendanceStats {
   builder: Builder;
@@ -31,6 +32,9 @@ export async function exportAttendanceHistory(): Promise<string> {
       
     if (attendanceError) throw attendanceError;
 
+    // Filter records to only include class days
+    const classDayRecords = attendanceRecords.filter(record => isClassDay(record.date));
+
     // Process data for each builder
     const builderStats = new Map<string, BuilderAttendanceStats>();
     const allDates = new Set<string>();
@@ -53,7 +57,7 @@ export async function exportAttendanceHistory(): Promise<string> {
     });
 
     // Process attendance records
-    attendanceRecords.forEach(record => {
+    classDayRecords.forEach(record => {
       const stats = builderStats.get(record.student_id);
       if (!stats) return;
 
@@ -68,14 +72,14 @@ export async function exportAttendanceHistory(): Promise<string> {
       }
     });
 
-    // Calculate attendance scores
+    // Calculate attendance scores - FIX: Use presentCount / total for the calculation
     builderStats.forEach(stats => {
       const total = stats.presentCount + stats.absentCount;
       if (total === 0) {
         stats.attendanceScore = 0;
       } else {
         stats.attendanceScore = Math.round(
-          ((stats.presentCount - stats.absentCount) / total) * 100
+          (stats.presentCount / total) * 100
         );
       }
     });

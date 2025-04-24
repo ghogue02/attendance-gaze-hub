@@ -1,8 +1,8 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 /**
  * Fetches all attendance records with student names
@@ -39,13 +39,11 @@ export const fetchAttendanceRecords = async (
       return [];
     }
     
-    // Filter out April 11 and April 4, 2025 records directly in the client-side code
-    const filteredData = data.filter(record => 
-      record.date !== '2025-04-11' && record.date !== '2025-04-04'
-    );
+    // Filter records to only include class days
+    const classDayRecords = data.filter(record => isClassDay(record.date));
     
     // Map and validate the status to ensure it's a valid BuilderStatus
-    return filteredData.map(record => {
+    return classDayRecords.map(record => {
       // Get first and last name from the joined students data
       const student = record.students as { first_name: string, last_name: string } | null;
       const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : 'Unknown';

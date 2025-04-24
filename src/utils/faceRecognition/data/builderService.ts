@@ -1,8 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
-import { shouldSkipDate } from '../validation/dateValidation';
 import { toast } from 'sonner';
+import { isClassDay } from '../../attendance/isClassDay';
 
 // Global debug flag - set to false to reduce console noise
 const DEBUG_LOGGING = false;
@@ -11,9 +10,9 @@ export const fetchBuildersWithAttendance = async (targetDateString: string): Pro
   try {
     DEBUG_LOGGING && console.log('Fetching builders with attendance for date:', targetDateString);
     
-    // Skip processing if the date should be skipped
-    if (shouldSkipDate(targetDateString)) {
-      console.warn(`Skipping problematic or holiday date: ${targetDateString}`);
+    // Replace shouldSkipDate with isClassDay
+    if (!isClassDay(targetDateString)) {
+      console.warn(`Skipping non-class date: ${targetDateString}`);
       return [];
     }
 

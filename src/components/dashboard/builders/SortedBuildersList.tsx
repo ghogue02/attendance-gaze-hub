@@ -1,4 +1,3 @@
-
 import React, { useMemo, memo } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import BuilderCard from '@/components/builder/BuilderCard';
@@ -83,7 +82,16 @@ const SortedBuildersList = memo(({
     );
   }
   
-  // No results state
+  // No builders in database at all
+  if (builders.length === 0) {
+    return (
+      <NoResultsState 
+        noBuilders={true}
+      />
+    );
+  }
+  
+  // No results state after filtering
   if (sortedBuilders.length === 0) {
     return (
       <NoResultsState 

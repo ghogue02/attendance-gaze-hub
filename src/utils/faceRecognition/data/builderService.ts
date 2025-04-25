@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
@@ -11,11 +10,9 @@ export const fetchBuildersWithAttendance = async (targetDateString: string): Pro
   try {
     DEBUG_LOGGING && console.log('Fetching builders with attendance for date:', targetDateString);
     
-    if (!isClassDay(targetDateString)) {
-      console.warn(`Skipping non-class date: ${targetDateString}`);
-      return [];
-    }
-
+    // Remove this check to always fetch builders, even on non-class days
+    // This allows viewing the dashboard on any day, including weekends and Fridays
+    
     // --- 1. Fetch all active students in a single query ---
     const { data: students, error: studentsError } = await supabase
       .from('students')

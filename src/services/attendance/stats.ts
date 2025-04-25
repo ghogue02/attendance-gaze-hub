@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { isClassDay } from '@/utils/attendance/isClassDay';
+import { isAttendanceDay } from '@/utils/attendance/isClassDay';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
@@ -14,7 +14,8 @@ export const fetchStats = async () => {
     // Get total number of builders
     const { data: studentCount, error: studentError } = await supabase
       .from('students')
-      .select('id', { count: 'exact' });
+      .select('id', { count: 'exact' })
+      .is('archived_at', null); // Only count non-archived students
       
     if (studentError) {
       console.error('Error fetching student count:', studentError);
@@ -34,7 +35,7 @@ export const fetchStats = async () => {
     // Filter out records for non-class days or before MINIMUM_DATE
     const filteredAttendance = attendanceData?.filter(record => {
       const date = new Date(record.date);
-      return isClassDay(record.date) && date >= MINIMUM_DATE;
+      return isAttendanceDay(record.date) && date >= MINIMUM_DATE;
     }) || [];
 
     console.log(`Stats: Filtered ${attendanceData?.length || 0} records down to ${filteredAttendance.length}`);

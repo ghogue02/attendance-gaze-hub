@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { BuilderStatus } from '@/components/builder/types';
 import BuilderFilters from './BuilderFilters';
@@ -6,6 +5,8 @@ import { AddBuilderDialog } from '@/components/builder/AddBuilderDialog';
 import { ArchiveBuilderDialog } from '@/components/builder/ArchiveBuilderDialog';
 import BuildersHeader from './builders/BuildersHeader';
 import SortedBuildersList from './builders/SortedBuildersList';
+import { supabase } from '@/integrations/supabase/client';
+import { clearBuildersCache } from '@/utils/builders/getBuilders';
 
 interface BuildersTabProps {
   isLoading: boolean;
@@ -43,10 +44,33 @@ const BuildersTab = ({
     setIsArchiveDialogOpen(true);
   };
 
-  // Effect to scroll to the highlighted builder
+  useEffect(() => {
+    const channel = supabase
+      .channel('builders_archive_watch')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'students' 
+        },
+        (payload) => {
+          if (payload.new.archived_at !== payload.old.archived_at) {
+            console.log('Builder archive status changed, refreshing data');
+            clearBuildersCache();
+            refreshData();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refreshData]);
+
   useEffect(() => {
     if (highlightBuilderId && highlightedBuilderRef.current) {
-      // Smooth scroll to the highlighted builder
       highlightedBuilderRef.current.scrollIntoView({ 
         behavior: 'smooth',
         block: 'center'
@@ -54,7 +78,6 @@ const BuildersTab = ({
     }
   }, [highlightBuilderId, filteredBuilders]);
 
-  // Log the current sort option when it changes
   useEffect(() => {
     console.log(`[BuildersTab] Sort option changed to: ${sortOption}`);
   }, [sortOption]);

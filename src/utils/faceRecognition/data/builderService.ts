@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
@@ -10,16 +11,16 @@ export const fetchBuildersWithAttendance = async (targetDateString: string): Pro
   try {
     DEBUG_LOGGING && console.log('Fetching builders with attendance for date:', targetDateString);
     
-    // Replace shouldSkipDate with isClassDay
     if (!isClassDay(targetDateString)) {
       console.warn(`Skipping non-class date: ${targetDateString}`);
       return [];
     }
 
-    // --- 1. Fetch all students in a single query ---
+    // --- 1. Fetch all active students in a single query ---
     const { data: students, error: studentsError } = await supabase
       .from('students')
       .select('id, first_name, last_name, student_id, image_url, notes')
+      .is('archived_at', null) // Only fetch non-archived students
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
 

@@ -21,7 +21,7 @@ const validateBuilderStatus = (status: string | null): BuilderStatus => {
 };
 
 /**
- * Fetches all builders from the database with caching
+ * Fetches all active (non-archived) builders from the database with caching
  */
 export const getBuilders = async (): Promise<Builder[]> => {
   try {
@@ -64,3 +64,11 @@ export const getBuilders = async (): Promise<Builder[]> => {
     return [];
   }
 };
+
+// Function to clear the cache
+export const clearBuildersCache = () => {
+  console.log('Clearing builders cache');
+  buildersCache.data = [];
+  buildersCache.timestamp = 0;
+};
+

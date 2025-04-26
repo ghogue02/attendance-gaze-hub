@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, AttendanceStats } from '@/components/builder/types';
 import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
-import { isAttendanceDay } from '@/utils/attendance/isClassDay';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 // Define the start date for fetching records (align with calculation start date)
 const ATTENDANCE_START_DATE = '2025-03-15';
@@ -99,9 +99,9 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           return;
         }
 
-        // Filter out records for non-class days using isAttendanceDay
+        // Filter out records for non-class days using isClassDay
         const validAttendanceRecords = allAttendanceRecords?.filter(record => 
-          isAttendanceDay(record.date)
+          isClassDay(record.date)
         ) || [];
         
         if (DEBUG_LOGGING) {

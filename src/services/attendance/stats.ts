@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { isAttendanceDay } from '@/utils/attendance/isClassDay';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
@@ -35,7 +34,7 @@ export const fetchStats = async () => {
     // Filter out records for non-class days or before MINIMUM_DATE
     const filteredAttendance = attendanceData?.filter(record => {
       const date = new Date(record.date);
-      return isAttendanceDay(record.date) && date >= MINIMUM_DATE;
+      return isClassDay(record.date) && date >= MINIMUM_DATE;
     }) || [];
 
     console.log(`Stats: Filtered ${attendanceData?.length || 0} records down to ${filteredAttendance.length}`);

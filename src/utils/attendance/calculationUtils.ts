@@ -1,44 +1,11 @@
-
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE_UTC = Date.UTC(2025, 2, 15); // Use UTC timestamp for consistency
 
-// Define holidays - dates when we don't have class
-const HOLIDAY_DATES = new Set([
-  '2025-04-20' // Easter Sunday
-]);
-
-// Add April 18th, 2025 explicitly to the problematic dates for clarity
-const PROBLEMATIC_DATES = new Set([
-  '2025-04-18', // Good Friday - explicitly excluded
-  '2025-04-04',
-  '2025-04-11'
-]);
+// Import our canonical helper for class day determination
+import { isClassDay } from './isClassDay';
 
 // Global debug flag - set to true for debugging this issue
 const DEBUG_LOGGING = true;
-
-/**
- * Check if a date is a holiday
- */
-const isHoliday = (dateString: string): boolean => {
-  return HOLIDAY_DATES.has(dateString);
-};
-
-/**
- * Check if a date is explicitly problematic (specific Fridays we want to exclude)
- */
-const isProblematicDate = (dateString: string): boolean => {
-  return PROBLEMATIC_DATES.has(dateString);
-};
-
-/**
- * Check if a date is a valid class day (not Friday, not a holiday, not problematic)
- * NOTE: Sundays ARE valid class days except for holidays
- */
-const isValidClassDay = (dateObj: Date, dateString: string): boolean => {
-  const dayOfWeek = dateObj.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  return dayOfWeek !== 5 && !isHoliday(dateString) && !isProblematicDate(dateString);
-};
 
 // Define a consistent return type that always includes hasPerfectAttendance
 interface AttendanceStats {
@@ -51,10 +18,10 @@ interface AttendanceStats {
 /**
  * Calculates attendance statistics based on a defined period and rules.
  * 
- * Assumes class days are EVERY DAY EXCEPT FRIDAY between the start date (inclusive)
- * and current date (inclusive). Sundays ARE counted as class days except for holidays.
+ * Assumes class days follow the isClassDay helper logic between the start date (inclusive)
+ * and current date (inclusive).
  * 
- * Rate = (Days Present or Late) / (Total Days Excluding Fridays and Holidays between Start and Current Date) * 100
+ * Rate = (Days Present or Late) / (Total Class Days between Start and Current Date) * 100
  * 
  * @param attendanceRecords Attendance records for a specific builder
  * @returns An object containing the rate, present count, and total class days.
@@ -69,11 +36,8 @@ export function calculateAttendanceStatistics(
     console.log(`[calculateAttendanceStatistics] Calculating for student ID: ${studentId}. Received ${attendanceRecords.length} records.`);
   }
   
-  // Filter out holiday dates from attendance records and problematic dates
-  const allAttendanceDates = new Set(attendanceRecords.map(record => record.date));
-  const filteredAttendanceRecords = attendanceRecords.filter(record => 
-    !isHoliday(record.date) && !isProblematicDate(record.date)
-  );
+  // Filter out non-class days from attendance records using our canonical helper
+  const filteredAttendanceRecords = attendanceRecords.filter(record => isClassDay(record.date));
   
   // Get current date components in UTC
   const now = new Date();
@@ -98,7 +62,7 @@ export function calculateAttendanceStatistics(
     return { rate: 0, presentCount: 0, totalClassDays: 0, hasPerfectAttendance: false };
   }
   
-  // --- Calculate Denominator (Total Class Days: Every day EXCEPT Friday and Holidays) ---
+  // --- Calculate Denominator (Total Class Days using isClassDay) ---
   let totalClassDays = 0;
   let classDates: string[] = []; // Track all class dates for debugging
   
@@ -111,25 +75,18 @@ export function calculateAttendanceStatistics(
   }
   
   while (tempDate.getTime() <= currentDateUTC && iteration < 100) {
-    const dayOfWeek = tempDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const dateString = tempDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Count the day if it's a valid class day (not Friday, not holiday, not problematic)
-    // Note: Sundays ARE now counted as class days except for holidays
-    if (isValidClassDay(tempDate, dateString)) {
+    // Use our canonical helper to determine if this is a class day
+    if (isClassDay(dateString)) {
       totalClassDays++;
       if (DEBUG_LOGGING) classDates.push(dateString);
       
       if (DEBUG_LOGGING) {
-        console.log(`[calculateAttendanceStatistics] Counted Day: ${dateString}, DayOfWeek: ${dayOfWeek}, TotalDays: ${totalClassDays}`);
+        console.log(`[calculateAttendanceStatistics] Counted Day: ${dateString}, TotalDays: ${totalClassDays}`);
       }
     } else if (DEBUG_LOGGING) {
-      let skipReason = "Unknown";
-      if (dayOfWeek === 5) skipReason = 'Friday';
-      else if (isHoliday(dateString)) skipReason = 'Holiday';
-      else if (isProblematicDate(dateString)) skipReason = 'Problematic Date';
-      
-      console.log(`[calculateAttendanceStatistics] Skipped ${skipReason}: ${dateString}`);
+      console.log(`[calculateAttendanceStatistics] Skipped non-class day: ${dateString}`);
     }
     
     // Move to the next day in UTC
@@ -138,18 +95,16 @@ export function calculateAttendanceStatistics(
   }
   
   // --- Calculate Numerator (Present or Late Days) ---
-  // Only count present/late days that are on valid class days (not Fridays or holidays)
+  // Only count present/late days that are on valid class days
   const presentOrLateRecords = filteredAttendanceRecords.filter(record => {
-    // Check if this is a valid class day
-    const recordDate = new Date(record.date);
-    const dateString = record.date;
-    const isClassDay = isValidClassDay(recordDate, dateString);
+    // Check if this is a valid class day (redundant since we already filtered, but keeping for clarity)
+    const isValidClassDay = isClassDay(record.date);
     
     // Only count present or late records on valid class days 
-    const isPresentOrLate = (record.status === 'present' || record.status === 'late') && isClassDay;
+    const isPresentOrLate = (record.status === 'present' || record.status === 'late') && isValidClassDay;
     
     if (DEBUG_LOGGING) {
-      console.log(`[calculateAttendanceStatistics] Filtering record: Date=${record.date}, Status=${record.status}, IsValidClassDay=${isClassDay}, IsPresentOrLate=${isPresentOrLate}`);
+      console.log(`[calculateAttendanceStatistics] Filtering record: Date=${record.date}, Status=${record.status}, IsValidClassDay=${isValidClassDay}, IsPresentOrLate=${isPresentOrLate}`);
     }
     
     return isPresentOrLate;

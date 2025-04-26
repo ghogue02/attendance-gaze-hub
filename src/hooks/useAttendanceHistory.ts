@@ -29,8 +29,8 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         60000 // 1 minute cache
       );
       
-      // Filter out records for non-class days using isAttendanceDay
-      const classDaysRecords = records.filter(record => isAttendanceDay(record.date));
+      // Filter out records for non-class days using isClassDay
+      const classDaysRecords = records.filter(record => isClassDay(record.date));
       console.log(`Filtered ${records.length} records to ${classDaysRecords.length} valid class days`);
       
       let filteredRecords = classDaysRecords;

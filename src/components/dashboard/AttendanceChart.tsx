@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { markPendingAsAbsent } from '@/services/attendance';
 import { toast } from 'sonner';
-import { isAttendanceDay } from '@/utils/attendance/isClassDay';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 interface AttendanceChartProps {
   builders: Builder[];
@@ -20,7 +20,6 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const days = parseInt(timeFrame);
   
-  // Add debug output for timeFrame changes
   useEffect(() => {
     console.log(`AttendanceChart: timeFrame changed to ${timeFrame} (${days} days)`);
   }, [timeFrame, days]);
@@ -30,26 +29,23 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   const handleRefreshChart = async () => {
     setRefreshing(true);
     try {
-      // Get the dates from the chart data
       const dates = chartData.map(data => data.date);
       
       let totalUpdated = 0;
       
-      // Process each date, but only for valid attendance days
       for (const date of dates) {
-        if (isAttendanceDay(date)) {
+        if (isClassDay(date)) {
           const updated = await markPendingAsAbsent(date);
           if (updated > 0) {
             totalUpdated += updated;
           }
         } else {
-          console.log(`Skipping ${date} as it's not a valid class day (e.g., Friday, weekend, or holiday)`);
+          console.log(`Skipping ${date} as it's not a valid class day (e.g., Friday or holiday)`);
         }
       }
       
       if (totalUpdated > 0) {
         toast.success(`Updated ${totalUpdated} attendance records`);
-        // Force reload the page to refresh all data
         window.location.reload();
       } else {
         toast.info("No records needed updating");

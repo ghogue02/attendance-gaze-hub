@@ -1,8 +1,8 @@
-
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, BuilderStatus, AttendanceRecord } from '@/components/builder/types';
 import { toast } from 'sonner';
+import { isAttendanceDay } from '@/utils/attendance/isClassDay';
 
 export interface AttendanceQueryResult {
   records: AttendanceRecord[];
@@ -167,6 +167,10 @@ export const useOptimizedAttendanceQueries = () => {
         throw new Error(`Failed to fetch attendance history: ${error.message}`);
       }
       
+      // Filter for valid attendance days
+      const validAttendanceData = data.filter(record => isAttendanceDay(record.date));
+      console.log(`[useOptimizedAttendanceQueries] Filtered ${data.length} records to ${validAttendanceData.length} valid attendance days`);
+      
       // Helper function to validate status as BuilderStatus
       const validateStatus = (status: string | null): BuilderStatus => {
         if (!status) return 'pending';
@@ -176,7 +180,7 @@ export const useOptimizedAttendanceQueries = () => {
         return 'pending';
       };
       
-      const formattedHistory: AttendanceRecord[] = data.map(record => ({
+      const formattedHistory: AttendanceRecord[] = validAttendanceData.map(record => ({
         id: record.id,
         date: record.date,
         status: validateStatus(record.status),

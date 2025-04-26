@@ -1,8 +1,8 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, AttendanceStats } from '@/components/builder/types';
 import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUtils';
+import { isAttendanceDay } from '@/utils/attendance/isClassDay';
 
 // Define the start date for fetching records (align with calculation start date)
 const ATTENDANCE_START_DATE = '2025-03-15';
@@ -99,14 +99,23 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
           return;
         }
 
+        // Filter out records for non-class days using isAttendanceDay
+        const validAttendanceRecords = allAttendanceRecords?.filter(record => 
+          isAttendanceDay(record.date)
+        ) || [];
+        
+        if (DEBUG_LOGGING) {
+          console.log(`[useBuilderAttendanceRates] Filtered ${allAttendanceRecords?.length || 0} records to ${validAttendanceRecords.length} valid class days`);
+        }
+
         // Group records by student_id for efficient processing
-        const recordsByStudent = allAttendanceRecords?.reduce((acc, record) => {
+        const recordsByStudent = validAttendanceRecords.reduce((acc, record) => {
           if (!acc[record.student_id]) {
             acc[record.student_id] = [];
           }
           acc[record.student_id].push(record);
           return acc;
-        }, {} as Record<string, typeof allAttendanceRecords>);
+        }, {} as Record<string, typeof validAttendanceRecords>);
         
         const rates: {[key: string]: number | null} = {};
         const stats: {[key: string]: AttendanceStats | null} = {};

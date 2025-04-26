@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
@@ -6,7 +7,7 @@ import { fetchAttendanceRecords, deleteAttendanceRecord } from '@/services/atten
 import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { toast } from 'sonner';
 import { throttledRequest } from '@/utils/request/throttle';
-import { isClassDay } from '@/utils/attendance/isClassDay';
+import { isAttendanceDay } from '@/utils/attendance/isClassDay';
 
 export const useAttendanceHistory = (onError: (message: string) => void) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -28,11 +29,13 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
         60000 // 1 minute cache
       );
       
-      // Note: fetchAttendanceRecords now handles the filtering using isClassDay
+      // Filter out records for non-class days using isAttendanceDay
+      const classDaysRecords = records.filter(record => isAttendanceDay(record.date));
+      console.log(`Filtered ${records.length} records to ${classDaysRecords.length} valid class days`);
       
-      let filteredRecords = records;
+      let filteredRecords = classDaysRecords;
       if (statusFilter !== 'all') {
-        filteredRecords = records.filter(record => record.status === statusFilter);
+        filteredRecords = classDaysRecords.filter(record => record.status === statusFilter);
       }
       
       setAttendanceRecords(filteredRecords);

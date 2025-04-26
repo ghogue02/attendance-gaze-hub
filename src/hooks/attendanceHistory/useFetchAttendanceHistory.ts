@@ -4,7 +4,7 @@ import { Builder, BuilderStatus, AttendanceRecord } from '@/components/builder/t
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatISOTimeToEastern } from '@/utils/date/dateUtils';
-import { isClassDay } from '@/utils/attendance/isClassDay';
+import { isAttendanceDay } from '@/utils/attendance/isClassDay';
 
 export const useFetchAttendanceHistory = (builder: Builder) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
@@ -30,8 +30,9 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
       }
       
       if (data) {
-        // Filter records to only include class days using the isClassDay helper
-        const filteredData = data.filter(record => isClassDay(record.date));
+        // Filter records to only include valid attendance days
+        const filteredData = data.filter(record => isAttendanceDay(record.date));
+        console.log(`Filtered ${data.length} records to ${filteredData.length} valid attendance days for ${builder.name}`);
         
         const formattedHistory = filteredData.map(record => ({
           id: record.id,

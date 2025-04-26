@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { isAttendanceDay } from '../isClassDay';
 
 /**
  * Marks pending students as absent for a specific date
@@ -10,10 +11,17 @@ export const markPendingAsAbsent = async (date: string): Promise<number> => {
   try {
     console.log(`Checking for pending students on ${date} to mark as absent`);
     
+    // Check if this is a valid attendance day
+    if (!isAttendanceDay(date)) {
+      console.log(`${date} is not a class day (possibly a Friday or weekend). Skipping.`);
+      return 0;
+    }
+    
     // First fetch all students to know who should have an attendance record
     const { data: allStudents, error: studentsError } = await supabase
       .from('students')
-      .select('id');
+      .select('id')
+      .is('archived_at', null); // Only consider active students
       
     if (studentsError) {
       console.error('Error fetching students:', studentsError);

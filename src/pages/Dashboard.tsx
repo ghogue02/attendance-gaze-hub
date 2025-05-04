@@ -1,4 +1,3 @@
-
 // src/pages/Dashboard.tsx
 
 import { useState, useEffect, useRef } from 'react';
@@ -14,6 +13,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { processSpecificDateIssues } from '@/services/attendance/historicalDates';
 import { isClassDay, isCancelledClassDay } from '@/utils/attendance/isClassDay';
+import { AdminButton } from '@/components/admin/AdminButton';
 
 const Dashboard = () => {
   const location = useLocation();
@@ -161,10 +161,13 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <Header />
       <main className="pt-24 pb-16 px-4 container max-w-7xl mx-auto">
-        <DashboardHeader
-          selectedDate={selectedDate}
-          onRefresh={refreshData}
-        />
+        <div className="flex justify-between items-start mb-4">
+          <DashboardHeader
+            selectedDate={selectedDate}
+            onRefresh={refreshData}
+          />
+          <AdminButton />
+        </div>
 
         <StatisticsCards builders={builders} />
 

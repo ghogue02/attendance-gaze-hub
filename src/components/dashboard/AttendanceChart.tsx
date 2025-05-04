@@ -6,7 +6,7 @@ import { timeFrameOptions } from './constants/timeFrameOptions';
 import { useAttendanceChartData } from '@/hooks/useAttendanceChartData';
 import AttendanceBarChart from './AttendanceBarChart';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { markPendingAsAbsent } from '@/services/attendance';
 import { toast } from 'sonner';
 import { isClassDay, isCancelledClassDay } from '@/utils/attendance/isClassDay';
@@ -19,6 +19,7 @@ interface AttendanceChartProps {
 const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   const [timeFrame, setTimeFrame] = useState("7");
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelledDays, setCancelledDays] = useState<string[]>([]);
   const days = parseInt(timeFrame);
   
   useEffect(() => {
@@ -26,6 +27,15 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   }, [timeFrame, days]);
   
   const { chartData, isLoading } = useAttendanceChartData(builders, days);
+
+  // Identify cancelled days in the chart data
+  useEffect(() => {
+    const cancelled = chartData
+      .filter(data => isCancelledClassDay(data.date))
+      .map(data => data.date);
+    
+    setCancelledDays(cancelled);
+  }, [chartData]);
 
   const handleRefreshChart = async () => {
     setRefreshing(true);
@@ -88,7 +98,17 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
           </Select>
         </div>
       </div>
-      <div className="h-[90%]">
+      
+      {cancelledDays.length > 0 && (
+        <div className="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md p-2 mb-4 text-sm flex items-center">
+          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500 mr-2" />
+          <span>
+            Chart includes {cancelledDays.length} cancelled class day{cancelledDays.length > 1 ? 's' : ''}: {cancelledDays.join(', ')}
+          </span>
+        </div>
+      )}
+      
+      <div className="h-[85%]">
         <AttendanceBarChart 
           chartData={chartData} 
           isLoading={isLoading || refreshing} 

@@ -10,11 +10,24 @@ const HOLIDAYS = new Set([
 ]);
 
 // Define one-off cancellations - dates when class was cancelled for special reasons
-// This can be extended with more dates as needed for weather cancellations, special events, etc.
-export const CANCELLED_CLASSES = new Set([
-  // Format: 'YYYY-MM-DD'
-  // Example: '2025-05-10', // Special event cancellation
-]);
+// Initialize from localStorage if available
+const initCancelledClasses = (): Set<string> => {
+  if (typeof window !== 'undefined') {
+    const storedDays = localStorage.getItem('cancelledDays');
+    if (storedDays) {
+      try {
+        return new Set(JSON.parse(storedDays));
+      } catch (e) {
+        console.error('Error parsing cancelled days from localStorage:', e);
+      }
+    }
+  }
+  // Return empty set if localStorage not available or parsing failed
+  return new Set([]);
+};
+
+// Export cancellation set so it can be modified by admin interface
+export const CANCELLED_CLASSES = initCancelledClasses();
 
 /**
  * Determines if a given date is a class day (every day except Friday, permanent holidays,

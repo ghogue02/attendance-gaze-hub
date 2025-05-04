@@ -1,3 +1,4 @@
+
 // src/pages/Dashboard.tsx
 
 import { useState, useEffect, useRef } from 'react';
@@ -12,7 +13,7 @@ import { deleteAttendanceRecordsByDate } from '@/services/attendanceHistoryServi
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { processSpecificDateIssues } from '@/services/attendance/historicalDates';
-import { isAttendanceDay } from '@/utils/attendance/isClassDay';
+import { isClassDay, isCancelledClassDay } from '@/utils/attendance/isClassDay';
 
 const Dashboard = () => {
   const location = useLocation();
@@ -41,8 +42,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
-    if (!isAttendanceDay(today)) {
+    if (!isClassDay(today)) {
       console.log(`Today (${today}) is not a regular class day. This is expected. Viewing is still enabled.`);
+    } else if (isCancelledClassDay(today)) {
+      console.log(`Today (${today}) is a cancelled class day. Attendance may not be required, but viewing is enabled.`);
     }
   }, []);
 

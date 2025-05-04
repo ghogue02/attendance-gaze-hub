@@ -3,6 +3,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import StatisticCard from './StatisticCard';
 import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
 import { 
   processAttendanceForDate, 
   processPendingAttendance, 
@@ -10,6 +11,7 @@ import {
   removeApril4thRecords
 } from '@/services/attendance';
 import { processSpecificDateIssues } from '@/services/attendance/historicalDates';
+import { isCancelledClassDay, CANCELLED_CLASSES } from '@/utils/attendance/isClassDay';
 
 interface StatisticsCardsProps {
   builders: Builder[];
@@ -17,23 +19,18 @@ interface StatisticsCardsProps {
 
 const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const today = new Date().toISOString().split('T')[0];
+  const isCancelledDay = isCancelledClassDay(today);
   
   // Calculate statistics based on builders data
   const stats = useMemo(() => {
-    // Filter out Sunday records (day 0) before calculating statistics
-    const todayDate = new Date();
-    const isSunday = todayDate.getDay() === 0;
-    
-    // If today is Sunday, we should not show any attendance data in the stats
-    // because no attendance is expected on Sundays
+    // No more filtering based on Sunday - show actual data for all days
     const totalBuilders = builders.length;
-    
-    // Only count attendance if it's not Sunday
-    const presentCount = isSunday ? 0 : builders.filter(s => s.status === 'present').length;
-    const absentCount = isSunday ? 0 : builders.filter(s => s.status === 'absent').length;
-    const excusedCount = isSunday ? 0 : builders.filter(s => s.status === 'excused').length;
-    const pendingCount = isSunday ? 0 : builders.filter(s => s.status === 'pending').length;
-    const attendanceRate = (totalBuilders > 0 && !isSunday) ? Math.round((presentCount / totalBuilders) * 100) : 0;
+    const presentCount = builders.filter(s => s.status === 'present').length;
+    const absentCount = builders.filter(s => s.status === 'absent').length;
+    const excusedCount = builders.filter(s => s.status === 'excused').length;
+    const pendingCount = builders.filter(s => s.status === 'pending').length;
+    const attendanceRate = totalBuilders > 0 ? Math.round((presentCount / totalBuilders) * 100) : 0;
     
     console.log('Statistics calculation:', { 
       totalBuilders, 
@@ -42,8 +39,8 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       excusedCount, 
       pendingCount,
       attendanceRate,
-      isSunday,
-      currentDate: new Date().toISOString().split('T')[0]
+      isCancelledDay,
+      currentDate: today
     });
     
     return {
@@ -53,9 +50,9 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       excusedCount,
       pendingCount,
       attendanceRate,
-      isSunday
+      isCancelledDay
     };
-  }, [builders]);
+  }, [builders, isCancelledDay]);
 
   // Process specific dates with absent marking issues
   useEffect(() => {
@@ -157,52 +154,61 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   }, [stats.pendingCount, stats.totalBuilders]);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-      {/* Total Card */}
-      <StatisticCard
-        title="Total"
-        value={stats.totalBuilders}
-        color="primary"
-        percentage={100}
-        delay={0.1}
-      />
+    <>
+      {isCancelledDay && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-md flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-yellow-500" />
+          <span>Today is a <strong>cancelled class day</strong>. Attendance data is still being shown but attendance may not be required.</span>
+        </div>
+      )}
       
-      {/* Present Card */}
-      <StatisticCard
-        title="Present"
-        value={stats.isSunday ? 'N/A' : stats.presentCount}
-        color="green"
-        percentage={stats.isSunday ? 0 : stats.attendanceRate}
-        delay={0.2}
-      />
-      
-      {/* Absent Card */}
-      <StatisticCard
-        title="Absent"
-        value={stats.isSunday ? 'N/A' : stats.absentCount}
-        color="red"
-        percentage={stats.isSunday ? 0 : (stats.totalBuilders > 0 ? (stats.absentCount / stats.totalBuilders * 100) : 0)}
-        delay={0.3}
-      />
-      
-      {/* Excused Card */}
-      <StatisticCard
-        title="Excused"
-        value={stats.isSunday ? 'N/A' : stats.excusedCount}
-        color="amber"
-        percentage={stats.isSunday ? 0 : (stats.totalBuilders > 0 ? (stats.excusedCount / stats.totalBuilders * 100) : 0)}
-        delay={0.35}
-      />
-      
-      {/* Pending Card */}
-      <StatisticCard
-        title="Pending"
-        value={stats.isSunday ? 'N/A' : stats.pendingCount}
-        color="yellow"
-        percentage={stats.isSunday ? 0 : (stats.totalBuilders > 0 ? (stats.pendingCount / stats.totalBuilders * 100) : 0)}
-        delay={0.4}
-      />
-    </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        {/* Total Card */}
+        <StatisticCard
+          title="Total"
+          value={stats.totalBuilders}
+          color="primary"
+          percentage={100}
+          delay={0.1}
+        />
+        
+        {/* Present Card */}
+        <StatisticCard
+          title="Present"
+          value={stats.presentCount}
+          color="green"
+          percentage={stats.attendanceRate}
+          delay={0.2}
+        />
+        
+        {/* Absent Card */}
+        <StatisticCard
+          title="Absent"
+          value={stats.absentCount}
+          color="red"
+          percentage={stats.totalBuilders > 0 ? (stats.absentCount / stats.totalBuilders * 100) : 0}
+          delay={0.3}
+        />
+        
+        {/* Excused Card */}
+        <StatisticCard
+          title="Excused"
+          value={stats.excusedCount}
+          color="amber"
+          percentage={stats.totalBuilders > 0 ? (stats.excusedCount / stats.totalBuilders * 100) : 0}
+          delay={0.35}
+        />
+        
+        {/* Pending Card */}
+        <StatisticCard
+          title="Pending"
+          value={stats.pendingCount}
+          color="yellow"
+          percentage={stats.totalBuilders > 0 ? (stats.pendingCount / stats.totalBuilders * 100) : 0}
+          delay={0.4}
+        />
+      </div>
+    </>
   );
 };
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Builder } from '@/components/builder/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { markPendingAsAbsent } from '@/services/attendance';
 import { toast } from 'sonner';
-import { isClassDay } from '@/utils/attendance/isClassDay';
+import { isClassDay, isCancelledClassDay } from '@/utils/attendance/isClassDay';
 
 interface AttendanceChartProps {
   builders: Builder[];
@@ -34,13 +35,14 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
       let totalUpdated = 0;
       
       for (const date of dates) {
-        if (isClassDay(date)) {
+        // Only process days that are class days and not cancelled
+        if (isClassDay(date) && !isCancelledClassDay(date)) {
           const updated = await markPendingAsAbsent(date);
           if (updated > 0) {
             totalUpdated += updated;
           }
         } else {
-          console.log(`Skipping ${date} as it's not a valid class day (e.g., Friday or holiday)`);
+          console.log(`Skipping ${date} as it's not a valid class day or is cancelled`);
         }
       }
       

@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { CANCELLED_CLASSES, isHoliday } from '@/utils/attendance/isClassDay';
-import { CalendarX, Trash, Info } from 'lucide-react';
+import { fetchCancelledDays, isHoliday } from '@/utils/attendance/isClassDay';
+import { CalendarX, Trash, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CancelledDaysModalProps {
   open: boolean;
@@ -27,10 +28,12 @@ const formSchema = z.object({
 });
 
 export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalProps) {
-  const [cancelledDays, setCancelledDays] = useState<string[]>([...CANCELLED_CLASSES]);
+  const [cancelledDays, setCancelledDays] = useState<{date: string, reason: string | null, id: string}[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedDayToDelete, setSelectedDayToDelete] = useState<string | null>(null);
-  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,26 +42,35 @@ export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalPro
     },
   });
 
-  // Load cancelled days and reasons from localStorage
+  // Load cancelled days from Supabase when modal opens
   useEffect(() => {
-    const storedReasons = localStorage.getItem('cancelledDayReasons');
-    if (storedReasons) {
-      setReasons(JSON.parse(storedReasons));
+    if (open) {
+      loadCancelledDays();
     }
-  }, []);
+  }, [open]);
 
-  // Save modified cancelled days list to localStorage
-  const saveCancelledDays = (days: string[], updatedReasons: Record<string, string>) => {
-    // Save to localStorage for persistence
-    localStorage.setItem('cancelledDays', JSON.stringify(days));
-    localStorage.setItem('cancelledDayReasons', JSON.stringify(updatedReasons));
-    
-    // This would typically update your backend in a production app
-    // For now, we'll just reload the page to update the CANCELLED_CLASSES set
-    window.location.reload();
+  const loadCancelledDays = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('cancelled_days')
+        .select('*')
+        .order('date');
+      
+      if (error) {
+        throw error;
+      }
+      
+      setCancelledDays(data);
+    } catch (err) {
+      console.error('Error loading cancelled days:', err);
+      toast.error('Failed to load cancelled class days');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAddCancelledDay = (values: z.infer<typeof formSchema>) => {
+  const handleAddCancelledDay = async (values: z.infer<typeof formSchema>) => {
     const dateStr = values.cancelDate.toISOString().split('T')[0];
     
     // Check if the date is already in the permanent holidays
@@ -68,20 +80,38 @@ export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalPro
     }
     
     // Check if it's already in the cancelled list
-    if (cancelledDays.includes(dateStr)) {
+    if (cancelledDays.some(day => day.date === dateStr)) {
       toast.error("This date is already in the cancelled list");
       return;
     }
     
-    const newDays = [...cancelledDays, dateStr];
-    const newReasons = {...reasons, [dateStr]: values.reason};
-    
-    setCancelledDays(newDays);
-    setReasons(newReasons);
-    saveCancelledDays(newDays, newReasons);
-    
-    toast.success(`Added ${dateStr} to cancelled class days`);
-    form.reset();
+    setSubmitLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('cancelled_days')
+        .insert({ 
+          date: dateStr, 
+          reason: values.reason 
+        })
+        .select();
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Refresh cancelled days list
+      await loadCancelledDays();
+      // Also refresh the cache in the isClassDay utility
+      fetchCancelledDays();
+      
+      toast.success(`Added ${dateStr} to cancelled class days`);
+      form.reset();
+    } catch (err) {
+      console.error('Error adding cancelled day:', err);
+      toast.error('Failed to add cancelled class day');
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   const confirmDeleteDay = (day: string) => {
@@ -89,19 +119,41 @@ export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalPro
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteCancelledDay = () => {
+  const handleDeleteCancelledDay = async () => {
     if (!selectedDayToDelete) return;
     
-    const newDays = cancelledDays.filter(day => day !== selectedDayToDelete);
-    const newReasons = {...reasons};
-    delete newReasons[selectedDayToDelete];
-    
-    setCancelledDays(newDays);
-    setReasons(newReasons);
-    saveCancelledDays(newDays, newReasons);
-    
-    toast.success(`Removed ${selectedDayToDelete} from cancelled class days`);
-    setDeleteDialogOpen(false);
+    setDeleteLoading(true);
+    try {
+      const dayToDelete = cancelledDays.find(day => day.date === selectedDayToDelete);
+      
+      if (!dayToDelete) {
+        toast.error('Day not found in the list');
+        setDeleteDialogOpen(false);
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('cancelled_days')
+        .delete()
+        .eq('id', dayToDelete.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Refresh cancelled days list
+      await loadCancelledDays();
+      // Also refresh the cache in the isClassDay utility
+      fetchCancelledDays();
+      
+      toast.success(`Removed ${selectedDayToDelete} from cancelled class days`);
+    } catch (err) {
+      console.error('Error deleting cancelled day:', err);
+      toast.error('Failed to remove cancelled class day');
+    } finally {
+      setDeleteLoading(false);
+      setDeleteDialogOpen(false);
+    }
   };
 
   return (
@@ -134,7 +186,7 @@ export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalPro
                         onSelect={field.onChange}
                         disabled={(date) => {
                           const dateStr = date.toISOString().split('T')[0];
-                          return cancelledDays.includes(dateStr) || isHoliday(dateStr);
+                          return cancelledDays.some(day => day.date === dateStr) || isHoliday(dateStr);
                         }}
                         className="rounded-md border"
                       />
@@ -156,30 +208,46 @@ export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalPro
                   )}
                 />
 
-                <Button type="submit" className="w-full">
-                  Add Cancelled Day
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={submitLoading}
+                >
+                  {submitLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Cancelled Day'
+                  )}
                 </Button>
               </form>
             </Form>
 
             <div className="border-t pt-4">
               <h3 className="font-medium mb-2">Current Cancelled Days</h3>
-              {cancelledDays.length === 0 ? (
+              
+              {isLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : cancelledDays.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No cancelled class days configured</p>
               ) : (
                 <div className="space-y-2">
-                  {cancelledDays.sort().map((day) => (
+                  {cancelledDays.map((day) => (
                     <div 
-                      key={day} 
+                      key={day.id} 
                       className="flex items-center justify-between p-2 bg-secondary/30 rounded-md"
                     >
                       <div className="flex items-center gap-2">
                         <CalendarX className="h-4 w-4 text-destructive" />
-                        <span>{day}</span>
-                        {reasons[day] && (
+                        <span>{day.date}</span>
+                        {day.reason && (
                           <div className="flex items-center text-xs text-muted-foreground">
                             <Info className="h-3 w-3 inline mr-1" />
-                            {reasons[day]}
+                            {day.reason}
                           </div>
                         )}
                       </div>
@@ -187,7 +255,7 @@ export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalPro
                         size="sm" 
                         variant="ghost" 
                         className="h-8 w-8 p-0"
-                        onClick={() => confirmDeleteDay(day)}
+                        onClick={() => confirmDeleteDay(day.date)}
                       >
                         <Trash className="h-4 w-4" />
                         <span className="sr-only">Delete</span>
@@ -217,8 +285,23 @@ export function CancelledDaysModal({ open, onOpenChange }: CancelledDaysModalPro
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCancelledDay}>Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault(); // Prevent default to handle loading state
+                handleDeleteCancelledDay();
+              }}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

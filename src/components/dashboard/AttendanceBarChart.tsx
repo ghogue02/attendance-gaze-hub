@@ -1,3 +1,4 @@
+
 import { 
   BarChart, 
   Bar, 
@@ -11,7 +12,7 @@ import {
 } from 'recharts';
 import { DailyAttendance } from '@/hooks/useAttendanceChartData';
 import { parseAsUTC } from '@/utils/date/dateUtils';
-import { isClassDay } from '@/utils/attendance/isClassDay';
+import { isClassDaySync } from '@/utils/attendance/isClassDay';
 
 const HOLIDAY_DATES = new Set([
   '2025-04-20' // Easter Sunday
@@ -57,7 +58,7 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
     );
   }
   
-  const filteredData = chartData.filter(item => isClassDay(item.date));
+  const filteredData = chartData.filter(item => isClassDaySync(item.date));
   
   const apr1Data = filteredData.find(d => d.date === '2025-04-01');
   const apr2Data = filteredData.find(d => d.date === '2025-04-02');

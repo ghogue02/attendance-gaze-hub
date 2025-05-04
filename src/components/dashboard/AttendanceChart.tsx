@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { markPendingAsAbsent } from '@/services/attendance';
 import { toast } from 'sonner';
-import { isClassDay, isCancelledClassDay } from '@/utils/attendance/isClassDay';
+import { isClassDaySync, isCancelledClassDaySync } from '@/utils/attendance/isClassDay';
 
 interface AttendanceChartProps {
   builders: Builder[];
@@ -31,7 +31,7 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   // Identify cancelled days in the chart data
   useEffect(() => {
     const cancelled = chartData
-      .filter(data => isCancelledClassDay(data.date))
+      .filter(data => isCancelledClassDaySync(data.date))
       .map(data => data.date);
     
     setCancelledDays(cancelled);
@@ -46,7 +46,7 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
       
       for (const date of dates) {
         // Only process days that are class days and not cancelled
-        if (isClassDay(date) && !isCancelledClassDay(date)) {
+        if (isClassDaySync(date) && !isCancelledClassDaySync(date)) {
           const updated = await markPendingAsAbsent(date);
           if (updated > 0) {
             totalUpdated += updated;

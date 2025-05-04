@@ -53,6 +53,30 @@ export type Database = {
           },
         ]
       }
+      cancelled_days: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          date: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          date: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          date?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       face_embeddings: {
         Row: {
           created_at: string

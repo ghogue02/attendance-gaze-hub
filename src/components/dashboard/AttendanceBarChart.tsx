@@ -58,7 +58,9 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
     );
   }
   
-  const filteredData = chartData.filter(item => isClassDaySync(item.date));
+  // Use the chart data directly since it's already filtered by the hook
+  // The hook now includes Sundays and excludes only Fridays and holidays
+  const filteredData = chartData;
   
   const apr1Data = filteredData.find(d => d.date === '2025-04-01');
   const apr2Data = filteredData.find(d => d.date === '2025-04-02');

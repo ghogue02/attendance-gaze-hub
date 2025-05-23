@@ -7,7 +7,8 @@ import { calculateDateRange, generateDateMap } from '@/utils/attendance/chartDat
 import { processAttendanceRecords, formatChartData } from '@/utils/attendance/chartDataProcessor';
 import { fetchAttendanceChartData } from '@/services/attendance/chartDataService';
 
-export { DailyAttendance } from './types/attendanceChartTypes';
+// Change from "export" to "export type" for re-exporting the type
+export type { DailyAttendance } from './types/attendanceChartTypes';
 
 export const useAttendanceChartData = (builders: Builder[], days: number): AttendanceChartHookResult => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);

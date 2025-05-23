@@ -10,13 +10,7 @@ import {
   ResponsiveContainer,
   TooltipProps
 } from 'recharts';
-import { DailyAttendance } from '@/hooks/useAttendanceChartData';
-import { parseAsUTC } from '@/utils/date/dateUtils';
-import { isClassDaySync } from '@/utils/attendance/isClassDay';
-
-const HOLIDAY_DATES = new Set([
-  '2025-04-20' // Easter Sunday
-]);
+import { DailyAttendance } from '@/hooks/types/attendanceChartTypes';
 
 interface AttendanceBarChartProps {
   chartData: DailyAttendance[];

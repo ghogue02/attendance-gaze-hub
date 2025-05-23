@@ -59,7 +59,7 @@ const AttendanceBarChart = ({ chartData, isLoading }: AttendanceBarChartProps) =
   }
   
   // Use the chart data directly since it's already filtered by the hook
-  // The hook now includes Sundays and excludes only Fridays and holidays
+  // The hook now excludes Fridays, Thursdays and holidays
   const filteredData = chartData;
   
   const apr1Data = filteredData.find(d => d.date === '2025-04-01');

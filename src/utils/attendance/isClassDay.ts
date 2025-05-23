@@ -1,5 +1,6 @@
+
 /**
- * "Class day" = every calendar day **except** Friday + listed holidays/cancellations.
+ * "Class day" = every calendar day **except** Friday, Thursday + listed holidays/cancellations.
  * Works in UTC so cron jobs & dashboards agree.
  */
 import { supabase } from '@/integrations/supabase/client';
@@ -91,8 +92,8 @@ getCancelledDays().then(days => {
 });
 
 /**
- * Determines if a given date is a class day (every day except Friday, permanent holidays,
- * and one-off cancellations)
+ * Determines if a given date is a class day (every day except Friday, Thursday, 
+ * permanent holidays, and one-off cancellations)
  * 
  * This is our single source of truth for class day determination
  */
@@ -104,9 +105,9 @@ export const isClassDay = async (isoDate: string): Promise<boolean> => {
   const cancelledDays = await getCancelledDays();
   if (cancelledDays.has(isoDate)) return false;
   
-  // Check if it's Friday (day 5)
+  // Check if it's Friday (day 5) or Thursday (day 4)
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();   // 0-Sun … 6-Sat
-  return dow !== 5;  // Drop Fridays, keep everything else (including Sundays)
+  return dow !== 5 && dow !== 4;  // Drop Fridays and Thursdays, keep everything else
 };
 
 /**
@@ -121,9 +122,9 @@ export const isClassDaySync = (isoDate: string): boolean => {
   // Check one-off cancellations using cached data
   if (CANCELLED_CLASSES.has(isoDate)) return false;
   
-  // Check if it's Friday (day 5)
+  // Check if it's Friday (day 5) or Thursday (day 4)
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();   // 0-Sun … 6-Sat
-  return dow !== 5;  // Drop Fridays, keep everything else (including Sundays)
+  return dow !== 5 && dow !== 4;  // Drop Fridays and Thursdays, keep everything else
 };
 
 /**
@@ -137,9 +138,9 @@ export const isAttendanceDay = isClassDaySync;
  * (would normally be a class day, but was cancelled as a one-off)
  */
 export const isCancelledClassDay = async (isoDate: string): Promise<boolean> => {
-  // First check if it would normally be a class day (not a Friday or permanent holiday)
+  // First check if it would normally be a class day (not a Friday, Thursday or permanent holiday)
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();
-  const wouldBeClassDay = (dow !== 5 && !HOLIDAYS.has(isoDate));
+  const wouldBeClassDay = (dow !== 5 && dow !== 4 && !HOLIDAYS.has(isoDate));
   
   // Then check if it's in the cancelled set
   const cancelledDays = await getCancelledDays();
@@ -150,9 +151,9 @@ export const isCancelledClassDay = async (isoDate: string): Promise<boolean> => 
  * Synchronous version of isCancelledClassDay for backward compatibility
  */
 export const isCancelledClassDaySync = (isoDate: string): boolean => {
-  // First check if it would normally be a class day (not a Friday or permanent holiday)
+  // First check if it would normally be a class day (not a Friday, Thursday or permanent holiday)
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();
-  const wouldBeClassDay = (dow !== 5 && !HOLIDAYS.has(isoDate));
+  const wouldBeClassDay = (dow !== 5 && dow !== 4 && !HOLIDAYS.has(isoDate));
   
   // Then check if it's in the cancelled set using cached data
   return wouldBeClassDay && CANCELLED_CLASSES.has(isoDate);

@@ -11,7 +11,7 @@ import {
   removeApril4thRecords
 } from '@/services/attendance';
 import { processSpecificDateIssues } from '@/services/attendance/historicalDates';
-import { isCancelledClassDay, CANCELLED_CLASSES } from '@/utils/attendance/isClassDay';
+import { isCancelledClassDaySync, CANCELLED_CLASSES } from '@/utils/attendance/isClassDay';
 
 interface StatisticsCardsProps {
   builders: Builder[];
@@ -20,7 +20,7 @@ interface StatisticsCardsProps {
 const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const today = new Date().toISOString().split('T')[0];
-  const isCancelledDay = isCancelledClassDay(today);
+  const isCancelledDay = isCancelledClassDaySync(today);
   
   // Calculate statistics based on builders data
   const stats = useMemo(() => {

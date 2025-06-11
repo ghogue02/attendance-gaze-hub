@@ -1,11 +1,12 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
-import { isClassDay } from '@/utils/attendance/isClassDay';
+import { isClassDaySync } from '@/utils/attendance/isClassDay';
 
 /**
- * Fetches all attendance records with student names
+ * Fetches all attendance records with student names, excluding archived students
  */
 export const fetchAttendanceRecords = async (
   dateFilter: string | null, 
@@ -22,8 +23,9 @@ export const fetchAttendanceRecords = async (
         notes, 
         excuse_reason, 
         student_id,
-        students(first_name, last_name)
+        students!inner(first_name, last_name, archived_at)
       `)
+      .is('students.archived_at', null) // Only include non-archived students
       .order('date', { ascending: false })
       .order('time_recorded', { ascending: false });
     
@@ -39,8 +41,8 @@ export const fetchAttendanceRecords = async (
       return [];
     }
     
-    // Filter records to only include class days
-    const classDayRecords = data.filter(record => isClassDay(record.date));
+    // Filter records to only include class days using synchronous function
+    const classDayRecords = data.filter(record => isClassDaySync(record.date));
     
     // Map and validate the status to ensure it's a valid BuilderStatus
     return classDayRecords.map(record => {

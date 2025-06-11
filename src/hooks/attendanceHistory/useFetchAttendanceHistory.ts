@@ -4,7 +4,7 @@ import { Builder, BuilderStatus, AttendanceRecord } from '@/components/builder/t
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatISOTimeToEastern } from '@/utils/date/dateUtils';
-import { isClassDay } from '@/utils/attendance/isClassDay';
+import { isClassDaySync } from '@/utils/attendance/isClassDay';
 
 export const useFetchAttendanceHistory = (builder: Builder) => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
@@ -17,6 +17,26 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
     setIsLoading(true);
     
     try {
+      // First check if the builder is archived
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .select('archived_at')
+        .eq('id', builder.id)
+        .single();
+        
+      if (studentError) {
+        console.error('Error checking student status:', studentError);
+        toast.error('Failed to verify student status');
+        return;
+      }
+      
+      // If student is archived, don't fetch attendance history
+      if (studentData.archived_at) {
+        console.log(`Student ${builder.id} is archived, no attendance history will be shown`);
+        setAttendanceHistory([]);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('attendance')
         .select('id, date, status, time_recorded, notes, excuse_reason')
@@ -30,8 +50,8 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
       }
       
       if (data) {
-        // Filter records to only include valid class days
-        const filteredData = data.filter(record => isClassDay(record.date));
+        // Filter records to only include valid class days using synchronous function
+        const filteredData = data.filter(record => isClassDaySync(record.date));
         console.log(`Filtered ${data.length} records to ${filteredData.length} valid class days for ${builder.name}`);
         
         const formattedHistory = filteredData.map(record => ({

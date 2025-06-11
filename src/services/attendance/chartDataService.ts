@@ -5,20 +5,21 @@ import { toast } from 'sonner';
 
 export const fetchAttendanceChartData = async (
   builders: Builder[],
-  dateRange: { start: string; end: string },
-  cohort?: string
+  dateRange: { start: string; end: string }
 ) => {
-  console.log(`Using date range: ${dateRange.start} to ${dateRange.end}`, cohort ? `for cohort: ${cohort}` : '');
+  console.log(`[chartDataService] Using date range: ${dateRange.start} to ${dateRange.end}`);
   
   // If no builders are provided, return empty array
   if (!builders || builders.length === 0) {
+    console.log('[chartDataService] No builders provided, returning empty array');
     return [];
   }
 
   // Extract builder IDs for filtering
   const builderIds = builders.map(b => b.id);
   
-  console.log(`Fetching attendance for ${builderIds.length} builders between ${dateRange.start} and ${dateRange.end}`);
+  console.log(`[chartDataService] Fetching attendance for ${builderIds.length} builders between ${dateRange.start} and ${dateRange.end}`);
+  console.log(`[chartDataService] Builder IDs:`, builderIds);
   
   // Query with filters applied at the database level
   const { data: attendanceData, error } = await supabase
@@ -35,7 +36,16 @@ export const fetchAttendanceChartData = async (
     throw error;
   }
   
-  console.log('Raw attendance data fetched for chart:', attendanceData?.length || 0, 'records');
+  console.log('[chartDataService] Raw attendance data fetched for chart:', attendanceData?.length || 0, 'records');
+  
+  if (attendanceData && attendanceData.length > 0) {
+    // Log sample records for debugging
+    console.log('[chartDataService] Sample attendance records:', attendanceData.slice(0, 5));
+    
+    // Log unique dates found
+    const uniqueDates = [...new Set(attendanceData.map(r => r.date))].sort();
+    console.log('[chartDataService] Attendance found for dates:', uniqueDates);
+  }
   
   return attendanceData || [];
 };

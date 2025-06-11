@@ -10,7 +10,7 @@ import { fetchAttendanceChartData } from '@/services/attendance/chartDataService
 // Change from "export" to "export type" for re-exporting the type
 export type { DailyAttendance } from './types/attendanceChartTypes';
 
-export const useAttendanceChartData = (builders: Builder[], days: number, cohort?: string): AttendanceChartHookResult => {
+export const useAttendanceChartData = (builders: Builder[], days: number): AttendanceChartHookResult => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -22,13 +22,14 @@ export const useAttendanceChartData = (builders: Builder[], days: number, cohort
       setIsLoading(true);
       
       try {
-        console.log(`Fetching attendance chart data for date range:`, dateRange);
-        console.log(`Number of builders: ${builders.length}, Cohort filter: ${cohort || 'All'}`);
+        console.log(`[useAttendanceChartData] Fetching attendance chart data for date range:`, dateRange);
+        console.log(`[useAttendanceChartData] Number of builders: ${builders.length}`);
+        console.log(`[useAttendanceChartData] Builder IDs:`, builders.map(b => b.id));
         
-        // Fetch attendance data with cohort filter
-        const attendanceData = await fetchAttendanceChartData(builders, dateRange, cohort);
+        // Fetch attendance data - no cohort filter needed as builders are already filtered
+        const attendanceData = await fetchAttendanceChartData(builders, dateRange);
         
-        console.log(`Fetched ${attendanceData?.length || 0} attendance records`);
+        console.log(`[useAttendanceChartData] Fetched ${attendanceData?.length || 0} attendance records`);
         
         // Initialize date map with all valid class days
         const dateMap = generateDateMap(dateRange.start, dateRange.end);
@@ -39,13 +40,13 @@ export const useAttendanceChartData = (builders: Builder[], days: number, cohort
         if (attendanceData && attendanceData.length > 0) {
           processAttendanceRecords(attendanceData, dateMap, dateRange);
         } else {
-          console.log('No attendance data found for the specified date range');
+          console.log('No attendance data found for the specified date range and builders');
         }
         
         // Format the data for the chart
         const formattedData = formatChartData(dateMap);
         
-        console.log('Final chart data:', formattedData);
+        console.log('[useAttendanceChartData] Final chart data:', formattedData);
         setChartData(formattedData);
       } catch (error) {
         console.error('Error preparing chart data:', error);
@@ -56,7 +57,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number, cohort
     };
     
     fetchHistoricalData();
-  }, [days, builders, dateRange, cohort]); // Added cohort to dependencies
+  }, [days, builders, dateRange]); // Removed cohort from dependencies since builders are pre-filtered
   
   return { chartData, isLoading };
 };

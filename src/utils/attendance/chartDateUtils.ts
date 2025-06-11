@@ -26,12 +26,12 @@ export const calculateDateRange = (days: number) => {
   const currentDateStr = getCurrentDateString();
   const endDate = parseAsUTC(currentDateStr);
   
-  console.log(`Using current date as end date: ${currentDateStr}`);
+  console.log(`[chartDateUtils] Using current date as end date: ${currentDateStr}`);
   
   // Calculate start date based on the current date
   const startDate = subDays(endDate, days - 1);
   
-  // Ensure start date is not before the minimum date
+  // Ensure start date is not before the minimum date (March 15, 2025)
   const adjustedStartDate = isAfter(startDate, MINIMUM_DATE) ? startDate : MINIMUM_DATE;
   
   // Format back to YYYY-MM-DD strings for the query
@@ -42,7 +42,8 @@ export const calculateDateRange = (days: number) => {
     end: formatToYYYYMMDD(endDate)
   };
   
-  console.log(`Calculated date range for ${days} days:`, range);
+  console.log(`[chartDateUtils] Calculated date range for ${days} days:`, range);
+  console.log(`[chartDateUtils] Start date adjusted from ${formatToYYYYMMDD(startDate)} to ${range.start} due to minimum date constraint`);
   return range;
 };
 

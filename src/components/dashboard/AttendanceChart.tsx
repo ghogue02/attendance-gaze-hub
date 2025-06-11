@@ -13,18 +13,29 @@ interface AttendanceChartProps {
 }
 
 const AttendanceChart = ({ builders }: AttendanceChartProps) => {
-  const [timeFrame, setTimeFrame] = useState<string>('7');
+  const [timeFrame, setTimeFrame] = useState<string>('30'); // Default to 30 days for better March cohort coverage
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
   const { selectedCohort } = useCohortSelection();
   
   const days = parseInt(timeFrame);
-  const cohortFilter = selectedCohort === 'All Cohorts' ? undefined : selectedCohort;
-  const { chartData, isLoading } = useAttendanceChartData(builders, days, cohortFilter);
+  
+  // Filter builders by cohort first, then pass to the hook
+  const filteredBuilders = selectedCohort === 'All Cohorts' 
+    ? builders 
+    : builders.filter(builder => builder.cohort === selectedCohort);
+  
+  console.log(`[AttendanceChart] Selected cohort: ${selectedCohort}`);
+  console.log(`[AttendanceChart] Total builders: ${builders.length}, Filtered builders: ${filteredBuilders.length}`);
+  console.log(`[AttendanceChart] Filtered builder cohorts:`, filteredBuilders.map(b => b.cohort));
+  
+  const { chartData, isLoading } = useAttendanceChartData(filteredBuilders, days);
 
   const timeFrameOptions = [
     { value: '7', label: 'Last 7 days' },
     { value: '14', label: 'Last 14 days' },
-    { value: '30', label: 'Last 30 days' }
+    { value: '30', label: 'Last 30 days' },
+    { value: '60', label: 'Last 60 days' },
+    { value: '90', label: 'Last 90 days' }
   ];
 
   return (
@@ -35,7 +46,7 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
             <CardTitle>Attendance Analytics</CardTitle>
             <CardDescription>
               {selectedCohort !== 'All Cohorts' && `${selectedCohort} - `}
-              Attendance trends over time
+              Attendance trends over time ({filteredBuilders.length} builders)
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -72,7 +83,7 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
         ) : chartType === 'bar' ? (
           <AttendanceBarChart chartData={chartData} isLoading={isLoading} />
         ) : (
-          <AttendancePieChart builders={builders} />
+          <AttendancePieChart builders={filteredBuilders} />
         )}
       </CardContent>
     </Card>

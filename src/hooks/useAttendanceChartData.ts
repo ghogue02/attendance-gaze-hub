@@ -14,7 +14,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number, cohort
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Calculate date range once, using the HARDCODED "current" date
+  // Calculate date range once, using the actual current date
   const dateRange = useMemo(() => calculateDateRange(days), [days]);
   
   useEffect(() => {
@@ -22,8 +22,13 @@ export const useAttendanceChartData = (builders: Builder[], days: number, cohort
       setIsLoading(true);
       
       try {
+        console.log(`Fetching attendance chart data for date range:`, dateRange);
+        console.log(`Number of builders: ${builders.length}, Cohort filter: ${cohort || 'All'}`);
+        
         // Fetch attendance data with cohort filter
         const attendanceData = await fetchAttendanceChartData(builders, dateRange, cohort);
+        
+        console.log(`Fetched ${attendanceData?.length || 0} attendance records`);
         
         // Initialize date map with all valid class days
         const dateMap = generateDateMap(dateRange.start, dateRange.end);
@@ -33,20 +38,14 @@ export const useAttendanceChartData = (builders: Builder[], days: number, cohort
         // Process attendance records if we have data
         if (attendanceData && attendanceData.length > 0) {
           processAttendanceRecords(attendanceData, dateMap, dateRange);
+        } else {
+          console.log('No attendance data found for the specified date range');
         }
         
         // Format the data for the chart
         const formattedData = formatChartData(dateMap);
         
-        // Log specific dates data to debug
-        const apr1Data = formattedData.find(d => d.date === '2025-04-01');
-        const apr2Data = formattedData.find(d => d.date === '2025-04-02');
-        const apr3Data = formattedData.find(d => d.date === '2025-04-03');
-        console.log('April 1 data:', apr1Data);
-        console.log('April 2 data:', apr2Data);
-        console.log('April 3 data:', apr3Data);
-        
-        console.log('Prepared chart data:', formattedData);
+        console.log('Final chart data:', formattedData);
         setChartData(formattedData);
       } catch (error) {
         console.error('Error preparing chart data:', error);

@@ -22,11 +22,13 @@ export const isHoliday = (dateString: string): boolean => {
 };
 
 export const calculateDateRange = (days: number) => {
-  // Use the hardcoded date string as the end date for consistency
-  const hardcodedEndDateStr = getCurrentDateString(); // "2025-03-30"
-  const endDate = parseAsUTC(hardcodedEndDateStr); // Parse as UTC Date object
+  // Use the actual current date as the end date
+  const currentDateStr = getCurrentDateString();
+  const endDate = parseAsUTC(currentDateStr);
   
-  // Calculate start date based on the hardcoded end date
+  console.log(`Using current date as end date: ${currentDateStr}`);
+  
+  // Calculate start date based on the current date
   const startDate = subDays(endDate, days - 1);
   
   // Ensure start date is not before the minimum date
@@ -37,14 +39,17 @@ export const calculateDateRange = (days: number) => {
   
   const range = {
     start: formatToYYYYMMDD(adjustedStartDate),
-    end: formatToYYYYMMDD(endDate) // Use the hardcoded end date here too
+    end: formatToYYYYMMDD(endDate)
   };
+  
   console.log(`Calculated date range for ${days} days:`, range);
   return range;
 };
 
 export const generateDateMap = (startDate: string, endDate: string): Map<string, { Present: number; Late: number; Absent: number; Excused: number }> => {
   const dateMap = new Map<string, { Present: number; Late: number; Absent: number; Excused: number }>();
+  
+  console.log(`Generating date map from ${startDate} to ${endDate}`);
   
   // Generate all dates in the range - completely recreated to ensure consistency
   const startDateObj = parseAsUTC(startDate);
@@ -75,5 +80,6 @@ export const generateDateMap = (startDate: string, endDate: string): Map<string,
     currentDate.setUTCDate(currentDate.getUTCDate() + 1);
   }
   
+  console.log(`Generated date map with ${dateMap.size} valid class days`);
   return dateMap;
 };

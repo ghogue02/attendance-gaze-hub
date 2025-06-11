@@ -13,7 +13,6 @@ export const TIMEZONE = 'America/New_York';
  */
 export const getCurrentDateString = (): string => {
   const now = new Date();
-  const easternTime = toZonedTime(now, TIMEZONE);
   return formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd');
 };
 

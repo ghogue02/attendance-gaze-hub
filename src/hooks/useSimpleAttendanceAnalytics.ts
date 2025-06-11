@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
 import { toast } from 'sonner';
@@ -26,49 +26,64 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
   const [data, setData] = useState<AttendanceAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Prevent multiple concurrent requests
+  const requestInProgress = useRef(false);
+  
+  // Memoize builder IDs to prevent unnecessary re-renders
+  const builderIds = useMemo(() => {
+    return builders.map(b => b.id);
+  }, [builders]);
+  
+  // Memoize date range calculation
+  const dateRange = useMemo(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - days + 1);
+    
+    return {
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0]
+    };
+  }, [days]);
 
   useEffect(() => {
+    // Prevent concurrent requests
+    if (requestInProgress.current) {
+      return;
+    }
+
     const fetchAnalytics = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        console.log(`[Analytics] Fetching data for ${builders.length} builders over ${days} days`);
-        
-        if (builders.length === 0) {
-          console.log('[Analytics] No builders provided, setting empty data');
+      // Skip if already loading or no builders
+      if (requestInProgress.current || builderIds.length === 0) {
+        if (builderIds.length === 0) {
           setData({
             daily: [],
             summary: { totalPresent: 0, totalLate: 0, totalAbsent: 0, totalExcused: 0, totalRecords: 0 }
           });
-          return;
+          setIsLoading(false);
         }
+        return;
+      }
 
-        // Calculate date range
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - days + 1);
-        
-        const startDateStr = startDate.toISOString().split('T')[0];
-        const endDateStr = endDate.toISOString().split('T')[0];
-        
-        console.log(`[Analytics] Date range: ${startDateStr} to ${endDateStr}`);
-        
-        // Get builder IDs
-        const builderIds = builders.map(b => b.id);
-        console.log(`[Analytics] Builder IDs:`, builderIds);
+      requestInProgress.current = true;
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        console.log(`[Analytics] Fetching data for ${builderIds.length} builders over ${days} days`);
+        console.log(`[Analytics] Date range: ${dateRange.start} to ${dateRange.end}`);
 
         // Fetch attendance data
         const { data: attendanceData, error: fetchError } = await supabase
           .from('attendance')
           .select('date, status, student_id')
           .in('student_id', builderIds)
-          .gte('date', startDateStr)
-          .lte('date', endDateStr)
+          .gte('date', dateRange.start)
+          .lte('date', dateRange.end)
           .order('date', { ascending: true });
 
         if (fetchError) {
-          console.error('[Analytics] Database error:', fetchError);
           throw new Error(`Failed to fetch attendance data: ${fetchError.message}`);
         }
 
@@ -78,8 +93,11 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
         const dailyMap = new Map<string, { present: number; late: number; absent: number; excused: number; total: number }>();
         let totalPresent = 0, totalLate = 0, totalAbsent = 0, totalExcused = 0;
 
-        // Initialize all dates in range
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        // Initialize all dates in range (excluding weekends)
+        const startDateObj = new Date(dateRange.start);
+        const endDateObj = new Date(dateRange.end);
+        
+        for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
           const dayOfWeek = d.getDay();
           
@@ -144,11 +162,17 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
         toast.error(`Failed to load analytics: ${errorMessage}`);
       } finally {
         setIsLoading(false);
+        requestInProgress.current = false;
       }
     };
 
-    fetchAnalytics();
-  }, [builders, days]);
+    // Small delay to prevent rapid consecutive calls
+    const timeoutId = setTimeout(fetchAnalytics, 100);
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [builderIds, days, dateRange.start, dateRange.end]);
 
   return { data, isLoading, error };
 };

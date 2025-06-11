@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Builder } from '@/components/builder/types';
@@ -19,10 +19,13 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   
   const days = parseInt(timeFrame);
   
-  // Filter builders by cohort
-  const filteredBuilders = selectedCohort === 'All Cohorts' 
-    ? builders 
-    : builders.filter(builder => builder.cohort === selectedCohort);
+  // Memoize filtered builders to prevent unnecessary re-renders
+  const filteredBuilders = useMemo(() => {
+    if (selectedCohort === 'All Cohorts') {
+      return builders;
+    }
+    return builders.filter(builder => builder.cohort === selectedCohort);
+  }, [builders, selectedCohort]);
   
   console.log(`[AttendanceChart] Selected cohort: ${selectedCohort}`);
   console.log(`[AttendanceChart] Filtered builders: ${filteredBuilders.length}/${builders.length}`);

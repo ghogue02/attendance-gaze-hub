@@ -1,6 +1,6 @@
 
 import { subDays, isAfter } from 'date-fns';
-import { parseAsUTC, getCurrentDateString } from '@/utils/date/dateUtils';
+import { parseAsEastern, getCurrentDateString } from '@/utils/date/dateUtils';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
@@ -12,8 +12,8 @@ const HOLIDAY_DATES = new Set([
 
 // Helper to log date debugging info
 export const logDateDebug = (dateStr: string, message: string): void => {
-  const date = parseAsUTC(dateStr);
-  console.log(`${message}: ${dateStr} - UTC Day: ${date.getUTCDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getUTCDay()]})`);
+  const date = parseAsEastern(dateStr);
+  console.log(`${message}: ${dateStr} - Eastern Day: ${date.getDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()]})`);
 };
 
 // Helper to check if a date is a holiday
@@ -22,13 +22,13 @@ export const isHoliday = (dateString: string): boolean => {
 };
 
 export const calculateDateRange = (days: number) => {
-  // Use the actual current date as the end date
+  // Use the actual current date in Eastern Time as the end date
   const currentDateStr = getCurrentDateString();
-  const endDate = parseAsUTC(currentDateStr);
+  const endDate = parseAsEastern(currentDateStr);
   
-  console.log(`[chartDateUtils] Using current date as end date: ${currentDateStr}`);
+  console.log(`[chartDateUtils] Using current Eastern date as end date: ${currentDateStr}`);
   
-  // Calculate start date based on the current date
+  // Calculate start date based on the current date in Eastern Time
   const startDate = subDays(endDate, days - 1);
   
   // Ensure start date is not before the minimum date (March 15, 2025)
@@ -52,18 +52,18 @@ export const generateDateMap = (startDate: string, endDate: string): Map<string,
   
   console.log(`Generating date map from ${startDate} to ${endDate}`);
   
-  // Generate all dates in the range - completely recreated to ensure consistency
-  const startDateObj = parseAsUTC(startDate);
-  const endDateObj = parseAsUTC(endDate);
+  // Generate all dates in the range using Eastern Time
+  const startDateObj = parseAsEastern(startDate);
+  const endDateObj = parseAsEastern(endDate);
   
   // Loop through each date in the range and add to the map
   const currentDate = new Date(startDateObj);
   while (currentDate <= endDateObj) {
     const dateStr = currentDate.toISOString().split('T')[0];
-    const checkDate = parseAsUTC(dateStr);
-    const dayOfWeek = checkDate.getUTCDay(); // Use UTC day
+    const checkDate = parseAsEastern(dateStr);
+    const dayOfWeek = checkDate.getDay(); // Use Eastern day
     
-    // Skip Fridays (UTC day 5), Thursdays (UTC day 4) and Holidays
+    // Skip Fridays (day 5), Thursdays (day 4) and Holidays
     if (dayOfWeek !== 5 && dayOfWeek !== 4 && !isHoliday(dateStr)) {
       dateMap.set(dateStr, {
         Present: 0,
@@ -77,8 +77,8 @@ export const generateDateMap = (startDate: string, endDate: string): Map<string,
       logDateDebug(dateStr, `Excluding ${skipReason} from chart`);
     }
     
-    // Move to next day - add exactly 24 hours to ensure UTC consistency
-    currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+    // Move to next day - add exactly 24 hours to ensure consistency
+    currentDate.setDate(currentDate.getDate() + 1);
   }
   
   console.log(`Generated date map with ${dateMap.size} valid class days`);

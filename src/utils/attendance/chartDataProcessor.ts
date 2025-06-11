@@ -1,5 +1,5 @@
 
-import { parseAsUTC, isLateArrivalUTC } from '@/utils/date/dateUtils';
+import { parseAsEastern, isLateArrivalEastern } from '@/utils/date/dateUtils';
 import { DailyAttendance } from '@/hooks/types/attendanceChartTypes';
 import { logDateDebug, isHoliday } from './chartDateUtils';
 
@@ -24,8 +24,8 @@ export const processAttendanceRecords = (
   
   // Process attendance records by date
   recordsByDate.forEach((records, dateStr) => {
-    const recordDate = parseAsUTC(dateStr);
-    const dayOfWeek = recordDate.getUTCDay(); // Use UTC day
+    const recordDate = parseAsEastern(dateStr);
+    const dayOfWeek = recordDate.getDay(); // Use Eastern day
     
     // Skip Friday, Thursday records and holiday dates
     if (dayOfWeek === 5 || dayOfWeek === 4 || isHoliday(dateStr)) {
@@ -36,12 +36,12 @@ export const processAttendanceRecords = (
     if (!dateMap.has(dateStr)) {
       // This could happen if the date is outside our range but still got returned
       // Create the entry if it's in our dateRange but wasn't initialized
-      const checkDate = parseAsUTC(dateStr);
-      const startDateObj = parseAsUTC(dateRange.start);
-      const endDateObj = parseAsUTC(dateRange.end);
+      const checkDate = parseAsEastern(dateStr);
+      const startDateObj = parseAsEastern(dateRange.start);
+      const endDateObj = parseAsEastern(dateRange.end);
       
       if (checkDate >= startDateObj && checkDate <= endDateObj && 
-          checkDate.getUTCDay() !== 5 && checkDate.getUTCDay() !== 4 && 
+          checkDate.getDay() !== 5 && checkDate.getDay() !== 4 && 
           !isHoliday(dateStr)) {
         dateMap.set(dateStr, {
           Present: 0,
@@ -70,13 +70,8 @@ export const processAttendanceRecords = (
             const timeRecordedDate = new Date(record.time_recorded);
             
             if (!isNaN(timeRecordedDate.getTime())) {
-              // Extract UTC hours and minutes
-              const hourUTC = timeRecordedDate.getUTCHours();
-              const minutesUTC = timeRecordedDate.getUTCMinutes();
-              const dayOfWeekUTC = recordDate.getUTCDay();
-              
-              // Use the UTC-based late check
-              isMarkedLate = isLateArrivalUTC(dayOfWeekUTC, hourUTC, minutesUTC);
+              // Use the Eastern Time-based late check
+              isMarkedLate = isLateArrivalEastern(timeRecordedDate);
             }
           } catch (e) {
             console.error(`Error parsing time_recorded for record on ${dateStr}: ${record.time_recorded}`, e);
@@ -112,14 +107,14 @@ export const formatChartData = (
 ): DailyAttendance[] => {
   // Convert the map to an array of chart data objects
   const formattedData: DailyAttendance[] = Array.from(dateMap.entries()).map(([dateStr, counts]) => {
-    // Parse the date to create a proper display format
+    // Parse the date to create a proper display format using Eastern Time
     try {
-      const date = parseAsUTC(dateStr);
-      const dayNum = date.getUTCDate().toString().padStart(2, '0'); // Use UTC date
-      const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getUTCDay()]; // Use UTC day
+      const date = parseAsEastern(dateStr);
+      const dayNum = date.getDate().toString().padStart(2, '0'); // Use Eastern date
+      const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]; // Use Eastern day
       
       return {
-        name: `${dayNum} ${dayOfWeek}`,
+        name: `${dayOfWeek} ${dayNum}`,
         date: dateStr,
         Present: counts.Present,
         Late: counts.Late,
@@ -142,12 +137,12 @@ export const formatChartData = (
   
   // Double-check to ensure no Friday or Thursday data is in the final result
   const cleanedData = formattedData.filter(item => {
-    const itemDate = parseAsUTC(item.date);
-    if (itemDate.getUTCDay() === 5) {
+    const itemDate = parseAsEastern(item.date);
+    if (itemDate.getDay() === 5) {
       logDateDebug(item.date, `Removing Friday data from final chart`);
       return false;
     }
-    if (itemDate.getUTCDay() === 4) {
+    if (itemDate.getDay() === 4) {
       logDateDebug(item.date, `Removing Thursday data from final chart`);
       return false;
     }

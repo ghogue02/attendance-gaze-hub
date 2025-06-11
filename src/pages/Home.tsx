@@ -6,7 +6,7 @@ import { useHomeData } from '@/hooks/useHomeData';
 import BuilderSearchSection from '@/components/home/BuilderSearchSection';
 import PhotoCaptureSection from '@/components/home/PhotoCaptureSection';
 import { RecognitionResult } from '@/components/home/RecognitionResult';
-import PresentBuildersCarousel from '@/components/home/PresentBuildersCarousel';
+import PresentBuildersSection from '@/components/home/PresentBuildersSection';
 import LoadingState from '@/components/home/LoadingState';
 import HeadshotsCarousel from '@/components/home/HeadshotsCarousel';
 
@@ -60,7 +60,7 @@ const Home = () => {
     if (!loading) {
       return (
         <>
-          <PresentBuildersCarousel initialBuilders={builders} />
+          <PresentBuildersSection />
           <div className="mt-6">
             <HeadshotsCarousel />
           </div>
@@ -68,7 +68,7 @@ const Home = () => {
       );
     }
     return null;
-  }, [loading, builders]);
+  }, [loading]);
 
   return (
     <div className="min-h-screen bg-background">

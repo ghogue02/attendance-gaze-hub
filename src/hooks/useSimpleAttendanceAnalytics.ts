@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
 import { toast } from 'sonner';
-import { isClassDaySync } from '@/utils/attendance/isClassDay';
+import { isClassDay, getCancelledDays } from '@/utils/attendance/isClassDay';
 
 export interface AttendanceAnalytics {
   daily: Array<{
@@ -80,6 +80,10 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
         console.log(`[Analytics] Fetching data for ${builderIds.length} builders over ${days} days`);
         console.log(`[Analytics] Date range: ${dateRange.start} to ${dateRange.end}`);
 
+        // Ensure cancelled days are loaded before processing
+        console.log('[Analytics] Pre-loading cancelled days...');
+        await getCancelledDays();
+
         // Fetch attendance data
         const { data: attendanceData, error: fetchError } = await supabase
           .from('attendance')
@@ -95,19 +99,20 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
 
         console.log(`[Analytics] Found ${attendanceData?.length || 0} attendance records`);
 
-        // Process the data
+        // Process the data using async class day checking
         const dailyMap = new Map<string, { present: number; late: number; absent: number; excused: number; total: number }>();
         let totalPresent = 0, totalLate = 0, totalAbsent = 0, totalExcused = 0;
 
-        // Initialize all dates in range using the centralized class day logic
+        // Initialize all dates in range using async class day logic
         const startDateObj = new Date(dateRange.start);
         const endDateObj = new Date(dateRange.end);
         
         for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
           
-          // Use the centralized class day logic instead of hardcoded day checks
-          if (isClassDaySync(dateStr)) {
+          // Use async class day logic to ensure cancelled days are properly loaded
+          const isValidClassDay = await isClassDay(dateStr);
+          if (isValidClassDay) {
             dailyMap.set(dateStr, { present: 0, late: 0, absent: 0, excused: 0, total: 0 });
             console.log(`[Analytics] Added class day: ${dateStr}`);
           } else {
@@ -115,7 +120,10 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
           }
         }
 
+        console.log(`[Analytics] Initialized ${dailyMap.size} valid class days`);
+
         // Process attendance records
+        let absenceCount = 0;
         attendanceData?.forEach(record => {
           const dateStats = dailyMap.get(record.date);
           if (!dateStats) {
@@ -143,14 +151,23 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
             default:
               dateStats.absent++;
               totalAbsent++;
+              absenceCount++;
               break;
           }
         });
+
+        console.log(`[Analytics] Processed ${absenceCount} absence records`);
 
         // Convert to array format for charts
         const daily = Array.from(dailyMap.entries())
           .map(([date, stats]) => ({ date, ...stats }))
           .sort((a, b) => a.date.localeCompare(b.date));
+
+        // Log days with absences for debugging
+        const daysWithAbsences = daily.filter(day => day.absent > 0);
+        if (daysWithAbsences.length > 0) {
+          console.log(`[Analytics] Days with absences:`, daysWithAbsences.map(d => ({ date: d.date, absent: d.absent })));
+        }
 
         const analytics: AttendanceAnalytics = {
           daily,
@@ -163,7 +180,7 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
           }
         };
 
-        console.log(`[Analytics] Processed data for ${days} days:`, analytics);
+        console.log(`[Analytics] Final summary - Present: ${totalPresent}, Late: ${totalLate}, Absent: ${totalAbsent}, Excused: ${totalExcused}`);
         setData(analytics);
         
       } catch (err) {

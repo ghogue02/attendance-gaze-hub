@@ -2,9 +2,9 @@
 import { parseAsEastern, isLateArrivalEastern } from '@/utils/date/dateUtils';
 import { DailyAttendance } from '@/hooks/types/attendanceChartTypes';
 import { logDateDebug } from './chartDateUtils';
-import { isClassDaySync } from '@/utils/attendance/isClassDay';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
-export const processAttendanceRecords = (
+export const processAttendanceRecords = async (
   attendanceData: any[],
   dateMap: Map<string, { Present: number; Late: number; Absent: number; Excused: number }>,
   dateRange: { start: string; end: string }
@@ -24,11 +24,12 @@ export const processAttendanceRecords = (
   });
   
   // Process attendance records by date
-  recordsByDate.forEach((records, dateStr) => {
-    // Use the centralized class day logic
-    if (!isClassDaySync(dateStr)) {
+  for (const [dateStr, records] of recordsByDate.entries()) {
+    // Use the async centralized class day logic
+    const isValidClassDay = await isClassDay(dateStr);
+    if (!isValidClassDay) {
       logDateDebug(dateStr, `Skipping non-class day records`);
-      return;
+      continue;
     }
     
     if (!dateMap.has(dateStr)) {
@@ -38,7 +39,7 @@ export const processAttendanceRecords = (
       const startDateObj = parseAsEastern(dateRange.start);
       const endDateObj = parseAsEastern(dateRange.end);
       
-      if (checkDate >= startDateObj && checkDate <= endDateObj && isClassDaySync(dateStr)) {
+      if (checkDate >= startDateObj && checkDate <= endDateObj && isValidClassDay) {
         dateMap.set(dateStr, {
           Present: 0,
           Late: 0,
@@ -48,11 +49,12 @@ export const processAttendanceRecords = (
         logDateDebug(dateStr, `Added missing class day to chart`);
       } else {
         logDateDebug(dateStr, `Skipping out-of-range or non-class day`);
-        return;
+        continue;
       }
     }
     
     const dateStats = dateMap.get(dateStr)!;
+    let absencesForDate = 0;
     
     // Process all records for this date
     records.forEach(record => {
@@ -85,63 +87,80 @@ export const processAttendanceRecords = (
         dateStats.Excused++;
       } else if (record.status === 'absent') {
         dateStats.Absent++;
+        absencesForDate++;
       } else if (record.status === 'pending') {
         // Count pending as absent in the chart
         dateStats.Absent++;
+        absencesForDate++;
       }
     });
+    
+    // Log absence processing for debugging
+    if (absencesForDate > 0) {
+      console.log(`[chartDataProcessor] Processed ${absencesForDate} absences for ${dateStr}. Total absent count: ${dateStats.Absent}`);
+    }
     
     // For debugging specific dates
     if (dateStr === '2025-04-01' || dateStr === '2025-04-02' || dateStr === '2025-04-03') {
       console.log(`Attendance counts for ${dateStr}:`, { ...dateStats });
     }
-  });
+  }
 };
 
-export const formatChartData = (
+export const formatChartData = async (
   dateMap: Map<string, { Present: number; Late: number; Absent: number; Excused: number }>
-): DailyAttendance[] => {
+): Promise<DailyAttendance[]> => {
   // Convert the map to an array of chart data objects
-  const formattedData: DailyAttendance[] = Array.from(dateMap.entries()).map(([dateStr, counts]) => {
+  const formattedData: DailyAttendance[] = [];
+  
+  for (const [dateStr, counts] of dateMap.entries()) {
     // Parse the date to create a proper display format using Eastern Time
     try {
       const date = parseAsEastern(dateStr);
       const dayNum = date.getDate().toString().padStart(2, '0'); // Use Eastern date
       const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]; // Use Eastern day
       
-      return {
+      formattedData.push({
         name: `${dayOfWeek} ${dayNum}`,
         date: dateStr,
         Present: counts.Present,
         Late: counts.Late,
         Absent: counts.Absent,
         Excused: counts.Excused
-      };
+      });
     } catch (e) {
       // Fallback for any invalid dates
       console.error('Error parsing date:', e, dateStr);
-      return {
+      formattedData.push({
         name: dateStr,
         date: dateStr,
         Present: counts.Present,
         Late: counts.Late,
         Absent: counts.Absent,
         Excused: counts.Excused
-      };
+      });
     }
-  });
+  }
   
   // Double-check to ensure no non-class days are in the final result
-  const cleanedData = formattedData.filter(item => {
-    if (!isClassDaySync(item.date)) {
+  const cleanedData: DailyAttendance[] = [];
+  for (const item of formattedData) {
+    const isValidClassDay = await isClassDay(item.date);
+    if (!isValidClassDay) {
       logDateDebug(item.date, `Removing non-class day from final chart`);
-      return false;
+    } else {
+      cleanedData.push(item);
     }
-    return true;
-  });
+  }
   
   // Sort by date (ascending)
   cleanedData.sort((a, b) => a.date.localeCompare(b.date));
+  
+  console.log(`[formatChartData] Final chart data contains ${cleanedData.length} days`);
+  const daysWithAbsences = cleanedData.filter(d => d.Absent > 0);
+  if (daysWithAbsences.length > 0) {
+    console.log(`[formatChartData] Days with absences in final data:`, daysWithAbsences.map(d => ({ date: d.date, absent: d.Absent })));
+  }
   
   return cleanedData;
 };

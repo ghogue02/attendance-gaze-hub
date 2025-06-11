@@ -1,7 +1,7 @@
 
 import { subDays, isAfter } from 'date-fns';
 import { parseAsEastern, getCurrentDateString } from '@/utils/date/dateUtils';
-import { isClassDaySync } from '@/utils/attendance/isClassDay';
+import { isClassDay } from '@/utils/attendance/isClassDay';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
@@ -38,7 +38,7 @@ export const calculateDateRange = (days: number) => {
   return range;
 };
 
-export const generateDateMap = (startDate: string, endDate: string): Map<string, { Present: number; Late: number; Absent: number; Excused: number }> => {
+export const generateDateMap = async (startDate: string, endDate: string): Promise<Map<string, { Present: number; Late: number; Absent: number; Excused: number }>> => {
   const dateMap = new Map<string, { Present: number; Late: number; Absent: number; Excused: number }>();
   
   console.log(`Generating date map from ${startDate} to ${endDate}`);
@@ -52,8 +52,9 @@ export const generateDateMap = (startDate: string, endDate: string): Map<string,
   while (currentDate <= endDateObj) {
     const dateStr = currentDate.toISOString().split('T')[0];
     
-    // Use the centralized class day logic instead of hardcoded day checks
-    if (isClassDaySync(dateStr)) {
+    // Use the async centralized class day logic 
+    const isValidClassDay = await isClassDay(dateStr);
+    if (isValidClassDay) {
       dateMap.set(dateStr, {
         Present: 0,
         Late: 0,

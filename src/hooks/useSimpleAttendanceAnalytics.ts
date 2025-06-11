@@ -48,27 +48,32 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
   }, [days]);
 
   useEffect(() => {
-    // Prevent concurrent requests
-    if (requestInProgress.current) {
-      return;
-    }
-
+    console.log(`[Analytics] Time frame changed to ${days} days, resetting request state`);
+    
+    // Reset request state when time frame changes
+    requestInProgress.current = false;
+    setIsLoading(true);
+    setError(null);
+    
     const fetchAnalytics = async () => {
-      // Skip if already loading or no builders
-      if (requestInProgress.current || builderIds.length === 0) {
-        if (builderIds.length === 0) {
-          setData({
-            daily: [],
-            summary: { totalPresent: 0, totalLate: 0, totalAbsent: 0, totalExcused: 0, totalRecords: 0 }
-          });
-          setIsLoading(false);
-        }
+      // Prevent concurrent requests
+      if (requestInProgress.current) {
+        console.log('[Analytics] Request already in progress, skipping');
+        return;
+      }
+
+      // Skip if no builders
+      if (builderIds.length === 0) {
+        console.log('[Analytics] No builders, setting empty data');
+        setData({
+          daily: [],
+          summary: { totalPresent: 0, totalLate: 0, totalAbsent: 0, totalExcused: 0, totalRecords: 0 }
+        });
+        setIsLoading(false);
         return;
       }
 
       requestInProgress.current = true;
-      setIsLoading(true);
-      setError(null);
       
       try {
         console.log(`[Analytics] Fetching data for ${builderIds.length} builders over ${days} days`);
@@ -152,7 +157,7 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
           }
         };
 
-        console.log('[Analytics] Processed data:', analytics);
+        console.log(`[Analytics] Processed data for ${days} days:`, analytics);
         setData(analytics);
         
       } catch (err) {
@@ -166,13 +171,21 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
       }
     };
 
-    // Small delay to prevent rapid consecutive calls
-    const timeoutId = setTimeout(fetchAnalytics, 100);
+    // Small delay to prevent rapid consecutive calls and ensure state is properly reset
+    const timeoutId = setTimeout(fetchAnalytics, 150);
     
     return () => {
       clearTimeout(timeoutId);
+      // Don't reset requestInProgress here as it might interfere with ongoing requests
     };
-  }, [builderIds, days, dateRange.start, dateRange.end]);
+  }, [builderIds, days]); // Removed dateRange dependencies as they're derived from days
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      requestInProgress.current = false;
+    };
+  }, []);
 
   return { data, isLoading, error };
 };

@@ -92,10 +92,12 @@ getCancelledDays().then(days => {
 });
 
 /**
- * Determines if a given date is a class day (every day except Friday, Thursday, 
- * permanent holidays, and one-off cancellations)
+ * Determines if a given date is a class day based on schedule changes
  * 
- * This is our single source of truth for class day determination
+ * Schedule rules:
+ * - Before May 15, 2025: exclude Fridays and Sundays
+ * - After May 15, 2025: exclude Thursdays, Fridays, and Sundays
+ * - Always exclude permanent holidays and one-off cancellations
  */
 export const isClassDay = async (isoDate: string): Promise<boolean> => {
   // Check permanent holidays first
@@ -105,9 +107,17 @@ export const isClassDay = async (isoDate: string): Promise<boolean> => {
   const cancelledDays = await getCancelledDays();
   if (cancelledDays.has(isoDate)) return false;
   
-  // Check if it's Friday (day 5) or Thursday (day 4)
+  // Check day of week based on schedule transition
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();   // 0-Sun … 6-Sat
-  return dow !== 5 && dow !== 4;  // Drop Fridays and Thursdays, keep everything else
+  const scheduleTransitionDate = '2025-05-15';
+  
+  if (isoDate <= scheduleTransitionDate) {
+    // Before/on May 15, 2025: exclude Fridays (5) and Sundays (0)
+    return dow !== 5 && dow !== 0;
+  } else {
+    // After May 15, 2025: exclude Thursdays (4), Fridays (5), and Sundays (0)
+    return dow !== 4 && dow !== 5 && dow !== 0;
+  }
 };
 
 /**
@@ -122,9 +132,17 @@ export const isClassDaySync = (isoDate: string): boolean => {
   // Check one-off cancellations using cached data
   if (CANCELLED_CLASSES.has(isoDate)) return false;
   
-  // Check if it's Friday (day 5) or Thursday (day 4)
+  // Check day of week based on schedule transition
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();   // 0-Sun … 6-Sat
-  return dow !== 5 && dow !== 4;  // Drop Fridays and Thursdays, keep everything else
+  const scheduleTransitionDate = '2025-05-15';
+  
+  if (isoDate <= scheduleTransitionDate) {
+    // Before/on May 15, 2025: exclude Fridays (5) and Sundays (0)
+    return dow !== 5 && dow !== 0;
+  } else {
+    // After May 15, 2025: exclude Thursdays (4), Fridays (5), and Sundays (0)
+    return dow !== 4 && dow !== 5 && dow !== 0;
+  }
 };
 
 /**
@@ -138,9 +156,18 @@ export const isAttendanceDay = isClassDaySync;
  * (would normally be a class day, but was cancelled as a one-off)
  */
 export const isCancelledClassDay = async (isoDate: string): Promise<boolean> => {
-  // First check if it would normally be a class day (not a Friday, Thursday or permanent holiday)
+  // First check if it would normally be a class day (not a weekend day or permanent holiday)
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();
-  const wouldBeClassDay = (dow !== 5 && dow !== 4 && !HOLIDAYS.has(isoDate));
+  const scheduleTransitionDate = '2025-05-15';
+  
+  let wouldBeClassDay: boolean;
+  if (isoDate <= scheduleTransitionDate) {
+    // Before/on May 15: would be class day if not Friday or Sunday
+    wouldBeClassDay = (dow !== 5 && dow !== 0 && !HOLIDAYS.has(isoDate));
+  } else {
+    // After May 15: would be class day if not Thursday, Friday, or Sunday
+    wouldBeClassDay = (dow !== 4 && dow !== 5 && dow !== 0 && !HOLIDAYS.has(isoDate));
+  }
   
   // Then check if it's in the cancelled set
   const cancelledDays = await getCancelledDays();
@@ -151,9 +178,18 @@ export const isCancelledClassDay = async (isoDate: string): Promise<boolean> => 
  * Synchronous version of isCancelledClassDay for backward compatibility
  */
 export const isCancelledClassDaySync = (isoDate: string): boolean => {
-  // First check if it would normally be a class day (not a Friday, Thursday or permanent holiday)
+  // First check if it would normally be a class day (not a weekend day or permanent holiday)
   const dow = new Date(isoDate + 'T00:00:00Z').getUTCDay();
-  const wouldBeClassDay = (dow !== 5 && dow !== 4 && !HOLIDAYS.has(isoDate));
+  const scheduleTransitionDate = '2025-05-15';
+  
+  let wouldBeClassDay: boolean;
+  if (isoDate <= scheduleTransitionDate) {
+    // Before/on May 15: would be class day if not Friday or Sunday
+    wouldBeClassDay = (dow !== 5 && dow !== 0 && !HOLIDAYS.has(isoDate));
+  } else {
+    // After May 15: would be class day if not Thursday, Friday, or Sunday
+    wouldBeClassDay = (dow !== 4 && dow !== 5 && dow !== 0 && !HOLIDAYS.has(isoDate));
+  }
   
   // Then check if it's in the cancelled set using cached data
   return wouldBeClassDay && CANCELLED_CLASSES.has(isoDate);

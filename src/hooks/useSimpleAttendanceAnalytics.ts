@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
 import { toast } from 'sonner';
+import { isClassDaySync } from '@/utils/attendance/isClassDay';
 
 export interface AttendanceAnalytics {
   daily: Array<{
@@ -98,24 +99,29 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
         const dailyMap = new Map<string, { present: number; late: number; absent: number; excused: number; total: number }>();
         let totalPresent = 0, totalLate = 0, totalAbsent = 0, totalExcused = 0;
 
-        // Initialize all dates in range (excluding weekends)
+        // Initialize all dates in range using the centralized class day logic
         const startDateObj = new Date(dateRange.start);
         const endDateObj = new Date(dateRange.end);
         
         for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
-          const dayOfWeek = d.getDay();
           
-          // Skip Fridays (5) and Sundays (0) - no classes
-          if (dayOfWeek !== 5 && dayOfWeek !== 0) {
+          // Use the centralized class day logic instead of hardcoded day checks
+          if (isClassDaySync(dateStr)) {
             dailyMap.set(dateStr, { present: 0, late: 0, absent: 0, excused: 0, total: 0 });
+            console.log(`[Analytics] Added class day: ${dateStr}`);
+          } else {
+            console.log(`[Analytics] Skipped non-class day: ${dateStr}`);
           }
         }
 
         // Process attendance records
         attendanceData?.forEach(record => {
           const dateStats = dailyMap.get(record.date);
-          if (!dateStats) return; // Skip if date not in our valid class days
+          if (!dateStats) {
+            console.log(`[Analytics] Skipping record for non-class day: ${record.date}`);
+            return; // Skip if date not in our valid class days
+          }
           
           dateStats.total++;
           

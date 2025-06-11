@@ -1,24 +1,15 @@
 
 import { subDays, isAfter } from 'date-fns';
 import { parseAsEastern, getCurrentDateString } from '@/utils/date/dateUtils';
+import { isClassDaySync } from '@/utils/attendance/isClassDay';
 
 // Minimum allowed date - Saturday, March 15, 2025
 const MINIMUM_DATE = new Date('2025-03-15');
-
-// Define holidays - dates when we don't have class
-const HOLIDAY_DATES = new Set([
-  '2025-04-20' // Easter Sunday
-]);
 
 // Helper to log date debugging info
 export const logDateDebug = (dateStr: string, message: string): void => {
   const date = parseAsEastern(dateStr);
   console.log(`${message}: ${dateStr} - Eastern Day: ${date.getDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()]})`);
-};
-
-// Helper to check if a date is a holiday
-export const isHoliday = (dateString: string): boolean => {
-  return HOLIDAY_DATES.has(dateString);
 };
 
 export const calculateDateRange = (days: number) => {
@@ -60,11 +51,9 @@ export const generateDateMap = (startDate: string, endDate: string): Map<string,
   const currentDate = new Date(startDateObj);
   while (currentDate <= endDateObj) {
     const dateStr = currentDate.toISOString().split('T')[0];
-    const checkDate = parseAsEastern(dateStr);
-    const dayOfWeek = checkDate.getDay(); // Use Eastern day
     
-    // Skip Fridays (day 5), Thursdays (day 4) and Holidays
-    if (dayOfWeek !== 5 && dayOfWeek !== 4 && !isHoliday(dateStr)) {
+    // Use the centralized class day logic instead of hardcoded day checks
+    if (isClassDaySync(dateStr)) {
       dateMap.set(dateStr, {
         Present: 0,
         Late: 0,
@@ -73,8 +62,7 @@ export const generateDateMap = (startDate: string, endDate: string): Map<string,
       });
       logDateDebug(dateStr, `Added to chart`);
     } else {
-      const skipReason = dayOfWeek === 5 ? 'Friday' : dayOfWeek === 4 ? 'Thursday' : 'Holiday';
-      logDateDebug(dateStr, `Excluding ${skipReason} from chart`);
+      logDateDebug(dateStr, `Excluding non-class day from chart`);
     }
     
     // Move to next day - add exactly 24 hours to ensure consistency

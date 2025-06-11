@@ -1,7 +1,8 @@
 
 import { parseAsEastern, isLateArrivalEastern } from '@/utils/date/dateUtils';
 import { DailyAttendance } from '@/hooks/types/attendanceChartTypes';
-import { logDateDebug, isHoliday } from './chartDateUtils';
+import { logDateDebug } from './chartDateUtils';
+import { isClassDaySync } from '@/utils/attendance/isClassDay';
 
 export const processAttendanceRecords = (
   attendanceData: any[],
@@ -24,34 +25,29 @@ export const processAttendanceRecords = (
   
   // Process attendance records by date
   recordsByDate.forEach((records, dateStr) => {
-    const recordDate = parseAsEastern(dateStr);
-    const dayOfWeek = recordDate.getDay(); // Use Eastern day
-    
-    // Skip Friday, Thursday records and holiday dates
-    if (dayOfWeek === 5 || dayOfWeek === 4 || isHoliday(dateStr)) {
-      logDateDebug(dateStr, `Skipping ${dayOfWeek === 5 ? 'Friday' : dayOfWeek === 4 ? 'Thursday' : 'Holiday'} records`);
+    // Use the centralized class day logic
+    if (!isClassDaySync(dateStr)) {
+      logDateDebug(dateStr, `Skipping non-class day records`);
       return;
     }
     
     if (!dateMap.has(dateStr)) {
       // This could happen if the date is outside our range but still got returned
-      // Create the entry if it's in our dateRange but wasn't initialized
+      // Create the entry if it's in our dateRange and is a class day
       const checkDate = parseAsEastern(dateStr);
       const startDateObj = parseAsEastern(dateRange.start);
       const endDateObj = parseAsEastern(dateRange.end);
       
-      if (checkDate >= startDateObj && checkDate <= endDateObj && 
-          checkDate.getDay() !== 5 && checkDate.getDay() !== 4 && 
-          !isHoliday(dateStr)) {
+      if (checkDate >= startDateObj && checkDate <= endDateObj && isClassDaySync(dateStr)) {
         dateMap.set(dateStr, {
           Present: 0,
           Late: 0,
           Absent: 0,
           Excused: 0
         });
-        logDateDebug(dateStr, `Added missing date to chart`);
+        logDateDebug(dateStr, `Added missing class day to chart`);
       } else {
-        logDateDebug(dateStr, `Skipping out-of-range date`);
+        logDateDebug(dateStr, `Skipping out-of-range or non-class day`);
         return;
       }
     }
@@ -135,19 +131,10 @@ export const formatChartData = (
     }
   });
   
-  // Double-check to ensure no Friday or Thursday data is in the final result
+  // Double-check to ensure no non-class days are in the final result
   const cleanedData = formattedData.filter(item => {
-    const itemDate = parseAsEastern(item.date);
-    if (itemDate.getDay() === 5) {
-      logDateDebug(item.date, `Removing Friday data from final chart`);
-      return false;
-    }
-    if (itemDate.getDay() === 4) {
-      logDateDebug(item.date, `Removing Thursday data from final chart`);
-      return false;
-    }
-    if (isHoliday(item.date)) {
-      logDateDebug(item.date, `Removing Holiday data from final chart`);
+    if (!isClassDaySync(item.date)) {
+      logDateDebug(item.date, `Removing non-class day from final chart`);
       return false;
     }
     return true;

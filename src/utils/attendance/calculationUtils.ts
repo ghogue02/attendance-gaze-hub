@@ -15,25 +15,33 @@ interface AttendanceStats {
   hasPerfectAttendance: boolean;
 }
 
+// Cohort-specific start dates
+const COHORT_START_DATES = {
+  'March 2025 Pilot': Date.UTC(2025, 2, 15), // March 15, 2025
+  'June 2025': Date.UTC(2025, 5, 14), // June 14, 2025
+};
+
 /**
- * Calculates attendance statistics based on a defined period and rules.
+ * Calculates attendance statistics based on a defined period and cohort-specific rules.
  * 
- * Assumes class days follow the isClassDay helper logic between the start date (inclusive)
+ * Assumes class days follow the isClassDay helper logic between the cohort start date (inclusive)
  * and current date (inclusive).
  * 
  * Rate = (Days Present or Late) / (Total Class Days between Start and Current Date) * 100
  * 
  * @param attendanceRecords Attendance records for a specific builder
+ * @param cohort The cohort name to determine start date
  * @returns An object containing the rate, present count, and total class days.
  */
 export function calculateAttendanceStatistics(
-  attendanceRecords: { date: string; status?: string; student_id?: string }[]
+  attendanceRecords: { date: string; status?: string; student_id?: string }[],
+  cohort?: string
 ): AttendanceStats {
   // --- Log Inputs ---
   const studentId = attendanceRecords.length > 0 ? attendanceRecords[0].student_id : 'Unknown';
   
   if (DEBUG_LOGGING) {
-    console.log(`[calculateAttendanceStatistics] Calculating for student ID: ${studentId}. Received ${attendanceRecords.length} records.`);
+    console.log(`[calculateAttendanceStatistics] Calculating for student ID: ${studentId}, Cohort: ${cohort}. Received ${attendanceRecords.length} records.`);
   }
   
   // Filter out non-class days from attendance records using our canonical helper
@@ -48,17 +56,25 @@ export function calculateAttendanceStatistics(
   // Use Date.UTC for consistent UTC timestamps
   const currentDateUTC = Date.UTC(currentYear, currentMonth, currentDay);
 
-  // Start date is March 15, 2025 (UTC)
-  const startDateUTC = MINIMUM_DATE_UTC;
+  // Determine start date based on cohort
+  let startDateUTC: number;
+  if (cohort && COHORT_START_DATES[cohort as keyof typeof COHORT_START_DATES]) {
+    startDateUTC = COHORT_START_DATES[cohort as keyof typeof COHORT_START_DATES];
+  } else {
+    // Default to March 2025 Pilot start date for unknown cohorts
+    startDateUTC = COHORT_START_DATES['March 2025 Pilot'];
+  }
   
   if (DEBUG_LOGGING) {
-    console.log(`[calculateAttendanceStatistics] Start Date UTC: ${new Date(startDateUTC).toISOString()}`);
+    console.log(`[calculateAttendanceStatistics] Start Date UTC for ${cohort}: ${new Date(startDateUTC).toISOString()}`);
     console.log(`[calculateAttendanceStatistics] Current Date UTC: ${new Date(currentDateUTC).toISOString()}`);
   }
   
   // Edge Case: If current date is before the start date, return zeros.
   if (currentDateUTC < startDateUTC) {
-    console.warn("Current date is before the minimum start date.");
+    if (DEBUG_LOGGING) {
+      console.log(`[calculateAttendanceStatistics] Current date is before cohort start date for ${cohort}`);
+    }
     return { rate: 0, presentCount: 0, totalClassDays: 0, hasPerfectAttendance: false };
   }
   
@@ -71,10 +87,10 @@ export function calculateAttendanceStatistics(
   let iteration = 0; // Safety check
   
   if (DEBUG_LOGGING) {
-    console.log(`[calculateAttendanceStatistics] Starting Day Calculation Loop...`);
+    console.log(`[calculateAttendanceStatistics] Starting Day Calculation Loop for ${cohort}...`);
   }
   
-  while (tempDate.getTime() <= currentDateUTC && iteration < 100) {
+  while (tempDate.getTime() <= currentDateUTC && iteration < 200) {
     const dateString = tempDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
     // Use our canonical helper to determine if this is a class day
@@ -139,7 +155,7 @@ export function calculateAttendanceStatistics(
   };
   
   if (DEBUG_LOGGING) {
-    console.log(`[calculateAttendanceStatistics] Student ID: ${studentId}`);
+    console.log(`[calculateAttendanceStatistics] Student ID: ${studentId}, Cohort: ${cohort}`);
     console.log(`[calculateAttendanceStatistics] Calculated: ${presentOrLateDays} present or late days out of ${totalClassDays} total class days`);
     console.log(`[calculateAttendanceStatistics] Final Result:`, result);
   }

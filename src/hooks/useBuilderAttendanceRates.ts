@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Builder, AttendanceStats } from '@/components/builder/types';
@@ -5,7 +6,7 @@ import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUti
 import { isClassDay } from '@/utils/attendance/isClassDay';
 
 // Define the start date for fetching records (align with calculation start date)
-const ATTENDANCE_START_DATE = '2025-03-15';
+const ATTENDANCE_START_DATE = '2025-03-01'; // Fetch from before both cohorts start
 // Set a higher limit to ensure we get all records
 const MAX_RECORDS_LIMIT = 10000;
 
@@ -124,8 +125,8 @@ export const useBuilderAttendanceRates = (builders: Builder[]) => {
         for (const builder of builders) {
           const builderRecords = recordsByStudent?.[builder.id] || [];
           
-          // Calculate rate using the utility function
-          const calculatedStats = calculateAttendanceStatistics(builderRecords);
+          // Calculate rate using the utility function with cohort information
+          const calculatedStats = calculateAttendanceStatistics(builderRecords, builder.cohort);
           
           // Store both the rate and the full stats object
           rates[builder.id] = calculatedStats.rate;

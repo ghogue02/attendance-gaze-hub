@@ -5,9 +5,10 @@ import { calculateAttendanceStatistics } from '@/utils/attendance/calculationUti
 
 interface AttendanceStatsProps {
   attendanceHistory: AttendanceRecord[];
+  cohort?: string; // Add cohort prop
 }
 
-const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
+const AttendanceStats = ({ attendanceHistory, cohort }: AttendanceStatsProps) => {
   const [attendanceRate, setAttendanceRate] = useState<number>(0);
   const [totalClassDays, setTotalClassDays] = useState<number>(0);
   const [presentCount, setPresentCount] = useState<number>(0);
@@ -23,8 +24,8 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
       }
       
       try {
-        // Use the consolidated calculation function
-        const stats = calculateAttendanceStatistics(attendanceHistory);
+        // Use the consolidated calculation function with cohort information
+        const stats = calculateAttendanceStatistics(attendanceHistory, cohort);
         
         console.log(`AttendanceStats: Present days: ${stats.presentCount}, Total class days: ${stats.totalClassDays}`);
         console.log(`AttendanceStats: Final rate: ${stats.rate}%`);
@@ -42,7 +43,7 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
     };
     
     updateStats();
-  }, [attendanceHistory]);
+  }, [attendanceHistory, cohort]);
 
   if (isLoading) {
     return <div className="mb-4 p-3 bg-muted/30 rounded-md">
@@ -51,9 +52,12 @@ const AttendanceStats = ({ attendanceHistory }: AttendanceStatsProps) => {
   }
 
   if (totalClassDays === 0) {
+    const cohortDisplayName = cohort === 'March 2025 Pilot' ? 'March 15, 2025' : 
+                             cohort === 'June 2025' ? 'June 14, 2025' : 
+                             'the start date';
     return <div className="mb-4 p-3 bg-muted/30 rounded-md">
       <p className="text-center text-sm text-muted-foreground">
-        No class days have occurred yet since the start date (March 15, 2025).
+        No class days have occurred yet since {cohortDisplayName}.
       </p>
     </div>;
   }

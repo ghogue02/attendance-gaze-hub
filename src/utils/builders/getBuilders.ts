@@ -56,7 +56,7 @@ export const getBuilders = async (cohort?: string): Promise<Builder[]> => {
     const builders: Builder[] = data.map(student => ({
       id: student.id,
       name: `${student.first_name} ${student.last_name}`,
-      builderId: student.student_id || '',
+      builderId: student.email || '', // Changed to use email instead of student_id
       status: validateBuilderStatus('pending'),
       timeRecorded: '',
       image: student.image_url,

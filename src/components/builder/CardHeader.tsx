@@ -2,6 +2,7 @@
 import UserProfileImage from '@/components/dashboard/UserProfileImage';
 import { Builder, AttendanceStats } from './types';
 import { CalendarIcon, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import AttendanceBadge from './AttendanceBadge';
 
 interface CardHeaderProps {
@@ -18,6 +19,18 @@ const CardHeader = ({ builder, attendanceStats, onNotesClick }: CardHeaderProps)
     if (rate >= 80) return "text-green-600";
     if (rate >= 60) return "text-yellow-600";
     return "text-red-600";
+  };
+
+  const getCohortBadgeVariant = (cohort?: string) => {
+    if (cohort === 'March 2025 Pilot') return 'default';
+    if (cohort === 'June 2025') return 'secondary';
+    return 'outline';
+  };
+
+  const getCohortDisplayName = (cohort?: string) => {
+    if (cohort === 'March 2025 Pilot') return 'Pilot';
+    if (cohort === 'June 2025') return 'June';
+    return cohort || 'Unknown';
   };
 
   // Extract values from the stats object
@@ -40,7 +53,12 @@ const CardHeader = ({ builder, attendanceStats, onNotesClick }: CardHeaderProps)
       <div className="flex-1 text-center sm:text-left">
         <div className="flex flex-col sm:flex-row items-center sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-semibold text-lg">{builder.name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-lg">{builder.name}</h3>
+              <Badge variant={getCohortBadgeVariant(builder.cohort)} className="text-xs">
+                {getCohortDisplayName(builder.cohort)}
+              </Badge>
+            </div>
             <p className="text-sm text-foreground/70 mb-2">ID: {builder.builderId}</p>
           </div>
           

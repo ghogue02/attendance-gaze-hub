@@ -14,7 +14,7 @@ export const fetchBuildersWithAttendance = async (targetDateString: string, coho
     // --- 1. Fetch all active students in a single query ---
     let studentsQuery = supabase
       .from('students')
-      .select('id, first_name, last_name, student_id, image_url, notes, cohort')
+      .select('id, first_name, last_name, email, image_url, notes, cohort')
       .is('archived_at', null) // Only fetch non-archived students
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
@@ -87,7 +87,7 @@ export const fetchBuildersWithAttendance = async (targetDateString: string, coho
       return {
         id: student.id,
         name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
-        builderId: student.student_id || 'N/A',
+        builderId: student.email || 'N/A', // Changed to use email instead of student_id
         status: calculatedStatus,
         timeRecorded,
         image: student.image_url,

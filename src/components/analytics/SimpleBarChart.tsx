@@ -20,15 +20,22 @@ const SimpleBarChart = ({ data }: SimpleBarChartProps) => {
     );
   }
 
-  // Format data for display - use the existing name from the processed data
-  const chartData = data.map(item => ({
-    name: item.name || `${new Date(item.date).getDate()}`, // Fallback if name is missing
-    Present: item.present,
-    Late: item.late,
-    Absent: item.absent,
-    Excused: item.excused,
-    date: item.date
-  }));
+  // Format data for display - create display name from date
+  const chartData = data.map(item => {
+    // Parse the date using Eastern Time to create proper display format
+    const date = new Date(`${item.date}T00:00:00`);
+    const dayNum = date.getDate().toString().padStart(2, '0');
+    const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+    
+    return {
+      name: `${dayOfWeek} ${dayNum}`,
+      Present: item.present,
+      Late: item.late,
+      Absent: item.absent,
+      Excused: item.excused,
+      date: item.date
+    };
+  });
 
   return (
     <ResponsiveContainer width="100%" height={400}>

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Builder, AttendanceRecord } from './types';
 import { useOptimizedAttendanceQueries } from '@/hooks/useOptimizedAttendanceQueries';
 import AttendanceHistoryTable from './AttendanceHistoryTable';
@@ -11,6 +11,10 @@ import AttendanceStats from './attendance/AttendanceStats';
 import AddNewDateForm from './attendance/AddNewDateForm';
 import EditAttendanceDateForm from './attendance/EditAttendanceDateForm';
 import DeleteAttendanceConfirmation from './attendance/DeleteAttendanceConfirmation';
+import { useFetchAttendanceHistory } from '@/hooks/attendanceHistory/useFetchAttendanceHistory';
+import { useEditAttendance } from '@/hooks/attendanceHistory/useEditAttendance';
+import { useDeleteAttendance } from '@/hooks/attendanceHistory/useDeleteAttendance';
+import { useAttendanceDates } from '@/hooks/attendanceHistory/useAttendanceDates';
 
 interface AttendanceHistoryDialogProps {
   isOpen: boolean;
@@ -19,53 +23,70 @@ interface AttendanceHistoryDialogProps {
 }
 
 const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistoryDialogProps) => {
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAddingNew, setIsAddingNew] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
-  const [deletingRecord, setDeletingRecord] = useState<AttendanceRecord | null>(null);
   
-  const { fetchAttendanceHistory } = useOptimizedAttendanceQueries();
+  // Use the custom hooks
+  const { attendanceHistory, isLoading, setAttendanceHistory, loadAttendanceHistory } = useFetchAttendanceHistory(builder);
+  const { 
+    editingRecord, 
+    editingDate, 
+    startEditing, 
+    startEditingDate, 
+    cancelEditing, 
+    cancelEditingDate,
+    saveAttendanceChanges,
+    editStatus,
+    editExcuseReason,
+    editNotes,
+    setEditStatus,
+    setEditExcuseReason,
+    setEditNotes,
+    isLoading: editLoading
+  } = useEditAttendance({ setAttendanceHistory });
+  
+  const {
+    deleteDialogOpen,
+    recordToDelete,
+    isLoading: deleteLoading,
+    setDeleteDialogOpen,
+    handleDeleteRecord,
+    confirmDelete
+  } = useDeleteAttendance({ setAttendanceHistory });
+  
+  const {
+    isLoading: dateLoading,
+    saveAttendanceDateChange,
+    addNewAttendanceRecord
+  } = useAttendanceDates({ builder, loadAttendanceHistory });
 
   useEffect(() => {
     if (isOpen && builder.id) {
       loadAttendanceHistory();
     }
-  }, [isOpen, builder.id]);
-
-  const loadAttendanceHistory = async () => {
-    try {
-      setIsLoading(true);
-      const history = await fetchAttendanceHistory(builder.id);
-      setAttendanceHistory(history);
-    } catch (error) {
-      console.error('Error loading attendance history:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [isOpen, builder.id, loadAttendanceHistory]);
 
   const handleClose = () => {
     setIsAddingNew(false);
-    setEditingRecord(null);
-    setDeletingRecord(null);
+    cancelEditing();
+    cancelEditingDate();
+    setDeleteDialogOpen(false);
     onClose();
   };
 
   const handleRecordAdded = () => {
     setIsAddingNew(false);
-    loadAttendanceHistory();
   };
 
   const handleRecordUpdated = () => {
-    setEditingRecord(null);
-    loadAttendanceHistory();
+    cancelEditingDate();
   };
 
   const handleRecordDeleted = () => {
-    setDeletingRecord(null);
-    loadAttendanceHistory();
+    setDeleteDialogOpen(false);
   };
+
+  // Get existing dates for validation
+  const existingDates = attendanceHistory.map(record => record.date);
 
   return (
     <>
@@ -92,41 +113,43 @@ const AttendanceHistoryDialog = ({ isOpen, onClose, builder }: AttendanceHistory
                 cohort={builder.cohort}
               />
               
+              {isAddingNew && (
+                <AddNewDateForm
+                  onCancel={() => setIsAddingNew(false)}
+                  onSave={addNewAttendanceRecord}
+                  isLoading={dateLoading}
+                  existingDates={existingDates}
+                />
+              )}
+              
               <AttendanceHistoryTable
                 attendanceHistory={attendanceHistory}
                 isLoading={isLoading}
-                onEdit={setEditingRecord}
-                onDelete={setDeletingRecord}
+                onEditRecord={startEditing}
+                onEditDate={startEditingDate}
+                onDeleteRecord={handleDeleteRecord}
               />
+              
+              {editingDate && (
+                <EditAttendanceDateForm
+                  currentDate={editingDate.date}
+                  existingDates={existingDates}
+                  onSave={(newDate) => saveAttendanceDateChange(editingDate.id, newDate)}
+                  onCancel={cancelEditingDate}
+                  isLoading={dateLoading}
+                />
+              )}
             </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
 
-      <AddNewDateForm
-        isOpen={isAddingNew}
-        onClose={() => setIsAddingNew(false)}
-        builderId={builder.id}
-        onSuccess={handleRecordAdded}
+      <DeleteAttendanceConfirmation
+        isOpen={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        isLoading={deleteLoading}
       />
-
-      {editingRecord && (
-        <EditAttendanceDateForm
-          isOpen={true}
-          onClose={() => setEditingRecord(null)}
-          record={editingRecord}
-          onSuccess={handleRecordUpdated}
-        />
-      )}
-
-      {deletingRecord && (
-        <DeleteAttendanceConfirmation
-          isOpen={true}
-          onClose={() => setDeletingRecord(null)}
-          record={deletingRecord}
-          onSuccess={handleRecordDeleted}
-        />
-      )}
     </>
   );
 };

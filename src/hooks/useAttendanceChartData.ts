@@ -31,20 +31,20 @@ export const useAttendanceChartData = (builders: Builder[], days: number): Atten
         
         console.log(`[useAttendanceChartData] Fetched ${attendanceData?.length || 0} attendance records`);
         
-        // Initialize date map with all valid class days
-        const dateMap = generateDateMap(dateRange.start, dateRange.end);
+        // Initialize date map with all valid class days (await the async function)
+        const dateMap = await generateDateMap(dateRange.start, dateRange.end);
         
         console.log("Dates included in chart:", Array.from(dateMap.keys()));
         
         // Process attendance records if we have data
         if (attendanceData && attendanceData.length > 0) {
-          processAttendanceRecords(attendanceData, dateMap, dateRange);
+          await processAttendanceRecords(attendanceData, dateMap, dateRange);
         } else {
           console.log('No attendance data found for the specified date range and builders');
         }
         
-        // Format the data for the chart
-        const formattedData = formatChartData(dateMap);
+        // Format the data for the chart (await the async function)
+        const formattedData = await formatChartData(dateMap);
         
         console.log('[useAttendanceChartData] Final chart data:', formattedData);
         setChartData(formattedData);

@@ -2,33 +2,32 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AttendanceBarChart from './AttendanceBarChart';
-import AttendancePieChart from './AttendancePieChart';
-import { useAttendanceChartData } from '@/hooks/useAttendanceChartData';
 import { Builder } from '@/components/builder/types';
 import { useCohortSelection } from '@/hooks/useCohortSelection';
+import { useSimpleAttendanceAnalytics } from '@/hooks/useSimpleAttendanceAnalytics';
+import SimpleBarChart from '@/components/analytics/SimpleBarChart';
+import SimplePieChart from '@/components/analytics/SimplePieChart';
 
 interface AttendanceChartProps {
   builders: Builder[];
 }
 
 const AttendanceChart = ({ builders }: AttendanceChartProps) => {
-  const [timeFrame, setTimeFrame] = useState<string>('30'); // Default to 30 days for better March cohort coverage
+  const [timeFrame, setTimeFrame] = useState<string>('30');
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
   const { selectedCohort } = useCohortSelection();
   
   const days = parseInt(timeFrame);
   
-  // Filter builders by cohort first, then pass to the hook
+  // Filter builders by cohort
   const filteredBuilders = selectedCohort === 'All Cohorts' 
     ? builders 
     : builders.filter(builder => builder.cohort === selectedCohort);
   
   console.log(`[AttendanceChart] Selected cohort: ${selectedCohort}`);
-  console.log(`[AttendanceChart] Total builders: ${builders.length}, Filtered builders: ${filteredBuilders.length}`);
-  console.log(`[AttendanceChart] Filtered builder cohorts:`, filteredBuilders.map(b => b.cohort));
+  console.log(`[AttendanceChart] Filtered builders: ${filteredBuilders.length}/${builders.length}`);
   
-  const { chartData, isLoading } = useAttendanceChartData(filteredBuilders, days);
+  const { data, isLoading, error } = useSimpleAttendanceAnalytics(filteredBuilders, days);
 
   const timeFrameOptions = [
     { value: '7', label: 'Last 7 days' },
@@ -38,6 +37,24 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
     { value: '90', label: 'Last 90 days' }
   ];
 
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Attendance Analytics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <p className="text-destructive font-medium">Error loading analytics</p>
+              <p className="text-muted-foreground text-sm mt-1">{error}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -45,7 +62,7 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
           <div>
             <CardTitle>Attendance Analytics</CardTitle>
             <CardDescription>
-              {selectedCohort !== 'All Cohorts' && `${selectedCohort} - `}
+              {selectedCohort !== 'All Cohorts' ? `${selectedCohort} - ` : ''}
               Attendance trends over time ({filteredBuilders.length} builders)
             </CardDescription>
           </div>
@@ -81,9 +98,9 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : chartType === 'bar' ? (
-          <AttendanceBarChart chartData={chartData} isLoading={isLoading} />
+          <SimpleBarChart data={data?.daily || []} />
         ) : (
-          <AttendancePieChart builders={filteredBuilders} />
+          <SimplePieChart data={data?.summary || { totalPresent: 0, totalLate: 0, totalAbsent: 0, totalExcused: 0 }} />
         )}
       </CardContent>
     </Card>

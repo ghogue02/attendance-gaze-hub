@@ -22,7 +22,7 @@ const Index = () => {
   // Fetch all builders
   const { data: builders = [] } = useQuery({
     queryKey: ['builders'],
-    queryFn: getBuilders
+    queryFn: () => getBuilders() // Remove the cohort parameter for the home page
   });
 
   return (

@@ -70,9 +70,9 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : chartType === 'bar' ? (
-          <AttendanceBarChart data={chartData} />
+          <AttendanceBarChart chartData={chartData} isLoading={isLoading} />
         ) : (
-          <AttendancePieChart data={chartData} />
+          <AttendancePieChart builders={builders} />
         )}
       </CardContent>
     </Card>

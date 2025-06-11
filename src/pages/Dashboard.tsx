@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatisticsCards from '@/components/dashboard/statistics/StatisticsCards';
-import BuildersTab from '@/components/dashboard/BuildersTab';
+import BuildersTabWrapper from '@/components/dashboard/BuildersTabWrapper';
 import AnalyticsTab from '@/components/dashboard/AnalyticsTab';
 import HistoryTab from '@/components/dashboard/HistoryTab';
 import ArchivedTab from '@/components/dashboard/ArchivedTab';
@@ -20,6 +20,11 @@ const Dashboard = () => {
     setIsRefreshing(true);
     await refresh();
     setIsRefreshing(false);
+  };
+
+  // Mock verify function for now - you can implement this properly later
+  const handleVerify = (builderId: string, status: any, reason?: string) => {
+    console.log('Verify:', builderId, status, reason);
   };
 
   return (
@@ -52,7 +57,12 @@ const Dashboard = () => {
             {isLoading ? (
               <AttendanceLoadingState />
             ) : (
-              <BuildersTab builders={builders} />
+              <BuildersTabWrapper 
+                builders={builders}
+                isLoading={isLoading}
+                onVerify={handleVerify}
+                refreshData={refresh}
+              />
             )}
           </TabsContent>
           

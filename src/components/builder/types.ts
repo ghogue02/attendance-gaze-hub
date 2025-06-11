@@ -1,4 +1,3 @@
-
 export type BuilderStatus = 'present' | 'absent' | 'excused' | 'pending' | 'late';
 
 export interface Builder {
@@ -10,6 +9,7 @@ export interface Builder {
   image?: string;
   excuseReason?: string;
   notes?: string; // Added notes field
+  cohort?: string; // Added cohort field
 }
 
 export interface AttendanceRecord {

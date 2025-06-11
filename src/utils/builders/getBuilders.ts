@@ -23,21 +23,29 @@ const validateBuilderStatus = (status: string | null): BuilderStatus => {
 /**
  * Fetches all active (non-archived) builders from the database with caching
  */
-export const getBuilders = async (): Promise<Builder[]> => {
+export const getBuilders = async (cohort?: string): Promise<Builder[]> => {
   try {
-    // Check cache first
+    // Check cache first - only if no specific cohort requested
     const now = Date.now();
-    if (buildersCache.data.length > 0 && (now - buildersCache.timestamp) < buildersCache.ttl) {
+    if (!cohort && buildersCache.data.length > 0 && (now - buildersCache.timestamp) < buildersCache.ttl) {
       console.log('Using cached builders data');
       return buildersCache.data;
     }
     
-    console.log('Fetching fresh builders data');
-    const { data, error } = await supabase
+    console.log('Fetching fresh builders data', cohort ? `for cohort: ${cohort}` : '');
+    
+    let query = supabase
       .from('students')
       .select('*')
       .is('archived_at', null) // Only fetch non-archived builders
       .order('first_name', { ascending: true });
+
+    // Add cohort filter if specified and not "All Cohorts"
+    if (cohort && cohort !== 'All Cohorts') {
+      query = query.eq('cohort', cohort);
+    }
+
+    const { data, error } = await query;
       
     if (error) {
       console.error('Error fetching builders:', error);
@@ -51,12 +59,15 @@ export const getBuilders = async (): Promise<Builder[]> => {
       builderId: student.student_id || '',
       status: validateBuilderStatus('pending'),
       timeRecorded: '',
-      image: student.image_url
+      image: student.image_url,
+      cohort: student.cohort // Include cohort information
     }));
     
-    // Update cache
-    buildersCache.data = builders;
-    buildersCache.timestamp = now;
+    // Update cache only if fetching all builders
+    if (!cohort || cohort === 'All Cohorts') {
+      buildersCache.data = builders;
+      buildersCache.timestamp = now;
+    }
     
     return builders;
   } catch (error) {
@@ -71,4 +82,3 @@ export const clearBuildersCache = () => {
   buildersCache.data = [];
   buildersCache.timestamp = 0;
 };
-

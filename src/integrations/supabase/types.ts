@@ -77,6 +77,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cohorts: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          is_active: boolean
+          name: string
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       face_embeddings: {
         Row: {
           created_at: string
@@ -145,6 +175,7 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_reason: string | null
+          cohort: string
           created_at: string | null
           email: string
           first_name: string
@@ -159,6 +190,7 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           archived_reason?: string | null
+          cohort?: string
           created_at?: string | null
           email: string
           first_name: string
@@ -173,6 +205,7 @@ export type Database = {
         Update: {
           archived_at?: string | null
           archived_reason?: string | null
+          cohort?: string
           created_at?: string | null
           email?: string
           first_name?: string

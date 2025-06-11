@@ -1,120 +1,81 @@
 
-import { useState, useEffect } from 'react';
-import { Builder } from '@/components/builder/types';
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { timeFrameOptions } from './constants/timeFrameOptions';
-import { useAttendanceChartData } from '@/hooks/useAttendanceChartData';
 import AttendanceBarChart from './AttendanceBarChart';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
-import { markPendingAsAbsent } from '@/services/attendance';
-import { toast } from 'sonner';
-import { isClassDaySync, isCancelledClassDaySync } from '@/utils/attendance/isClassDay';
+import AttendancePieChart from './AttendancePieChart';
+import { useAttendanceChartData } from '@/hooks/useAttendanceChartData';
+import { Builder } from '@/components/builder/types';
+import { useCohortSelection } from '@/hooks/useCohortSelection';
 
 interface AttendanceChartProps {
   builders: Builder[];
-  days?: number;
 }
 
 const AttendanceChart = ({ builders }: AttendanceChartProps) => {
-  const [timeFrame, setTimeFrame] = useState("7");
-  const [refreshing, setRefreshing] = useState(false);
-  const [cancelledDays, setCancelledDays] = useState<string[]>([]);
+  const [timeFrame, setTimeFrame] = useState<string>('7');
+  const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
+  const { selectedCohort } = useCohortSelection();
+  
   const days = parseInt(timeFrame);
-  
-  useEffect(() => {
-    console.log(`AttendanceChart: timeFrame changed to ${timeFrame} (${days} days)`);
-  }, [timeFrame, days]);
-  
-  const { chartData, isLoading } = useAttendanceChartData(builders, days);
+  const cohortFilter = selectedCohort === 'All Cohorts' ? undefined : selectedCohort;
+  const { chartData, isLoading } = useAttendanceChartData(builders, days, cohortFilter);
 
-  // Identify cancelled days in the chart data
-  useEffect(() => {
-    const cancelled = chartData
-      .filter(data => isCancelledClassDaySync(data.date))
-      .map(data => data.date);
-    
-    setCancelledDays(cancelled);
-  }, [chartData]);
-
-  const handleRefreshChart = async () => {
-    setRefreshing(true);
-    try {
-      const dates = chartData.map(data => data.date);
-      
-      let totalUpdated = 0;
-      
-      for (const date of dates) {
-        // Only process days that are class days and not cancelled
-        if (isClassDaySync(date) && !isCancelledClassDaySync(date)) {
-          const updated = await markPendingAsAbsent(date);
-          if (updated > 0) {
-            totalUpdated += updated;
-          }
-        } else {
-          console.log(`Skipping ${date} as it's not a valid class day or is cancelled`);
-        }
-      }
-      
-      if (totalUpdated > 0) {
-        toast.success(`Updated ${totalUpdated} attendance records`);
-        window.location.reload();
-      } else {
-        toast.info("No records needed updating");
-      }
-    } catch (error) {
-      console.error('Error refreshing chart data:', error);
-      toast.error('Failed to refresh chart data');
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  const timeFrameOptions = [
+    { value: '7', label: 'Last 7 days' },
+    { value: '14', label: 'Last 14 days' },
+    { value: '30', label: 'Last 30 days' }
+  ];
 
   return (
-    <div className="glass-card p-6 w-full h-[500px]">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Attendance Trend</h3>
-        <div className="flex items-center space-x-2">
-          <Button 
-            size="sm" 
-            variant="outline" 
-            onClick={handleRefreshChart} 
-            disabled={refreshing || isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Select value={timeFrame} onValueChange={setTimeFrame}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Select timeframe" />
-            </SelectTrigger>
-            <SelectContent>
-              {timeFrameOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle>Attendance Analytics</CardTitle>
+            <CardDescription>
+              {selectedCohort !== 'All Cohorts' && `${selectedCohort} - `}
+              Attendance trends over time
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Select value={timeFrame} onValueChange={setTimeFrame}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {timeFrameOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={chartType} onValueChange={(value: 'bar' | 'pie') => setChartType(value)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bar">Bar Chart</SelectItem>
+                <SelectItem value="pie">Pie Chart</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
-      
-      {cancelledDays.length > 0 && (
-        <div className="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md p-2 mb-4 text-sm flex items-center">
-          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500 mr-2" />
-          <span>
-            Chart includes {cancelledDays.length} cancelled class day{cancelledDays.length > 1 ? 's' : ''}: {cancelledDays.join(', ')}
-          </span>
-        </div>
-      )}
-      
-      <div className="h-[85%]">
-        <AttendanceBarChart 
-          chartData={chartData} 
-          isLoading={isLoading || refreshing} 
-        />
-      </div>
-    </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : chartType === 'bar' ? (
+          <AttendanceBarChart data={chartData} />
+        ) : (
+          <AttendancePieChart data={chartData} />
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

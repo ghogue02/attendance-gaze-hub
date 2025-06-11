@@ -7,17 +7,24 @@ import { isClassDay } from '../../attendance/isClassDay';
 // Global debug flag - set to false to reduce console noise
 const DEBUG_LOGGING = false;
 
-export const fetchBuildersWithAttendance = async (targetDateString: string): Promise<Builder[]> => {
+export const fetchBuildersWithAttendance = async (targetDateString: string, cohort?: string): Promise<Builder[]> => {
   try {
-    DEBUG_LOGGING && console.log('Fetching builders with attendance for date:', targetDateString);
+    DEBUG_LOGGING && console.log('Fetching builders with attendance for date:', targetDateString, cohort ? `cohort: ${cohort}` : '');
     
     // --- 1. Fetch all active students in a single query ---
-    const { data: students, error: studentsError } = await supabase
+    let studentsQuery = supabase
       .from('students')
-      .select('id, first_name, last_name, student_id, image_url, notes')
+      .select('id, first_name, last_name, student_id, image_url, notes, cohort')
       .is('archived_at', null) // Only fetch non-archived students
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
+
+    // Add cohort filter if specified and not "All Cohorts"
+    if (cohort && cohort !== 'All Cohorts') {
+      studentsQuery = studentsQuery.eq('cohort', cohort);
+    }
+
+    const { data: students, error: studentsError } = await studentsQuery;
 
     if (studentsError) {
       console.error('Error fetching students:', studentsError);
@@ -85,7 +92,8 @@ export const fetchBuildersWithAttendance = async (targetDateString: string): Pro
         timeRecorded,
         image: student.image_url,
         excuseReason,
-        notes: attendanceNotes || student.notes
+        notes: attendanceNotes || student.notes,
+        cohort: student.cohort
       };
     });
   } catch (error) {

@@ -10,7 +10,7 @@ import { fetchAttendanceChartData } from '@/services/attendance/chartDataService
 // Change from "export" to "export type" for re-exporting the type
 export type { DailyAttendance } from './types/attendanceChartTypes';
 
-export const useAttendanceChartData = (builders: Builder[], days: number): AttendanceChartHookResult => {
+export const useAttendanceChartData = (builders: Builder[], days: number, cohort?: string): AttendanceChartHookResult => {
   const [chartData, setChartData] = useState<DailyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -22,8 +22,8 @@ export const useAttendanceChartData = (builders: Builder[], days: number): Atten
       setIsLoading(true);
       
       try {
-        // Fetch attendance data
-        const attendanceData = await fetchAttendanceChartData(builders, dateRange);
+        // Fetch attendance data with cohort filter
+        const attendanceData = await fetchAttendanceChartData(builders, dateRange, cohort);
         
         // Initialize date map with all valid class days
         const dateMap = generateDateMap(dateRange.start, dateRange.end);
@@ -57,7 +57,7 @@ export const useAttendanceChartData = (builders: Builder[], days: number): Atten
     };
     
     fetchHistoricalData();
-  }, [days, builders, dateRange]); // Added dateRange to dependencies
+  }, [days, builders, dateRange, cohort]); // Added cohort to dependencies
   
   return { chartData, isLoading };
 };

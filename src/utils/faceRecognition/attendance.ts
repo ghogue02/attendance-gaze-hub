@@ -16,35 +16,38 @@ export { clearCache as clearAttendanceCache } from './cache/attendanceCache';
  * Gets all builders (students) with their merged attendance status for a specific date.
  * Optimized to reduce database calls with caching and batched queries.
  */
-export const getAllBuilders = async (targetDateString: string): Promise<Builder[]> => {
+export const getAllBuilders = async (targetDateString: string, cohort?: string): Promise<Builder[]> => {
   try {
+    // Create cache key that includes cohort
+    const cacheKey = cohort ? `${targetDateString}_${cohort}` : targetDateString;
+    
     // Check for in-flight requests first
-    const existingRequest = getInFlightRequest(targetDateString);
+    const existingRequest = getInFlightRequest(cacheKey);
     if (existingRequest) {
       return existingRequest;
     }
 
     // Check cache next if it's still valid
     if (isCacheValid()) {
-      const cachedData = getCachedData(targetDateString);
+      const cachedData = getCachedData(cacheKey);
       if (cachedData) {
         return [...cachedData]; // Return a copy to prevent mutation of cache
       }
     }
 
     // Create a new request promise
-    const promise = fetchBuildersWithAttendance(targetDateString);
+    const promise = fetchBuildersWithAttendance(targetDateString, cohort);
     
     // Store the promise and handle cleanup
-    setInFlightRequest(targetDateString, promise);
+    setInFlightRequest(cacheKey, promise);
     
     const builders = await promise;
     
     // Update cache with the result
-    setCachedData(targetDateString, builders);
+    setCachedData(cacheKey, builders);
     
     // Clean up in-flight request
-    removeInFlightRequest(targetDateString);
+    removeInFlightRequest(cacheKey);
 
     return builders;
   } catch (error) {

@@ -5,9 +5,10 @@ import { toast } from 'sonner';
 
 export const fetchAttendanceChartData = async (
   builders: Builder[],
-  dateRange: { start: string; end: string }
+  dateRange: { start: string; end: string },
+  cohort?: string
 ) => {
-  console.log(`Using date range: ${dateRange.start} to ${dateRange.end}`);
+  console.log(`Using date range: ${dateRange.start} to ${dateRange.end}`, cohort ? `for cohort: ${cohort}` : '');
   
   // If no builders are provided, return empty array
   if (!builders || builders.length === 0) {

@@ -79,15 +79,17 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
       try {
         console.log(`[Analytics] Fetching data for ${builderIds.length} builders over ${days} days`);
         console.log(`[Analytics] Date range: ${dateRange.start} to ${dateRange.end}`);
+        console.log(`[Analytics] Builder IDs sample:`, builderIds.slice(0, 5));
 
-        // Ensure cancelled days are loaded before processing
+        // CRITICAL: Ensure cancelled days are loaded before ANY processing
         console.log('[Analytics] Pre-loading cancelled days...');
-        await getCancelledDays();
+        const cancelledDays = await getCancelledDays();
+        console.log(`[Analytics] Loaded ${cancelledDays.size} cancelled days:`, Array.from(cancelledDays));
 
-        // Fetch attendance data
+        // Fetch attendance data with better error handling
         const { data: attendanceData, error: fetchError } = await supabase
           .from('attendance')
-          .select('date, status, student_id')
+          .select('date, status, student_id, excuse_reason')
           .in('student_id', builderIds)
           .gte('date', dateRange.start)
           .lte('date', dateRange.end)
@@ -97,42 +99,78 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
           throw new Error(`Failed to fetch attendance data: ${fetchError.message}`);
         }
 
-        console.log(`[Analytics] Found ${attendanceData?.length || 0} attendance records`);
+        console.log(`[Analytics] Found ${attendanceData?.length || 0} raw attendance records`);
+        
+        if (attendanceData && attendanceData.length > 0) {
+          // Log sample records for debugging
+          console.log('[Analytics] Sample attendance records:', attendanceData.slice(0, 5));
+          
+          // Group by date for debugging
+          const recordsByDate = attendanceData.reduce((acc, record) => {
+            if (!acc[record.date]) acc[record.date] = [];
+            acc[record.date].push(record);
+            return acc;
+          }, {} as Record<string, any[]>);
+          
+          console.log('[Analytics] Records by date:', Object.keys(recordsByDate).map(date => ({
+            date,
+            count: recordsByDate[date].length,
+            statuses: recordsByDate[date].reduce((acc, r) => {
+              acc[r.status] = (acc[r.status] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          })));
+        }
 
-        // Process the data using async class day checking
+        // Initialize date map with async class day checking
         const dailyMap = new Map<string, { present: number; late: number; absent: number; excused: number; total: number }>();
         let totalPresent = 0, totalLate = 0, totalAbsent = 0, totalExcused = 0;
 
-        // Initialize all dates in range using async class day logic
+        // Generate all dates in range and check each one individually
         const startDateObj = new Date(dateRange.start);
         const endDateObj = new Date(dateRange.end);
+        
+        console.log(`[Analytics] Checking dates from ${dateRange.start} to ${dateRange.end}`);
         
         for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
           
-          // Use async class day logic to ensure cancelled days are properly loaded
-          const isValidClassDay = await isClassDay(dateStr);
-          if (isValidClassDay) {
+          // Use async class day logic with proper error handling
+          try {
+            const isValidClassDay = await isClassDay(dateStr);
+            if (isValidClassDay) {
+              dailyMap.set(dateStr, { present: 0, late: 0, absent: 0, excused: 0, total: 0 });
+              console.log(`[Analytics] ✓ Added class day: ${dateStr}`);
+            } else {
+              console.log(`[Analytics] ✗ Skipped non-class day: ${dateStr}`);
+            }
+          } catch (error) {
+            console.error(`[Analytics] Error checking class day for ${dateStr}:`, error);
+            // If we can't determine, default to including it to be safe
             dailyMap.set(dateStr, { present: 0, late: 0, absent: 0, excused: 0, total: 0 });
-            console.log(`[Analytics] Added class day: ${dateStr}`);
-          } else {
-            console.log(`[Analytics] Skipped non-class day: ${dateStr}`);
+            console.log(`[Analytics] ⚠ Added uncertain day: ${dateStr}`);
           }
         }
 
-        console.log(`[Analytics] Initialized ${dailyMap.size} valid class days`);
+        console.log(`[Analytics] Initialized ${dailyMap.size} valid class days:`, Array.from(dailyMap.keys()));
 
-        // Process attendance records
+        // Process attendance records with detailed logging
+        let processedRecords = 0;
+        let skippedRecords = 0;
         let absenceCount = 0;
+        
         attendanceData?.forEach(record => {
           const dateStats = dailyMap.get(record.date);
           if (!dateStats) {
-            console.log(`[Analytics] Skipping record for non-class day: ${record.date}`);
-            return; // Skip if date not in our valid class days
+            console.log(`[Analytics] Skipping record for non-class day: ${record.date} (status: ${record.status})`);
+            skippedRecords++;
+            return;
           }
           
           dateStats.total++;
+          processedRecords++;
           
+          // Process status with detailed logging for absences
           switch (record.status) {
             case 'present':
               dateStats.present++;
@@ -147,27 +185,49 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
               totalExcused++;
               break;
             case 'absent':
+              // Check if it should be excused based on excuse_reason
+              if (record.excuse_reason && record.excuse_reason.trim()) {
+                dateStats.excused++;
+                totalExcused++;
+                console.log(`[Analytics] Converting absent to excused for ${record.date} due to reason: ${record.excuse_reason}`);
+              } else {
+                dateStats.absent++;
+                totalAbsent++;
+                absenceCount++;
+                console.log(`[Analytics] ⚠ ABSENCE recorded for ${record.date} (student: ${record.student_id})`);
+              }
+              break;
             case 'pending':
             default:
               dateStats.absent++;
               totalAbsent++;
               absenceCount++;
+              console.log(`[Analytics] ⚠ ABSENCE (pending/other) recorded for ${record.date} (student: ${record.student_id}, status: ${record.status})`);
               break;
           }
         });
 
-        console.log(`[Analytics] Processed ${absenceCount} absence records`);
+        console.log(`[Analytics] Processing summary:`);
+        console.log(`  - Processed records: ${processedRecords}`);
+        console.log(`  - Skipped records: ${skippedRecords}`);
+        console.log(`  - Total absences found: ${absenceCount}`);
+        console.log(`  - Final totals - Present: ${totalPresent}, Late: ${totalLate}, Absent: ${totalAbsent}, Excused: ${totalExcused}`);
 
         // Convert to array format for charts
         const daily = Array.from(dailyMap.entries())
           .map(([date, stats]) => ({ date, ...stats }))
           .sort((a, b) => a.date.localeCompare(b.date));
 
-        // Log days with absences for debugging
+        // Log days with absences for verification
         const daysWithAbsences = daily.filter(day => day.absent > 0);
-        if (daysWithAbsences.length > 0) {
-          console.log(`[Analytics] Days with absences:`, daysWithAbsences.map(d => ({ date: d.date, absent: d.absent })));
-        }
+        console.log(`[Analytics] Days with absences in final data (${daysWithAbsences.length} days):`, 
+          daysWithAbsences.map(d => ({ 
+            date: d.date, 
+            absent: d.absent, 
+            total: d.total,
+            percentage: d.total > 0 ? Math.round((d.absent / d.total) * 100) : 0
+          }))
+        );
 
         const analytics: AttendanceAnalytics = {
           daily,
@@ -180,7 +240,7 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
           }
         };
 
-        console.log(`[Analytics] Final summary - Present: ${totalPresent}, Late: ${totalLate}, Absent: ${totalAbsent}, Excused: ${totalExcused}`);
+        console.log(`[Analytics] Final analytics summary:`, analytics.summary);
         setData(analytics);
         
       } catch (err) {
@@ -201,7 +261,7 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
       clearTimeout(timeoutId);
       // Don't reset requestInProgress here as it might interfere with ongoing requests
     };
-  }, [builderIds, days]); // Removed dateRange dependencies as they're derived from days
+  }, [builderIds, days, dateRange.start, dateRange.end]);
 
   // Cleanup on unmount
   useEffect(() => {

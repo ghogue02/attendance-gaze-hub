@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatisticsCards from '@/components/dashboard/statistics/StatisticsCards';
@@ -15,6 +15,14 @@ const Dashboard = () => {
   const { builders, isLoading, error, refresh } = useDashboardData();
   const { selectedCohort, setSelectedCohort } = useCohortSelection();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Filter builders by selected cohort
+  const filteredBuilders = useMemo(() => {
+    if (selectedCohort === 'All Cohorts') {
+      return builders;
+    }
+    return builders.filter(builder => builder.cohort === selectedCohort);
+  }, [builders, selectedCohort]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -43,7 +51,7 @@ const Dashboard = () => {
           </div>
         )}
         
-        <StatisticsCards builders={builders} />
+        <StatisticsCards builders={filteredBuilders} />
         
         <Tabs defaultValue="builders" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
@@ -58,7 +66,7 @@ const Dashboard = () => {
               <AttendanceLoadingState />
             ) : (
               <BuildersTabWrapper 
-                builders={builders}
+                builders={filteredBuilders}
                 isLoading={isLoading}
                 onVerify={handleVerify}
                 refreshData={refresh}
@@ -67,11 +75,11 @@ const Dashboard = () => {
           </TabsContent>
           
           <TabsContent value="analytics">
-            <AnalyticsTab builders={builders} />
+            <AnalyticsTab builders={filteredBuilders} />
           </TabsContent>
           
           <TabsContent value="history">
-            <HistoryTab builders={builders} />
+            <HistoryTab builders={filteredBuilders} />
           </TabsContent>
           
           <TabsContent value="archived">

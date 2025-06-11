@@ -2,7 +2,6 @@
 import { useState, useMemo } from 'react';
 import { Builder, BuilderStatus } from '@/components/builder/types';
 import BuildersTab from './BuildersTab';
-import { useCohortSelection } from '@/hooks/useCohortSelection';
 
 interface BuildersTabWrapperProps {
   builders: Builder[];
@@ -21,16 +20,10 @@ const BuildersTabWrapper = ({
 }: BuildersTabWrapperProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuilderStatus | 'all'>('all');
-  const { selectedCohort } = useCohortSelection();
 
-  // Filter builders by cohort and other filters
+  // Filter builders by search query and status (cohort filtering is now handled in Dashboard)
   const filteredBuilders = useMemo(() => {
     let filtered = builders;
-
-    // Filter by cohort
-    if (selectedCohort !== 'All Cohorts') {
-      filtered = filtered.filter(builder => builder.cohort === selectedCohort);
-    }
 
     // Filter by search query
     if (searchQuery) {
@@ -46,7 +39,7 @@ const BuildersTabWrapper = ({
     }
 
     return filtered;
-  }, [builders, selectedCohort, searchQuery, statusFilter]);
+  }, [builders, searchQuery, statusFilter]);
 
   const handleClearFilters = () => {
     setSearchQuery('');

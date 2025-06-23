@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { throttledRequest } from '@/utils/request/throttle';
-import { getCachedStudentImage, cacheStudentImage } from '@/utils/cache/studentImageCache';
+import { getCachedStudentImage, cacheStudentImage, resetStudentImageErrorState } from '@/utils/cache/studentImageCache';
 import { trackRequest } from '@/utils/debugging/requestTracker';
 
 // Global shared memory cache for the current session with longer TTL
@@ -38,10 +38,21 @@ export const UserProfileImage = memo(({ userId, userName, className = '' }: User
       hasAttemptedFetchRef.current = true;
       
       try {
+        // Enhanced logging for problematic users
+        const isProblematicUser = userName.includes('Mahkeddah') || userName.includes('Cherice');
+        if (isProblematicUser) {
+          console.log(`[UserProfileImage] DEBUGGING: Fetching image for ${userName} (ID: ${userId})`);
+        }
+        
         // First check our global shared memory cache (fastest)
         const cached = imageCache.get(userId);
         if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-          if (isMountedRef.current) setImageUrl(cached.url);
+          if (isMountedRef.current) {
+            setImageUrl(cached.url);
+            if (isProblematicUser) {
+              console.log(`[UserProfileImage] DEBUGGING: Using memory cache for ${userName}: ${cached.url}`);
+            }
+          }
           return;
         }
 
@@ -49,13 +60,21 @@ export const UserProfileImage = memo(({ userId, userName, className = '' }: User
         const persistedImage = getCachedStudentImage(userId);
         if (persistedImage) {
           // Update our in-memory cache and state
-          if (isMountedRef.current) setImageUrl(persistedImage);
+          if (isMountedRef.current) {
+            setImageUrl(persistedImage);
+            if (isProblematicUser) {
+              console.log(`[UserProfileImage] DEBUGGING: Using persisted cache for ${userName}: ${persistedImage}`);
+            }
+          }
           imageCache.set(userId, {url: persistedImage, timestamp: Date.now()});
           return;
         }
         
         // Prevent duplicate fetches for the same user ID across components
         if (pendingFetches.has(userId)) {
+          if (isProblematicUser) {
+            console.log(`[UserProfileImage] DEBUGGING: Fetch already pending for ${userName} (${userId})`);
+          }
           return;
         }
         
@@ -66,26 +85,37 @@ export const UserProfileImage = memo(({ userId, userName, className = '' }: User
           `profile_${userId}`,
           async () => {
             // Only log when actually fetching from database
-            if (DEBUG_LOGGING) {
+            if (DEBUG_LOGGING || isProblematicUser) {
               trackRequest('UserProfileImage', `fetch-${userId}`);
-              console.log(`UserProfileImage: Fetching image for user: ${userName} (ID: ${userId})`);
+              console.log(`[UserProfileImage] DEBUGGING: Database fetch for user: ${userName} (ID: ${userId})`);
             }
             
-            // Fetch from database
+            // Fetch from database with enhanced validation
             const { data, error } = await supabase
               .from('students')
-              .select('image_url')
+              .select('id, image_url, first_name, last_name')
               .eq('id', userId)
               .single();
               
             if (error) {
+              console.error(`[UserProfileImage] Database error for ${userName} (${userId}):`, error);
               throw error;
+            }
+            
+            // Validate that we got the right student
+            const dbName = `${data.first_name} ${data.last_name}`;
+            if (dbName !== userName && isProblematicUser) {
+              console.warn(`[UserProfileImage] NAME MISMATCH! Expected: ${userName}, DB returned: ${dbName} for ID: ${userId}`);
             }
             
             if (data?.image_url) {
               // Store in both caches for future use
               imageCache.set(userId, {url: data.image_url, timestamp: Date.now()});
               cacheStudentImage(userId, data.image_url);
+              
+              if (isProblematicUser) {
+                console.log(`[UserProfileImage] DEBUGGING: Cached new image for ${userName}: ${data.image_url}`);
+              }
             }
             
             return data;
@@ -95,9 +125,16 @@ export const UserProfileImage = memo(({ userId, userName, className = '' }: User
         
         if (data?.image_url && isMountedRef.current) {
           setImageUrl(data.image_url);
+          if (isProblematicUser) {
+            console.log(`[UserProfileImage] DEBUGGING: Set image URL for ${userName}: ${data.image_url}`);
+          }
         }
       } catch (error) {
-        console.error('Error fetching profile image:', error);
+        console.error(`[UserProfileImage] Error fetching profile image for ${userName} (${userId}):`, error);
+        // Reset error state for problematic users to allow retry
+        if (userName.includes('Mahkeddah') || userName.includes('Cherice')) {
+          resetStudentImageErrorState(userId);
+        }
       } finally {
         // Always remove from pending fetches, even on error
         pendingFetches.delete(userId);
@@ -117,7 +154,15 @@ export const UserProfileImage = memo(({ userId, userName, className = '' }: User
   return (
     <Avatar className={className}>
       {imageUrl ? (
-        <img src={imageUrl} alt={userName} className="object-cover w-full h-full" />
+        <img 
+          src={imageUrl} 
+          alt={userName} 
+          className="object-cover w-full h-full"
+          onError={() => {
+            console.warn(`[UserProfileImage] Image load failed for ${userName} (${userId}): ${imageUrl}`);
+            setImageUrl(null); // Clear the failed image to show fallback
+          }}
+        />
       ) : (
         <div className="flex items-center justify-center w-full h-full bg-primary text-primary-foreground">
           {fallbackInitial}

@@ -4,6 +4,7 @@ import { BuilderStatus } from '@/components/builder/types';
 import { toast } from 'sonner';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { TIMEZONE } from '@/utils/date/dateUtils';
+import { debugAttendanceLogging } from '@/utils/debugging/builderDebugUtils';
 
 /**
  * Mark attendance for a specific student
@@ -29,6 +30,24 @@ export const markAttendance = async (
     const now = new Date();
     const easternNow = toZonedTime(now, TIMEZONE);
     const targetDate = dateString || formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd');
+    
+    // Enhanced logging for problematic users
+    const { data: studentData } = await supabase
+      .from('students')
+      .select('first_name, last_name, email')
+      .eq('id', studentId)
+      .single();
+    
+    const studentName = studentData ? `${studentData.first_name} ${studentData.last_name}` : 'Unknown';
+    const isProblematicUser = studentName.includes('Mahkeddah') || studentName.includes('Cherice');
+    
+    if (isProblematicUser) {
+      console.log(`[markAttendance] DEBUGGING: Marking attendance for ${studentName} (ID: ${studentId}) on ${targetDate} with status ${status}`);
+      console.log(`[markAttendance] DEBUGGING: Student email: ${studentData?.email}`);
+      
+      // Debug recent attendance
+      await debugAttendanceLogging(studentId, studentName);
+    }
     
     console.log(`[markAttendance] Setting attendance for student ${studentId} on date ${targetDate} with status ${status}`);
     console.log(`[markAttendance] Current time in Eastern: ${formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd HH:mm:ss z')}`);
@@ -75,6 +94,10 @@ export const markAttendance = async (
           time_recorded: now.toISOString() // Store in ISO format
         })
         .eq('id', existingRecord.id);
+        
+      if (isProblematicUser) {
+        console.log(`[markAttendance] DEBUGGING: Updated existing record for ${studentName}`);
+      }
     } else {
       // Create a new record with timestamp in ISO format
       result = await supabase
@@ -86,11 +109,24 @@ export const markAttendance = async (
           excuse_reason: dbExcuseReason,
           time_recorded: now.toISOString() // Store in ISO format
         });
+        
+      if (isProblematicUser) {
+        console.log(`[markAttendance] DEBUGGING: Created new record for ${studentName}`);
+      }
     }
 
     if (result.error) {
       console.error('Error saving attendance:', result.error);
+      if (isProblematicUser) {
+        console.error(`[markAttendance] DEBUGGING: Database error for ${studentName}:`, result.error);
+        toast.error(`Failed to mark attendance for ${studentName}: ${result.error.message}`);
+      }
       return false;
+    }
+
+    if (isProblematicUser) {
+      console.log(`[markAttendance] DEBUGGING: Successfully marked ${studentName} as ${status}`);
+      toast.success(`Successfully marked ${studentName} as ${status}`);
     }
 
     return true;

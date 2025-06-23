@@ -7,6 +7,7 @@ import BuildersTabWrapper from '@/components/dashboard/BuildersTabWrapper';
 import AnalyticsTab from '@/components/dashboard/AnalyticsTab';
 import HistoryTab from '@/components/dashboard/HistoryTab';
 import ArchivedTab from '@/components/dashboard/ArchivedTab';
+import CacheDebugPanel from '@/components/dashboard/CacheDebugPanel';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useCohortSelection } from '@/hooks/useCohortSelection';
 import AttendanceLoadingState from '@/components/dashboard/AttendanceLoadingState';
@@ -52,6 +53,13 @@ const Dashboard = () => {
         )}
         
         <StatisticsCards builders={filteredBuilders} />
+        
+        {/* Add debug panel for development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-6 flex justify-end">
+            <CacheDebugPanel />
+          </div>
+        )}
         
         <Tabs defaultValue="builders" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">

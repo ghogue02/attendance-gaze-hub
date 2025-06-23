@@ -3,8 +3,10 @@ import { useState } from 'react';
 import { Builder } from '@/components/builder/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Camera } from 'lucide-react';
+import { Search, Camera, Bug } from 'lucide-react';
 import { trackRequest } from '@/utils/debugging/requestTracker';
+import { debugBuilderIssues, validateBuilderSelection, clearProblematicBuilderCache } from '@/utils/debugging/builderDebugUtils';
+import { toast } from 'sonner';
 
 interface BuilderSearchSectionProps {
   builders: Builder[];
@@ -18,6 +20,7 @@ const BuilderSearchSection = ({
   onSelectBuilder 
 }: BuilderSearchSectionProps) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDebugging, setIsDebugging] = useState(false);
 
   const filteredBuilders = searchQuery 
     ? builders.filter(builder => 
@@ -30,15 +33,62 @@ const BuilderSearchSection = ({
     trackRequest('Home', 'search-query', e.target.value);
   };
 
+  const handleSelectBuilder = (builder: Builder) => {
+    console.log(`[BuilderSearchSection] Builder selected: ${builder.name} (ID: ${builder.id})`);
+    
+    // Validate the selection
+    const isValid = validateBuilderSelection(builder, builder.name);
+    if (!isValid) {
+      console.error('[BuilderSearchSection] Invalid builder selection detected!');
+      return;
+    }
+    
+    onSelectBuilder(builder);
+    setSearchQuery('');
+    trackRequest('Home', 'select-builder', builder.name);
+  };
+
   const handleClearSelection = () => {
     onSelectBuilder({} as Builder);
     setSearchQuery('');
     trackRequest('Home', 'deselect-builder');
   };
 
+  const handleDebugIssues = async () => {
+    setIsDebugging(true);
+    try {
+      // Debug the specific problematic builders
+      const problematicNames = ['Mahkeddah', 'Cherice'];
+      const results = await debugBuilderIssues(problematicNames);
+      
+      if (results && results.length > 0) {
+        const builderIds = results.map(b => b.id);
+        clearProblematicBuilderCache(builderIds);
+        toast.success('Debug investigation completed - check console for details');
+      }
+    } catch (error) {
+      console.error('Debug investigation failed:', error);
+      toast.error('Debug investigation failed');
+    } finally {
+      setIsDebugging(false);
+    }
+  };
+
   return (
     <div className="glass-card p-6 rounded-lg shadow-sm w-full">
-      <h2 className="text-xl font-semibold mb-4 text-center">Search by Name</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-center">Search by Name</h2>
+        <Button
+          onClick={handleDebugIssues}
+          variant="outline"
+          size="sm"
+          disabled={isDebugging}
+          className="flex items-center gap-1"
+        >
+          <Bug size={14} />
+          {isDebugging ? 'Debugging...' : 'Debug Issues'}
+        </Button>
+      </div>
       
       {!selectedBuilder?.id ? (
         <>
@@ -61,18 +111,26 @@ const BuilderSearchSection = ({
                   <div 
                     key={builder.id}
                     className="p-3 hover:bg-secondary cursor-pointer flex items-center gap-2 border-b last:border-b-0"
-                    onClick={() => onSelectBuilder(builder)}
+                    onClick={() => handleSelectBuilder(builder)}
                   >
                     {builder.image ? (
                       <div className="w-10 h-10 rounded-full overflow-hidden">
-                        <img src={builder.image} alt={builder.name} className="w-full h-full object-cover" />
+                        <img 
+                          src={builder.image} 
+                          alt={builder.name} 
+                          className="w-full h-full object-cover"
+                          onError={() => console.warn(`[BuilderSearchSection] Image load error for ${builder.name} (${builder.id})`)}
+                        />
                       </div>
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
                         {builder.name.charAt(0)}
                       </div>
                     )}
-                    <span className="font-medium">{builder.name}</span>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{builder.name}</span>
+                      <span className="text-xs text-muted-foreground">ID: {builder.id}</span>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -92,6 +150,7 @@ const BuilderSearchSection = ({
                   src={selectedBuilder.image} 
                   alt={selectedBuilder.name}
                   className="h-full w-full object-cover"
+                  onError={() => console.warn(`[BuilderSearchSection] Selected image load error for ${selectedBuilder.name} (${selectedBuilder.id})`)}
                 />
               ) : (
                 selectedBuilder.name.charAt(0)
@@ -99,6 +158,7 @@ const BuilderSearchSection = ({
             </div>
             <div>
               <div className="font-medium">{selectedBuilder.name}</div>
+              <div className="text-xs text-muted-foreground">ID: {selectedBuilder.id}</div>
             </div>
           </div>
           <Button 

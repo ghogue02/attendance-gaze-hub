@@ -1,3 +1,4 @@
+
 import { Users, CheckCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
@@ -37,7 +38,7 @@ export const StatsSection = () => {
     
     try {
       processingRef.current = true;
-      console.log(`StatsSection: Processing attendance for ${todayString}`);
+      console.log(`StatsSection: Processing attendance (EXCLUDING current day to preserve manual entries)`);
       
       await processSpecificDateIssues();
       
@@ -48,6 +49,12 @@ export const StatsSection = () => {
       ];
       
       for (const { date, storageKey } of issueDates) {
+        // CRITICAL: Skip current day to prevent overwriting manual entries
+        if (date === todayString) {
+          console.log(`StatsSection: SKIPPING ${date} - it's the current day, preserving manual entries`);
+          continue;
+        }
+        
         if (!localStorage.getItem(storageKey)) {
           console.log(`StatsSection: Specifically processing ${date}`);
           const result = await processPendingAttendance(date);
@@ -64,7 +71,7 @@ export const StatsSection = () => {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayString = yesterday.toISOString().split('T')[0];
       
-      console.log(`StatsSection: Checking if we need to process pending attendance for ${yesterdayString}`);
+      console.log(`StatsSection: Processing pending attendance for YESTERDAY (${yesterdayString}) instead of today to preserve manual entries`);
       
       const storageKey = `attendance_processed_${yesterdayString}`;
       const processedToday = localStorage.getItem(`${storageKey}_${todayString}`);
@@ -72,6 +79,7 @@ export const StatsSection = () => {
       if (processedToday) {
         console.log(`StatsSection: Already processed pending attendance for ${yesterdayString} today`);
       } else {
+        // Process yesterday instead of today to avoid conflicts with manual entries
         const markedCount = await markPendingAsAbsent(yesterdayString);
         
         if (markedCount > 0) {
@@ -111,9 +119,10 @@ export const StatsSection = () => {
     
     updateStats();
     
+    // Delay automated processing to allow manual entries to complete
     setTimeout(() => {
       processAttendance();
-    }, 3000);
+    }, 5000); // Increased delay to 5 seconds
     
     setTimeout(async () => {
       try {
@@ -125,7 +134,7 @@ export const StatsSection = () => {
       } catch (error) {
         console.error('Error clearing automated notes:', error);
       }
-    }, 5000);
+    }, 7000); // Further delayed to avoid conflicts
     
     const unsubscribe = subscribeToAttendanceChanges(() => {
       console.log('Attendance change detected in StatsSection, refreshing stats');

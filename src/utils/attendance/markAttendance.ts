@@ -39,11 +39,14 @@ export const markAttendance = async (
       .single();
     
     const studentName = studentData ? `${studentData.first_name} ${studentData.last_name}` : 'Unknown';
-    const isProblematicUser = studentName.includes('Mahkeddah') || studentName.includes('Cherice');
+    const isProblematicUser = studentName.includes('Mahkeddah') || studentName.includes('Cherice') || studentName.includes('Radhames');
     
-    if (isProblematicUser) {
-      console.log(`[markAttendance] DEBUGGING: Marking attendance for ${studentName} (ID: ${studentId}) on ${targetDate} with status ${status}`);
-      console.log(`[markAttendance] DEBUGGING: Student email: ${studentData?.email}`);
+    if (isProblematicUser || status === 'excused') {
+      console.log(`[markAttendance] MANUAL ENTRY: Marking attendance for ${studentName} (ID: ${studentId}) on ${targetDate} with status ${status}`);
+      if (excuseReason) {
+        console.log(`[markAttendance] MANUAL ENTRY: Excuse reason: "${excuseReason}"`);
+      }
+      console.log(`[markAttendance] MANUAL ENTRY: Student email: ${studentData?.email}`);
       
       // Debug recent attendance
       await debugAttendanceLogging(studentId, studentName);
@@ -59,7 +62,7 @@ export const markAttendance = async (
     // Check if attendance record already exists for this date
     const { data: existingRecord, error: checkError } = await supabase
       .from('attendance')
-      .select('id, status, notes')
+      .select('id, status, notes, excuse_reason')
       .eq('student_id', studentId)
       .eq('date', targetDate)
       .single();
@@ -80,8 +83,14 @@ export const markAttendance = async (
           (existingRecord.status === 'absent' || existingRecord.status === 'pending') && 
           notesToUpdate && 
           (notesToUpdate.includes('Automatically marked') || notesToUpdate.includes('automatically marked'))) {
-        console.log('Clearing automated absence note as student is now present/late');
+        console.log('[markAttendance] Clearing automated absence note as student is now present/late');
         notesToUpdate = null;
+      }
+      
+      // CRITICAL: For manual excused entries, add a special note to help identify them
+      if (status === 'excused') {
+        console.log(`[markAttendance] MANUAL EXCUSED ENTRY: Adding protection note for ${studentName}`);
+        notesToUpdate = `Manual excused entry - ${excuseReason || 'No reason provided'}`;
       }
       
       // Update the existing record with timestamp in ISO format
@@ -95,10 +104,17 @@ export const markAttendance = async (
         })
         .eq('id', existingRecord.id);
         
-      if (isProblematicUser) {
-        console.log(`[markAttendance] DEBUGGING: Updated existing record for ${studentName}`);
+      if (isProblematicUser || status === 'excused') {
+        console.log(`[markAttendance] MANUAL ENTRY: Updated existing record for ${studentName} with status ${status}`);
       }
     } else {
+      // CRITICAL: For manual excused entries, add a special note to help identify them
+      let initialNotes = null;
+      if (status === 'excused') {
+        console.log(`[markAttendance] MANUAL EXCUSED ENTRY: Creating new record with protection note for ${studentName}`);
+        initialNotes = `Manual excused entry - ${excuseReason || 'No reason provided'}`;
+      }
+      
       // Create a new record with timestamp in ISO format
       result = await supabase
         .from('attendance')
@@ -107,25 +123,26 @@ export const markAttendance = async (
           date: targetDate,
           status: dbStatus,
           excuse_reason: dbExcuseReason,
+          notes: initialNotes,
           time_recorded: now.toISOString() // Store in ISO format
         });
         
-      if (isProblematicUser) {
-        console.log(`[markAttendance] DEBUGGING: Created new record for ${studentName}`);
+      if (isProblematicUser || status === 'excused') {
+        console.log(`[markAttendance] MANUAL ENTRY: Created new record for ${studentName} with status ${status}`);
       }
     }
 
     if (result.error) {
       console.error('Error saving attendance:', result.error);
-      if (isProblematicUser) {
-        console.error(`[markAttendance] DEBUGGING: Database error for ${studentName}:`, result.error);
+      if (isProblematicUser || status === 'excused') {
+        console.error(`[markAttendance] MANUAL ENTRY: Database error for ${studentName}:`, result.error);
         toast.error(`Failed to mark attendance for ${studentName}: ${result.error.message}`);
       }
       return false;
     }
 
-    if (isProblematicUser) {
-      console.log(`[markAttendance] DEBUGGING: Successfully marked ${studentName} as ${status}`);
+    if (isProblematicUser || status === 'excused') {
+      console.log(`[markAttendance] MANUAL ENTRY: Successfully marked ${studentName} as ${status}`);
       toast.success(`Successfully marked ${studentName} as ${status}`);
     }
 

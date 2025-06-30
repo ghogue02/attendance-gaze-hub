@@ -54,26 +54,37 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
     };
   }, [builders, isCancelledDay]);
 
-  // Process specific dates with absent marking issues
+  // Process specific dates with absent marking issues - EXCLUDE CURRENT DAY
   useEffect(() => {
     const processAttendanceIssues = async () => {
       if (isProcessing) return; // Prevent concurrent processing
       setIsProcessing(true);
       
       try {
-        // Process the general set of problematic dates
+        // Process the general set of problematic dates (historical only)
         await processSpecificDateIssues();
         
-        // Get current date for automatic processing
-        const today = new Date().toISOString().split('T')[0];
+        // Get current date for comparison
+        const currentDate = new Date().toISOString().split('T')[0];
         
-        // If we have a significant number of pending records, try to fix them
-        if (stats.pendingCount > 0 && stats.pendingCount / stats.totalBuilders > 0.5) {
-          console.log(`High pending count detected (${stats.pendingCount}/${stats.totalBuilders}), running auto-fix`);
-          const result = await markPendingAsAbsent(today);
+        // CRITICAL FIX: Do NOT run automated processing for the current day
+        // This prevents race conditions with manual attendance entries
+        console.log(`[StatisticsCards] SKIPPING automated processing for current day (${currentDate}) to preserve manual entries`);
+        
+        // Only process if we have a significant number of pending records AND it's not the current day
+        if (stats.pendingCount > 0 && stats.pendingCount / stats.totalBuilders > 0.8) {
+          console.log(`[StatisticsCards] High pending count detected (${stats.pendingCount}/${stats.totalBuilders}), but skipping current day processing to preserve manual entries`);
+          
+          // Only process historical dates, not today
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayString = yesterday.toISOString().split('T')[0];
+          
+          console.log(`[StatisticsCards] Processing yesterday (${yesterdayString}) instead of today to avoid conflicts`);
+          const result = await markPendingAsAbsent(yesterdayString);
           
           if (result > 0) {
-            toast.success(`Updated attendance status for ${result} students`);
+            toast.success(`Updated attendance status for ${result} students on ${yesterdayString}`);
           }
         }
         
@@ -89,7 +100,7 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
           }
         }
         
-        // Define additional specific dates we want to process - excluding Fridays and Sundays
+        // Define additional specific dates we want to process - excluding Fridays, Sundays, and CURRENT DAY
         const additionalDates = [
           { date: '2025-04-20', storageKey: 'stats_april_20_2025_fix_applied', isSunday: true },
           { date: '2025-04-05', storageKey: 'stats_april_5_2025_fix_applied', isSaturday: true, isWeekend: true },
@@ -100,8 +111,14 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
           { date: '2025-03-31', storageKey: 'stats_march_31_2025_fix_applied', isFriday: false }
         ];
         
-        // Process each date only if it hasn't been processed before - excluding Fridays and Sundays
+        // Process each date only if it hasn't been processed before - excluding Fridays, Sundays, and CURRENT DAY
         for (const { date, storageKey, isFriday, isSunday, isWeekend } of additionalDates) {
+          // CRITICAL: Skip current day to prevent overwriting manual entries
+          if (date === currentDate) {
+            console.log(`[StatisticsCards] SKIPPING ${date} - it's the current day, manual entries take priority`);
+            continue;
+          }
+          
           if (isFriday) {
             console.log(`Skipping ${date} - it's a Friday (no classes)`);
             continue;
@@ -149,9 +166,13 @@ const StatisticsCards = ({ builders }: StatisticsCardsProps) => {
       }
     };
     
-    // Run the process on mount
-    processAttendanceIssues();
-  }, [stats.pendingCount, stats.totalBuilders]);
+    // Only run the process on mount, with delays to avoid conflicts with manual entries
+    const timeoutId = setTimeout(() => {
+      processAttendanceIssues();
+    }, 3000); // 3 second delay to allow manual entries to complete first
+    
+    return () => clearTimeout(timeoutId);
+  }, []); // Remove stats dependencies to prevent repeated runs
 
   return (
     <>

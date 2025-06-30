@@ -69,6 +69,12 @@ export const useAttendanceDates = ({ builder, loadAttendanceHistory }: UseAttend
   ) => {
     setIsLoading(true);
     try {
+      // Validate excused status has a reason
+      if (status === 'excused' && !excuseReason?.trim()) {
+        toast.error('Excuse reason is required for excused absences');
+        return;
+      }
+      
       // First check if there's already a record for this date
       const { data: existingRecord, error: checkError } = await supabase
         .from('attendance')
@@ -88,33 +94,42 @@ export const useAttendanceDates = ({ builder, loadAttendanceHistory }: UseAttend
         return;
       }
       
-      // Insert new record
+      // Convert status for database storage - 'excused' becomes 'absent' with excuse_reason
+      const dbStatus = status === 'excused' ? 'absent' : status;
+      const dbExcuseReason = status === 'excused' ? excuseReason : null;
+      
+      console.log(`[addNewAttendanceRecord] Adding record for ${builder.name} on ${date} with status ${status} -> ${dbStatus}`);
+      
+      // Insert new record with proper status conversion
       const { error } = await supabase
         .from('attendance')
         .insert({
           student_id: builder.id,
           date,
-          status,
-          excuse_reason: excuseReason || null,
-          notes: notes || null
+          status: dbStatus,
+          excuse_reason: dbExcuseReason,
+          notes: notes || null,
+          time_recorded: new Date().toISOString()
         });
       
       if (error) {
         console.error('Error adding attendance record:', error);
-        toast.error('Failed to add new attendance record');
+        toast.error(`Failed to add new attendance record: ${error.message}`);
         return;
       }
       
+      console.log(`[addNewAttendanceRecord] Successfully added ${status} record for ${builder.name}`);
+      
       // Reload attendance history
       await loadAttendanceHistory();
-      toast.success('New attendance record added');
+      toast.success(`New ${status} record added successfully`);
     } catch (err) {
       console.error('Unexpected error adding attendance record:', err);
       toast.error('An unexpected error occurred while adding record');
     } finally {
       setIsLoading(false);
     }
-  }, [builder.id, loadAttendanceHistory]);
+  }, [builder.id, builder.name, loadAttendanceHistory]);
   
   return {
     isLoading,

@@ -25,7 +25,7 @@ export const markPendingAsAbsent = async (dateString: string): Promise<number> =
     // 2. Get all attendance records for that date to compare
     const { data: attendanceRecords, error: attendanceError } = await supabase
       .from('attendance')
-      .select('student_id, status')
+      .select('student_id, status, excuse_reason')
       .eq('date', dateString);
     
     if (attendanceError) {
@@ -33,16 +33,40 @@ export const markPendingAsAbsent = async (dateString: string): Promise<number> =
       return 0;
     }
     
-    // 3. Create a map of student IDs with their attendance status
+    // 3. Create a map of student IDs with their attendance status and excuse reason
     const attendanceMap = new Map();
     attendanceRecords?.forEach(record => {
-      attendanceMap.set(record.student_id, record.status);
+      attendanceMap.set(record.student_id, {
+        status: record.status,
+        excuse_reason: record.excuse_reason
+      });
     });
     
-    // 4. Find students who need to be marked absent (no record or 'pending' status)
+    // 4. Find students who need to be marked absent - exclude those with manual entries
     const studentsToMarkAbsent = studentsWithoutAttendance.filter(student => {
-      const status = attendanceMap.get(student.id);
-      return !status || status === 'pending';
+      const attendance = attendanceMap.get(student.id);
+      
+      if (!attendance) {
+        // No record at all - should be marked absent
+        console.log(`[markPendingAsAbsent] ${student.first_name} ${student.last_name} has no attendance record`);
+        return true;
+      }
+      
+      if (attendance.status === 'pending') {
+        // Pending status - should be marked absent
+        console.log(`[markPendingAsAbsent] ${student.first_name} ${student.last_name} has pending status`);
+        return true;
+      }
+      
+      if (attendance.status === 'absent' && attendance.excuse_reason) {
+        // Manual excused absence - preserve it
+        console.log(`[markPendingAsAbsent] PRESERVING manual excused absence for ${student.first_name} ${student.last_name} with reason: "${attendance.excuse_reason}"`);
+        return false;
+      }
+      
+      // All other statuses (present, late, absent without excuse) - leave them alone
+      console.log(`[markPendingAsAbsent] ${student.first_name} ${student.last_name} already has status: ${attendance.status}, skipping`);
+      return false;
     });
     
     console.log(`[markPendingAsAbsent] Found ${studentsToMarkAbsent.length} students to mark as absent for ${dateString}`);
@@ -51,30 +75,69 @@ export const markPendingAsAbsent = async (dateString: string): Promise<number> =
       return 0;
     }
     
-    // 5. Create or update attendance records to 'absent'
+    // 5. Handle pending records and missing records separately
     const currentTime = new Date().toISOString();
-    const updates = studentsToMarkAbsent.map(student => ({
-      student_id: student.id,
-      date: dateString,
-      status: 'absent',
-      time_recorded: currentTime,
-      notes: 'Automatically marked absent by system'
-    }));
     
-    // 6. Use upsert to create or update records
-    const { error: updateError, data } = await supabase
-      .from('attendance')
-      .upsert(updates, {
-        onConflict: 'student_id,date'
-      });
+    // Update existing pending records
+    const pendingStudentIds = studentsToMarkAbsent
+      .filter(student => {
+        const attendance = attendanceMap.get(student.id);
+        return attendance && attendance.status === 'pending';
+      })
+      .map(student => student.id);
     
-    if (updateError) {
-      console.error(`[markPendingAsAbsent] Error updating attendance:`, updateError);
-      return 0;
+    let updatedCount = 0;
+    
+    if (pendingStudentIds.length > 0) {
+      console.log(`[markPendingAsAbsent] Updating ${pendingStudentIds.length} pending records to absent`);
+      
+      const { error: updateError } = await supabase
+        .from('attendance')
+        .update({
+          status: 'absent',
+          time_recorded: currentTime,
+          notes: 'Automatically marked absent (was pending)'
+        })
+        .in('student_id', pendingStudentIds)
+        .eq('date', dateString);
+      
+      if (updateError) {
+        console.error(`[markPendingAsAbsent] Error updating pending records:`, updateError);
+      } else {
+        updatedCount += pendingStudentIds.length;
+      }
     }
     
-    console.log(`[markPendingAsAbsent] Successfully marked ${updates.length} students as absent for ${dateString}`);
-    return updates.length;
+    // Create new records for students with no attendance record
+    const missingStudents = studentsToMarkAbsent.filter(student => {
+      const attendance = attendanceMap.get(student.id);
+      return !attendance;
+    });
+    
+    if (missingStudents.length > 0) {
+      console.log(`[markPendingAsAbsent] Creating ${missingStudents.length} new absent records`);
+      
+      const newRecords = missingStudents.map(student => ({
+        student_id: student.id,
+        date: dateString,
+        status: 'absent',
+        time_recorded: currentTime,
+        notes: 'Automatically marked absent (no record for day)'
+      }));
+      
+      const { error: insertError } = await supabase
+        .from('attendance')
+        .insert(newRecords);
+      
+      if (insertError) {
+        console.error(`[markPendingAsAbsent] Error creating absent records:`, insertError);
+      } else {
+        updatedCount += missingStudents.length;
+      }
+    }
+    
+    console.log(`[markPendingAsAbsent] Successfully processed ${updatedCount} students as absent for ${dateString}`);
+    return updatedCount;
     
   } catch (error) {
     console.error(`[markPendingAsAbsent] Unexpected error:`, error);

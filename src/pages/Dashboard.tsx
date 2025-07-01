@@ -10,6 +10,9 @@ import ArchivedTab from '@/components/dashboard/ArchivedTab';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useCohortSelection } from '@/hooks/useCohortSelection';
 import AttendanceLoadingState from '@/components/dashboard/AttendanceLoadingState';
+import { markAttendance } from '@/utils/attendance/markAttendance';
+import { BuilderStatus } from '@/components/builder/types';
+import { toast } from 'sonner';
 
 const Dashboard = () => {
   const { builders, isLoading, error, refresh } = useDashboardData();
@@ -30,9 +33,23 @@ const Dashboard = () => {
     setIsRefreshing(false);
   };
 
-  // Mock verify function for now - you can implement this properly later
-  const handleVerify = (builderId: string, status: any, reason?: string) => {
-    console.log('Verify:', builderId, status, reason);
+  const handleVerify = async (builderId: string, status: BuilderStatus, reason?: string) => {
+    try {
+      console.log('Dashboard: Marking attendance for builder:', builderId, 'with status:', status, 'reason:', reason);
+      
+      const success = await markAttendance(builderId, status, reason);
+      
+      if (success) {
+        toast.success(`Successfully marked as ${status}${reason ? ` with reason: ${reason}` : ''}`);
+        // Refresh the data to show the updated status
+        await refresh();
+      } else {
+        toast.error('Failed to mark attendance. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      toast.error('An error occurred while marking attendance.');
+    }
   };
 
   return (

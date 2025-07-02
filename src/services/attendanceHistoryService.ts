@@ -50,8 +50,11 @@ export const fetchAttendanceRecords = async (
       const student = record.students as { first_name: string, last_name: string } | null;
       const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : 'Unknown';
       
+      // Convert back from database format: if status='absent' AND excuse_reason exists, display as 'excused'
+      const displayStatus = (record.status === 'absent' && record.excuse_reason) ? 'excused' : record.status;
+      
       // Ensure status is a valid BuilderStatus
-      const status = validateStatus(record.status);
+      const status = validateStatus(displayStatus);
       
       return {
         id: record.id,

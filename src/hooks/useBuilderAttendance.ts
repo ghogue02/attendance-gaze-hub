@@ -47,15 +47,20 @@ export const useBuilderAttendance = (builderId: string | null, isHistoryDialogOp
         // Filter out holidays
         const filteredData = data?.filter(record => !HOLIDAY_DATES.has(record.date)) || [];
 
-        // Map Supabase data structure with explicit type assertion for status
-        const formattedHistory: AttendanceRecord[] = filteredData.map(record => ({
-           id: record.id, // Ensure you have an ID column or use date/builderId combo
-           date: record.date,
-           status: record.status as BuilderStatus, // Add type assertion here
-           timeRecorded: record.time_recorded, // Adjust column names
-           excuseReason: record.excuse_reason,
-           notes: record.notes
-         }));
+        // Map Supabase data structure with proper status conversion
+        const formattedHistory: AttendanceRecord[] = filteredData.map(record => {
+          // Convert back from database format: if status='absent' AND excuse_reason exists, display as 'excused'
+          const displayStatus = (record.status === 'absent' && record.excuse_reason) ? 'excused' : record.status;
+          
+          return {
+            id: record.id, // Ensure you have an ID column or use date/builderId combo
+            date: record.date,
+            status: displayStatus as BuilderStatus,
+            timeRecorded: record.time_recorded, // Adjust column names
+            excuseReason: record.excuse_reason,
+            notes: record.notes
+          };
+        });
 
         setHistory(formattedHistory);
 

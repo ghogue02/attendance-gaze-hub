@@ -54,15 +54,20 @@ export const useFetchAttendanceHistory = (builder: Builder) => {
         const filteredData = data.filter(record => isClassDaySync(record.date));
         console.log(`Filtered ${data.length} records to ${filteredData.length} valid class days for ${builder.name}`);
         
-        const formattedHistory = filteredData.map(record => ({
-          id: record.id,
-          date: record.date,
-          status: record.status as BuilderStatus,
-          // Format time to Eastern Time
-          timeRecorded: record.time_recorded ? formatISOTimeToEastern(record.time_recorded) : '',
-          notes: record.notes || '',
-          excuseReason: record.excuse_reason || ''
-        }));
+        const formattedHistory = filteredData.map(record => {
+          // Convert back from database format: if status='absent' AND excuse_reason exists, display as 'excused'
+          const displayStatus = (record.status === 'absent' && record.excuse_reason) ? 'excused' : record.status;
+          
+          return {
+            id: record.id,
+            date: record.date,
+            status: displayStatus as BuilderStatus,
+            // Format time to Eastern Time
+            timeRecorded: record.time_recorded ? formatISOTimeToEastern(record.time_recorded) : '',
+            notes: record.notes || '',
+            excuseReason: record.excuse_reason || ''
+          };
+        });
         
         setAttendanceHistory(formattedHistory);
       }

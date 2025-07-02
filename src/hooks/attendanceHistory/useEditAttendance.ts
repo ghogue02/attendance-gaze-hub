@@ -42,11 +42,15 @@ export const useEditAttendance = ({ setAttendanceHistory }: EditAttendanceProps)
     
     setIsLoading(true);
     try {
+      // For database storage, 'excused' status is stored as 'absent' with an excuse_reason
+      const dbStatus = editStatus === 'excused' ? 'absent' : editStatus;
+      const dbExcuseReason = editStatus === 'excused' ? editExcuseReason : null;
+      
       const { error } = await supabase
         .from('attendance')
         .update({
-          status: editStatus,
-          excuse_reason: editExcuseReason || null,
+          status: dbStatus,
+          excuse_reason: dbExcuseReason,
           notes: editNotes || null,
           updated_at: new Date().toISOString()
         })

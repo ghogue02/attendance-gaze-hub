@@ -8,8 +8,9 @@ import { subscribeToAttendanceChanges } from '@/services/attendance/realtime';
 import { toast } from 'sonner';
 import { throttledRequest } from '@/utils/request/throttle';
 import { isClassDaySync } from '@/utils/attendance/isClassDay';
+import { CohortName } from '@/types/cohort';
 
-export const useAttendanceHistory = (onError: (message: string) => void) => {
+export const useAttendanceHistory = (onError: (message: string) => void, selectedCohort: CohortName) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [dateFilter, setDateFilter] = useState<string | null>(null);
@@ -24,8 +25,8 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
       
       // Use throttled request for records
       const records = await throttledRequest(
-        `attendance_history_${dateFilter || 'all'}`,
-        () => fetchAttendanceRecords(dateFilter, onError),
+        `attendance_history_${dateFilter || 'all'}_${selectedCohort}`,
+        () => fetchAttendanceRecords(dateFilter, onError, selectedCohort),
         60000 // 1 minute cache
       );
       
@@ -46,7 +47,7 @@ export const useAttendanceHistory = (onError: (message: string) => void) => {
     } finally {
       setIsLoading(false);
     }
-  }, [onError, dateFilter, statusFilter]);
+  }, [onError, dateFilter, statusFilter, selectedCohort]);
   
   useEffect(() => {
     console.log("Loading attendance history initially");

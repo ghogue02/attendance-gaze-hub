@@ -111,6 +111,20 @@ const AttendanceFilters = ({
           </PopoverContent>
         </Popover>
         
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1"
+          onClick={() => {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            handleDateSelect(d);
+          }}
+        >
+          <CalendarIcon className="h-3.5 w-3.5" />
+          <span>Last night</span>
+        </Button>
+        
         <Select 
           value={statusFilter} 
           onValueChange={(value) => setStatusFilter(value as any)}

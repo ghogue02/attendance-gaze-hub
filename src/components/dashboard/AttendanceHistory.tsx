@@ -10,13 +10,15 @@ import AttendanceHistoryHeader from './AttendanceHistoryHeader';
 import AttendanceHistoryContent from './AttendanceHistoryContent';
 import AttendanceHistoryDialogs from './AttendanceHistoryDialogs';
 import { useAttendanceClearNotes } from './useAttendanceClearNotes';
+import { CohortName } from '@/types/cohort';
 
 interface AttendanceHistoryProps {
   builders: Builder[];
   onError: (message: string) => void;
+  selectedCohort: CohortName;
 }
 
-const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) => {
+const AttendanceHistory = memo(({ builders, onError, selectedCohort }: AttendanceHistoryProps) => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,7 @@ const AttendanceHistory = memo(({ builders, onError }: AttendanceHistoryProps) =
     confirmDelete,
     closeDeleteDialog,
     refreshData
-  } = useAttendanceHistory(onError);
+  } = useAttendanceHistory(onError, selectedCohort || 'All Cohorts');
 
   const { isClearing, handleClearAutomatedNotes } = useAttendanceClearNotes(onError, refreshData);
   

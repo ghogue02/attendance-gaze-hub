@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AttendanceRecord } from '@/components/dashboard/AttendanceTypes';
 import { BuilderStatus } from '@/components/builder/types';
-import { toast } from 'sonner';
+import { CohortName } from '@/types/cohort';
 import { isClassDaySync } from '@/utils/attendance/isClassDay';
 
 /**
@@ -10,7 +10,8 @@ import { isClassDaySync } from '@/utils/attendance/isClassDay';
  */
 export const fetchAttendanceRecords = async (
   dateFilter: string | null, 
-  onError: (message: string) => void
+  onError: (message: string) => void,
+  cohort?: CohortName
 ): Promise<AttendanceRecord[]> => {
   try {
     let query = supabase
@@ -23,7 +24,7 @@ export const fetchAttendanceRecords = async (
         notes, 
         excuse_reason, 
         student_id,
-        students!inner(first_name, last_name, archived_at)
+        students!inner(first_name, last_name, cohort, archived_at)
       `)
       .is('students.archived_at', null) // Only include non-archived students
       .order('date', { ascending: false })
@@ -31,6 +32,10 @@ export const fetchAttendanceRecords = async (
     
     if (dateFilter) {
       query = query.eq('date', dateFilter);
+    }
+    
+    if (cohort && cohort !== 'All Cohorts') {
+      query = query.eq('students.cohort', cohort);
     }
     
     const { data, error } = await query;
@@ -46,8 +51,7 @@ export const fetchAttendanceRecords = async (
     
     // Map and validate the status to ensure it's a valid BuilderStatus
     return classDayRecords.map(record => {
-      // Get first and last name from the joined students data
-      const student = record.students as { first_name: string, last_name: string } | null;
+      const student = record.students as { first_name: string, last_name: string, cohort?: string } | null;
       const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : 'Unknown';
       
       // Convert back from database format: if status='absent' AND excuse_reason exists, display as 'excused'

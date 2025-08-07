@@ -96,7 +96,7 @@ const Dashboard = () => {
           </TabsContent>
           
           <TabsContent value="history">
-            <HistoryTab builders={filteredBuilders} />
+            <HistoryTab builders={filteredBuilders} selectedCohort={selectedCohort} />
           </TabsContent>
           
           <TabsContent value="archived">

@@ -6,12 +6,14 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import ExportAttendanceButton from './ExportAttendanceButton';
+import { CohortName } from '@/types/cohort';
 
 interface HistoryTabProps {
   builders: Builder[];
+  selectedCohort?: CohortName;
 }
 
-const HistoryTab = memo(({ builders }: HistoryTabProps) => {
+const HistoryTab = memo(({ builders, selectedCohort }: HistoryTabProps) => {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   
@@ -43,6 +45,7 @@ const HistoryTab = memo(({ builders }: HistoryTabProps) => {
         key={refreshKey}
         builders={memoizedBuilders} 
         onError={handleError}
+        selectedCohort={selectedCohort || 'All Cohorts'}
       />
     </div>
   );

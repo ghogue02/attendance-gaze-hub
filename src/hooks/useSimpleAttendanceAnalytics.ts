@@ -119,6 +119,10 @@ const fetchAnalytics = async () => {
 
         console.log(`[Analytics] Found ${attendanceData?.length || 0} raw attendance records`);
         
+        // Build a quick lookup of dates that actually have records
+        const datesWithRecords = new Set<string>((attendanceData || []).map(r => r.date));
+        console.log('[Analytics] Dates with actual records:', Array.from(datesWithRecords).sort());
+        
         if (attendanceData && attendanceData.length > 0) {
           // Log sample records for debugging
           console.log('[Analytics] Sample attendance records:', attendanceData.slice(0, 5));
@@ -156,11 +160,11 @@ const fetchAnalytics = async () => {
           // Use async class day logic with proper error handling
           try {
             const isValidClassDay = await isClassDay(dateStr);
-            if (isValidClassDay) {
+            if (isValidClassDay || datesWithRecords.has(dateStr)) {
               dailyMap.set(dateStr, { present: 0, late: 0, absent: 0, excused: 0, total: 0 });
-              console.log(`[Analytics] ✓ Added class day: ${dateStr}`);
+              console.log(`[Analytics] ✓ Added ${isValidClassDay ? 'class' : 'recorded'} day: ${dateStr}`);
             } else {
-              console.log(`[Analytics] ✗ Skipped non-class day: ${dateStr}`);
+              console.log(`[Analytics] ✗ Skipped non-class day with no records: ${dateStr}`);
             }
           } catch (error) {
             console.error(`[Analytics] Error checking class day for ${dateStr}:`, error);

@@ -54,8 +54,13 @@ export const clearCache = (date?: string) => {
   if (!window.__attendanceCache) return;
   
   if (date) {
-    window.__attendanceCache.byDate.delete(date);
-    console.log(`Cleared cache for date: ${date}`);
+    // Support both exact date keys and date+cohort keys (e.g., YYYY-MM-DD_COHORT)
+    const keysToDelete: string[] = [];
+    window.__attendanceCache.byDate.forEach((_, key) => {
+      if (key === date || key.startsWith(`${date}_`)) keysToDelete.push(key);
+    });
+    keysToDelete.forEach((key) => window.__attendanceCache!.byDate.delete(key));
+    console.log(`Cleared cache for date prefix: ${date} (removed ${keysToDelete.length} entries)`);
   } else {
     window.__attendanceCache.byDate.clear();
     window.__attendanceCache.timestamp = 0;

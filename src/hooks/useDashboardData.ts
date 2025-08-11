@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Builder } from '@/components/builder/types';
-import { getAllBuilders } from '@/utils/faceRecognition/attendance';
+import { getAllBuilders, clearAttendanceCache } from '@/utils/faceRecognition/attendance';
 import { getCurrentDateString } from '@/utils/date/dateUtils';
 import { useCohortSelection } from './useCohortSelection';
 
@@ -18,7 +18,14 @@ export const useDashboardData = () => {
       
       const currentDate = getCurrentDateString();
       const cohortFilter = selectedCohort === 'All Cohorts' ? undefined : selectedCohort;
-      const fetchedBuilders = await getAllBuilders(currentDate, cohortFilter);
+      let fetchedBuilders = await getAllBuilders(currentDate, cohortFilter);
+      
+      // Retry once if result is unexpectedly empty (stale cache or cohort-mismatch cache)
+      if (!fetchedBuilders || fetchedBuilders.length === 0) {
+        console.warn('[useDashboardData] Empty builders; clearing cache and retrying once', { currentDate, cohortFilter });
+        clearAttendanceCache(currentDate);
+        fetchedBuilders = await getAllBuilders(currentDate, cohortFilter);
+      }
       
       setBuilders(fetchedBuilders);
     } catch (err) {

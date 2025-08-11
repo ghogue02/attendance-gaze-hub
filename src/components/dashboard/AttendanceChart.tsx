@@ -30,7 +30,7 @@ const AttendanceChart = ({ builders }: AttendanceChartProps) => {
   console.log(`[AttendanceChart] Selected cohort: ${selectedCohort}`);
   console.log(`[AttendanceChart] Filtered builders: ${filteredBuilders.length}/${builders.length}`);
   
-  const { data, isLoading, error } = useSimpleAttendanceAnalytics(filteredBuilders, days);
+  const { data, isLoading, error } = useSimpleAttendanceAnalytics(filteredBuilders, days, selectedCohort);
 
   const timeFrameOptions = [
     { value: '7', label: 'Last 7 days' },

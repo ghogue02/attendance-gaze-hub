@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Builder } from '@/components/builder/types';
 import { toast } from 'sonner';
 import { isClassDay, getCancelledDays } from '@/utils/attendance/isClassDay';
+import { CohortName } from '@/types/cohort';
 
 export interface AttendanceAnalytics {
   daily: Array<{
@@ -23,7 +24,7 @@ export interface AttendanceAnalytics {
   };
 }
 
-export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) => {
+export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number, cohort?: CohortName) => {
   const [data, setData] = useState<AttendanceAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,16 +57,33 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
     setIsLoading(true);
     setError(null);
     
-    const fetchAnalytics = async () => {
+const fetchAnalytics = async () => {
       // Prevent concurrent requests
       if (requestInProgress.current) {
         console.log('[Analytics] Request already in progress, skipping');
         return;
       }
 
-      // Skip if no builders
-      if (builderIds.length === 0) {
-        console.log('[Analytics] No builders, setting empty data');
+      // Determine IDs to use; fall back to cohort lookup when none provided
+      let idsToUse = builderIds;
+      if (idsToUse.length === 0 && cohort && cohort !== 'All Cohorts') {
+        console.log(`[Analytics] No builders passed; fetching IDs by cohort fallback: ${cohort}`);
+        const { data: cohortStudents, error: cohortErr } = await supabase
+          .from('students')
+          .select('id')
+          .is('archived_at', null)
+          .eq('cohort', cohort);
+        if (cohortErr) {
+          console.warn('[Analytics] Fallback cohort ID fetch failed:', cohortErr);
+        } else {
+          idsToUse = (cohortStudents || []).map((s: any) => s.id);
+          console.log(`[Analytics] Fallback fetched ${idsToUse.length} IDs for cohort ${cohort}`);
+        }
+      }
+
+      // If still no IDs, return empty dataset
+      if (idsToUse.length === 0) {
+        console.log('[Analytics] No builder IDs available after fallback, returning empty dataset');
         setData({
           daily: [],
           summary: { totalPresent: 0, totalLate: 0, totalAbsent: 0, totalExcused: 0, totalRecords: 0 }
@@ -77,9 +95,9 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
       requestInProgress.current = true;
       
       try {
-        console.log(`[Analytics] Fetching data for ${builderIds.length} builders over ${days} days`);
+        console.log(`[Analytics] Fetching data for ${idsToUse.length} builders over ${days} days`);
         console.log(`[Analytics] Date range: ${dateRange.start} to ${dateRange.end}`);
-        console.log(`[Analytics] Builder IDs sample:`, builderIds.slice(0, 5));
+        console.log(`[Analytics] Builder IDs sample:`, idsToUse.slice(0, 5));
 
         // CRITICAL: Ensure cancelled days are loaded before ANY processing
         console.log('[Analytics] Pre-loading cancelled days...');
@@ -90,7 +108,7 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
         const { data: attendanceData, error: fetchError } = await supabase
           .from('attendance')
           .select('date, status, student_id, excuse_reason')
-          .in('student_id', builderIds)
+          .in('student_id', idsToUse)
           .gte('date', dateRange.start)
           .lte('date', dateRange.end)
           .order('date', { ascending: true });
@@ -261,7 +279,7 @@ export const useSimpleAttendanceAnalytics = (builders: Builder[], days: number) 
       clearTimeout(timeoutId);
       // Don't reset requestInProgress here as it might interfere with ongoing requests
     };
-  }, [builderIds, days, dateRange.start, dateRange.end]);
+  }, [builderIds, days, dateRange.start, dateRange.end, cohort]);
 
   // Cleanup on unmount
   useEffect(() => {
